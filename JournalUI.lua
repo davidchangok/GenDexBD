@@ -96,17 +96,10 @@ local function TryInjectRematchMenu()
     if menuInjected then return end
     if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
     menuInjected=true
-    Rematch.menus:Register("GeneDexBD_BestCat",{
-        {title="选择最优场景"},
-        {text="PvP 对战", func=function(_,p) RematchSetBest(p,"pvp") end},
-        {text="PvE 任务", func=function(_,p) RematchSetBest(p,"pve") end},
-        {text="收藏",     func=function(_,p) RematchSetBest(p,"collection") end},
-        {text="自定义",   func=function(_,p) RematchSetBest(p,"custom") end},
-        {text=CANCEL},
-    })
     Rematch.menus:AddToMenu("PetMenu",{
-        text="★ 设为最优品种",subMenu="GeneDexBD_BestCat",
-        hidden=function(_,p) return not p or not C_PetJournal.GetPetInfoByPetID(p) end
+        text="设为最优品种",
+        hidden=function(_,p) return not p or RematchHasBest(p) end,
+        func=function(_,p) RematchSetBest(p,"custom") end
     },"Find Teams")
     Rematch.menus:AddToMenu("PetMenu",{
         text="取消最优品种",
