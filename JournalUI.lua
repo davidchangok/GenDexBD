@@ -215,4 +215,20 @@ function addonTable.InitJournalUI()
     bcf:SetScript("OnEvent",function(_,_,a)
         if a=="Blizzard_Collections" then InstallBlizzHook();bcf:UnregisterEvent("ADDON_LOADED") end
     end)
+
+    -- 面板切换通知（每秒检测一次，只在模式变化时输出）
+    local prevMode="";local sw=CreateFrame("Frame");sw._t=0
+    sw:SetScript("OnUpdate",function(self,elapsed)
+        self._t=self._t+elapsed;if self._t<1 then return end;self._t=0
+        local mode
+        if RematchFrame and RematchFrame:IsShown() then mode="Rematch"
+        elseif PetJournal and PetJournal:IsShown() then mode="原生"
+        else mode="" end
+        if mode~=prevMode then
+            prevMode=mode
+            if mode=="Rematch" then LOG("当前面板: Rematch (标注 ✓  右键菜单 ✓)")
+            elseif mode=="原生" then LOG("当前面板: 暴雪原生 (标注 ✓)")
+            end
+        end
+    end)
 end
