@@ -30,9 +30,9 @@ local breedNames = {
 -- 通用字符串表：键名 → { zhCN = "...", enUS = "..." }
 local strings = {
     -- 系统消息
-    ADDON_LOADED          = { zhCN = "GenDexBD 已加载。输入 /gd 打开设置。", enUS = "GenDexBD loaded. Type /gd to configure." },
+    ADDON_LOADED          = { zhCN = "GenDexBD 已加载。输入 /genedexbd 打开设置。", enUS = "GenDexBD loaded. Type /genedexbd to configure." },
     MIGRATION_COMPLETE    = { zhCN = "最优品种数据已升级到 v2 格式。",         enUS = "Best breed data migrated to v2 format." },
-    SLASH_HELP            = { zhCN = "GenDexBD 命令: /gd 打开设置面板",       enUS = "GenDexBD commands: /gd to open settings" },
+    SLASH_HELP            = { zhCN = "GenDexBD 命令: /genedexbd 打开设置面板",       enUS = "GenDexBD commands: /genedexbd to open settings" },
 
     -- 品种显示
     BREED_UNKNOWN         = { zhCN = "未知品种",   enUS = "Unknown Breed" },

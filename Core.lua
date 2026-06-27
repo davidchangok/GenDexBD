@@ -345,23 +345,28 @@ local function OnPlayerLogin()
     end
     if addonTable.InitJournalUI then
         addonTable.InitJournalUI()
-        print("|cff00ff00[GenDexBD]|r JournalUI 模块已启动（等待首次打开宠物手册时注入）")
+        print("|cff00ff00[GenDexBD]|r JournalUI 模块已启动")
     else
         print("|cffff0000[GenDexBD]|r ⚠ JournalUI 模块未找到")
     end
 
-    -- 注册斜杠命令（多个别名 + 唯一主命令防止覆盖）
+    -- 初始化配置面板（注册到系统选项）
+    if addonTable.InitConfig then
+        addonTable.InitConfig()
+    else
+        print("|cffff0000[GenDexBD]|r ⚠ Config 模块未找到")
+    end
+
+    -- 注册斜杠命令（用 /genedexbd 为主，这是唯一不冲突的）
     SlashCmdList["GENEDEXBD"] = function()
         if addonTable.ToggleConfigPanel then
             addonTable.ToggleConfigPanel()
         else
-            print("|cffff0000[GenDexBD]|r 配置模块未加载，请输入 /reload 重载界面")
+            print("|cffff0000[GenDexBD]|r 配置模块未加载，请输入 /reload")
         end
     end
-    _G["SLASH_GENEDEXBD1"] = "/genedex"
-    _G["SLASH_GENEDEXBD2"] = "/genedexbd"
-    _G["SLASH_GENEDEXBD3"] = "/gd"
-    -- 注意：/gd 可能与其他插件冲突（如 GrimoireDeck），已添加 /genedexbd 作为后备
+    _G["SLASH_GENEDEXBD1"] = "/genedexbd"
+    -- /gd 和 /genedex 与 GathererDB/GrimoireDeck 等冲突，不用
 
     -- 注册战斗事件
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START")
