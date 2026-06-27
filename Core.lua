@@ -244,27 +244,16 @@ local function ShowAlertForPet(petIndex)
         return
     end
 
-    -- 输出该物种已标记的 breedID
-    local markedBreeds = {}
-    for bid in pairs(bestBreeds) do markedBreeds[#markedBreeds+1] = tostring(bid) end
-    print(string.format("|cffff8800[GenDexBD]|r speciesID=%d 已标记品种: [%s]", speciesID, table.concat(markedBreeds,",")))
+    -- 战斗中无法精确推算品种（无 baseStats），只要物种在列表中就提示
+    -- 不尝试 GuessBreedByRatio——敌方宠物的战斗属性受等级/品质/buff影响，比例不可靠
+    if not next(bestBreeds) then return end
 
-    -- 推算敌方宠物品种
-    local breedID = GuessBreedByRatio(health, power, speed)
-    print(string.format("|cffff8800[GenDexBD]|r GuessBreedByRatio(h=%s,p=%s,s=%s) → breedID=%s",
-        tostring(health), tostring(power), tostring(speed), tostring(breedID)))
-
-    if not breedID then
-        print("|cffff8800[GenDexBD]|r 推算失败：无法确定品种")
-        return
+    -- 取第一个标记的品种信息
+    local breedID, bestInfo
+    for bid, bdata in pairs(bestBreeds) do
+        if type(bdata) == "table" then breedID = bid; bestInfo = bdata; break end
     end
-
-    -- 精确匹配
-    local bestInfo = bestBreeds[breedID]
-    if not bestInfo or type(bestInfo) ~= "table" then
-        print(string.format("|cffff8800[GenDexBD]|r 品种不匹配：推算=%d 不在标记列表中", breedID))
-        return
-    end
+    if not bestInfo then return end
 
     print(string.format("|cffff8800[GenDexBD]|r 目标匹配！speciesID=%d breedID=%d", speciesID, breedID))
 
