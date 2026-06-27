@@ -77,10 +77,19 @@ function addonTable.InitConfig()
         end
     end)
 
-    -- 注册到系统选项（必须在面板创建后立即调用）
-    InterfaceOptions_AddCategory(panel)
+    -- 注册到系统选项。
+    -- Blizzard_InterfaceOptions 是按需加载的模块，PLAYER_LOGIN 时可能尚未加载。
+    -- 如果 InterfaceOptions_AddCategory 为 nil，先加载。
+    if not InterfaceOptions_AddCategory then
+        C_AddOns.LoadAddOn("Blizzard_InterfaceOptions")
+    end
 
-    print("|cff00ff00[GenDexBD]|r 配置面板已注册到 界面→插件→GenDexBD")
+    if InterfaceOptions_AddCategory then
+        InterfaceOptions_AddCategory(panel)
+        print("|cff00ff00[GenDexBD]|r 配置面板已注册到 界面→插件→GenDexBD")
+    else
+        print("|cffff0000[GenDexBD]|r 无法注册配置面板：InterfaceOptions_AddCategory 不可用")
+    end
 end
 
 -- ============================================================================
@@ -88,10 +97,15 @@ end
 -- ============================================================================
 
 function addonTable.ToggleConfigPanel()
+    -- 确保面板已注册（如果之前注册失败，重试）
     if not panel then
-        print("|cffff0000[GenDexBD]|r 配置面板未初始化，请输入 /reload")
-        return
+        addonTable.InitConfig()
+        if not panel then
+            print("|cffff0000[GenDexBD]|r 配置面板不可用，请输入 /reload")
+            return
+        end
     end
 
+    -- InterfaceOptionsFrame_OpenToCategory 也会按需加载 Blizzard_InterfaceOptions
     InterfaceOptionsFrame_OpenToCategory(panel)
 end
