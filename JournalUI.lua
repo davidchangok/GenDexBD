@@ -33,28 +33,43 @@ end
 
 -- ========== 品种标注 + 五星 ==========
 local function Decorate(button)
-    if not button or not button.petID then return end
+    if not button then return end
+
+    -- 隐藏旧的标注（按钮可能被回收用于其他宠物）
+    if button._gStar then button._gStar:Hide() end
+
+    if not button.petID then return end
     if not button.Breed then return end
     if not Rematch or not Rematch.petInfo then return end
+
     local info=Rematch.petInfo:Fetch(button.petID)
     if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return end
     local breedID,breedName,speciesID=info.breedID,info.breedName,info.speciesID
     local isBest=addonTable.IsBestBreed(speciesID,breedID)
 
-    -- Breed 文本：纯品种代码，不加 ★ 字符（五星用独立纹理）
+    -- Breed 文本
     button.Breed:SetText(breedName)
     button.Breed:SetTextColor(isBest and 1 or 0.6,isBest and 0.84 or 0.6,0.6)
     button.Breed:Show()
 
-    -- 金色五星纹理（仅最优品种显示）
+    -- 金色五星
     if isBest then
         if not button._gStar then
             local star=button:CreateTexture(nil,"OVERLAY")
             star:SetAtlas("PetJournal-FavoritesIcon");star:SetSize(16,16)
-            star:SetPoint("RIGHT",button.Breed,"LEFT",-60,0);button._gStar=star
-        end;button._gStar:Show()
-    else
-        if button._gStar then button._gStar:Hide() end
+            -- Breed 可能为 nil 时回退锚定到按钮
+            if button.Breed then
+                star:SetPoint("RIGHT",button.Breed,"LEFT",-60,0)
+            else
+                star:SetPoint("RIGHT",button,"RIGHT",-80,0)
+            end
+            button._gStar=star
+        else
+            -- 回收按钮的 _gStar 已经存在，重新锚定（防止锚点失效）
+            button._gStar:ClearAllPoints()
+            button._gStar:SetPoint("RIGHT",button.Breed,"LEFT",-60,0)
+        end
+        button._gStar:Show()
     end
 end
 
@@ -82,6 +97,16 @@ local function TryHookRematch()
     hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,b) Decorate(b) end)
     LOG("已 Hook Rematch Fill")
     Rematch.petsPanel:Update();C_Timer.After(0.3,function() DecorateAll() end)
+
+    -- 滚动时持续刷新（节流 0.3s），防止 ScrollBox 回收按钮导致的标注错位
+    if not RematchFrame._gRefresh then
+        RematchFrame._gRefresh=CreateFrame("Frame")
+        RematchFrame._gRefresh:SetScript("OnUpdate",function(self,elapsed)
+            self._t=(self._t or 0)+elapsed
+            if self._t<0.3 then return end;self._t=0
+            DecorateAll()
+        end)
+    end
 end
 
 -- ========== Rematch 右键菜单 ==========
