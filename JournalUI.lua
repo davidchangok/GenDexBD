@@ -1,123 +1,95 @@
--- GenDexBD JournalUI.lua
--- Rematch: Fill Hook 改写 Breed 文本（★P/P 金色/ P/P 灰色）+ 右键菜单
--- 暴雪原生: Hook PetJournal_InitPetButton
+-- GenDexBD JournalUI.lua — Fill Hook: ★Breed文本 + Rematch 右键菜单
 
 local addonName, addonTable = ...
-local time=time;local pairs=pairs;local next=next
+local time=time;local next=next
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
--- ========== API ==========
-function addonTable.SetBestBreed(sid,bid,cat,note)
-    if not sid or not bid then return end;if not GeneDexDB then return end
+-- API
+function addonTable.SetBestBreed(s,b,c,n)
+    if not s or not b then return end;if not GeneDexDB then return end
     local bb=GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then GeneDexDB.BestBreeds={} end
-    if not GeneDexDB.BestBreeds[sid] then GeneDexDB.BestBreeds[sid]={} end
-    GeneDexDB.BestBreeds[sid][bid]={category=cat or "custom",note=note or "",addedAt=time()}
+    if not GeneDexDB.BestBreeds[s] then GeneDexDB.BestBreeds[s]={} end
+    GeneDexDB.BestBreeds[s][b]={category=c or "custom",note=n or "",addedAt=time()}
 end
-function addonTable.RemoveBestBreed(sid,bid)
-    if not sid or not bid then return end
+function addonTable.RemoveBestBreed(s,b)
+    if not s or not b then return end
     local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return end
-    local sd=bb[sid];if not sd or type(sd)~="table" then return end;sd[bid]=nil;if not next(sd) then bb[sid]=nil end
+    local sd=bb[s];if not sd or type(sd)~="table" then return end;sd[b]=nil;if not next(sd) then bb[s]=nil end
 end
-function addonTable.IsBestBreed(sid,bid)
-    if not sid or not bid then return false end
+function addonTable.IsBestBreed(s,b)
+    if not s or not b then return false end
     local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return false end
-    local sd=bb[sid];if not sd or type(sd)~="table" then return false end;return sd[bid]~=nil
+    local sd=bb[s];if not sd or type(sd)~="table" then return false end;return sd[b]~=nil
 end
-function addonTable.GetAllBestBreeds(sid)
-    if not sid then return {} end
+function addonTable.GetAllBestBreeds(s)
+    if not s then return {} end
     local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return {} end
-    local sd=bb[sid];return (sd and type(sd)=="table") and sd or {}
+    local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
--- ========== Fill Hook: 改写 Breed 文本 ==========
-local fillHooked=false
-local function HookFill()
-    if fillHooked then return end
-    if not Rematch or not Rematch.petsPanel or not Rematch.petsPanel.FillNormal then return end
-    fillHooked=true
-    local function onFill(_,button)
-        if not button or not button.Breed or not button.petID then return end
-        if not Rematch or not Rematch.petInfo then return end
-        local info=Rematch.petInfo:Fetch(button.petID)
-        if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return end
-        local isBest=addonTable.IsBestBreed(info.speciesID,info.breedID)
-        -- 改写 Breed 文本：最优品种加 ★ 前缀 + 金色
-        button.Breed:SetText(isBest and ("★"..info.breedName) or info.breedName)
-        button.Breed:SetTextColor(isBest and 1 or 0.6, isBest and 0.84 or 0.6, 0.6)
-    end
-    hooksecurefunc(Rematch.petsPanel,"FillNormal",onFill)
-    hooksecurefunc(Rematch.petsPanel,"FillCompact",onFill)
-    LOG("已 Hook Rematch Fill (Breed改写)")
-    Rematch.petsPanel:Update()
+-- Fill Hook
+local function onFill(_,button)
+    if not button or not button.Breed or not button.petID then return end
+    if not Rematch or not Rematch.petInfo then return end
+    local info=Rematch.petInfo:Fetch(button.petID)
+    if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return end
+    local best=addonTable.IsBestBreed(info.speciesID,info.breedID)
+    button.Breed:SetText(best and ("★"..info.breedName) or info.breedName)
+    button.Breed:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
 end
 
--- ========== 右键菜单 ==========
+-- 右键菜单
 function RematchSetBest(petID)
     if not Rematch or not Rematch.petInfo then return end
-    local info=Rematch.petInfo:Fetch(petID)
-    if not info or not info.hasBreed then return end
-    addonTable.SetBestBreed(info.speciesID,info.breedID,"custom","")
-    LOG("已保存: speciesID=%d breedID=%d (%s)",info.speciesID,info.breedID,info.breedName or "?")
+    local i=Rematch.petInfo:Fetch(petID);if not i or not i.hasBreed then return end
+    addonTable.SetBestBreed(i.speciesID,i.breedID,"custom","")
+    LOG("已保存: speciesID=%d breedID=%d (%s)",i.speciesID,i.breedID,i.breedName or "?")
     Rematch.petsPanel:Update()
 end
 function RematchRemoveBest(petID)
     if not Rematch or not Rematch.petInfo then return end
-    local info=Rematch.petInfo:Fetch(petID)
-    if not info or not info.hasBreed then return end
-    addonTable.RemoveBestBreed(info.speciesID,info.breedID)
-    LOG("已移除: speciesID=%d breedID=%d",info.speciesID,info.breedID)
+    local i=Rematch.petInfo:Fetch(petID);if not i or not i.hasBreed then return end
+    addonTable.RemoveBestBreed(i.speciesID,i.breedID)
+    LOG("已移除: speciesID=%d breedID=%d",i.speciesID,i.breedID)
     Rematch.petsPanel:Update()
 end
 function RematchHasBest(petID)
     if not Rematch or not Rematch.petInfo then return false end
-    local info=Rematch.petInfo:Fetch(petID)
-    return info and info.hasBreed and addonTable.IsBestBreed(info.speciesID,info.breedID)
+    local i=Rematch.petInfo:Fetch(petID)
+    return i and i.hasBreed and addonTable.IsBestBreed(i.speciesID,i.breedID)
 end
 
-local menuInjected=false
-local function InjectMenu()
-    if menuInjected then return end
-    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end;menuInjected=true
-    Rematch.menus:AddToMenu("PetMenu",{
-        text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
-        hidden=function(_,p) return not p end,
-        func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
-    },"Find Teams")
-    LOG("Rematch 菜单已注入")
-end
-
--- ========== 暴雪原生 ==========
-local blizzHooked=false
-local function TryHookBlizzard()
-    if blizzHooked then return end
-    if not PetJournal_InitPetButton then return end;blizzHooked=true
-    hooksecurefunc("PetJournal_InitPetButton",function(button,ed)
-        if not button or not ed or not ed.index then return end
-        if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
-        local petID=C_PetJournal.GetPetInfoByIndex(ed.index);if not petID then return end
-        local _,speciesID=C_PetJournal.GetPetInfoByPetID(petID);if not speciesID then return end
-        if next(addonTable.GetAllBestBreeds(speciesID)) and button.name then
-            button.name:SetTextColor(1,0.84,0)
-        end
-    end)
-    LOG("已 Hook PetJournal_InitPetButton")
-end
-
--- ========== 初始化 ==========
+-- 初始化
 function addonTable.InitJournalUI()
     LOG("初始化")
-    local function init()
-        HookFill();InjectMenu()
-        if Rematch.petsPanel and Rematch.petsPanel.Update then Rematch.petsPanel:Update() end
+    -- Fill Hook：Rematch ADDON_LOADED 时安装
+    local function initFill()
+        hooksecurefunc(Rematch.petsPanel,"FillNormal",onFill)
+        hooksecurefunc(Rematch.petsPanel,"FillCompact",onFill)
+        LOG("已 Hook Rematch Fill")
+        Rematch.petsPanel:Update()
     end
-    if C_AddOns.IsAddOnLoaded("Rematch") then init()
-    else
-        local rf=CreateFrame("Frame");rf:RegisterEvent("ADDON_LOADED")
-        rf:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then init();rf:UnregisterEvent("ADDON_LOADED") end end)
+    -- 菜单注入：延迟到 PLAYER_LOGIN 之后（Rematch 的 PetMenu 在 PLAYER_LOGIN 才注册）
+    local function initMenu()
+        if Rematch and Rematch.menus and Rematch.menus.AddToMenu then
+            Rematch.menus:AddToMenu("PetMenu",{
+                text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
+                hidden=function(_,p) return not p end,
+                func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
+            },"Find Teams")
+            LOG("Rematch 菜单已注入")
+        else
+            -- 还没就绪，每秒重试
+            C_Timer.After(1,initMenu)
+        end
     end
 
-    local bcf=CreateFrame("Frame");bcf:RegisterEvent("ADDON_LOADED")
-    bcf:SetScript("OnEvent",function(_,_,a) if a=="Blizzard_Collections" then TryHookBlizzard();bcf:UnregisterEvent("ADDON_LOADED") end end)
-    local pjf=CreateFrame("Frame");pjf:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
-    pjf:SetScript("OnEvent",function() TryHookBlizzard() end)
+    -- Fill Hook：Rematch 加载后立即安装
+    if C_AddOns.IsAddOnLoaded("Rematch") then initFill()
+    else
+        local f=CreateFrame("Frame");f:RegisterEvent("ADDON_LOADED")
+        f:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then initFill();f:UnregisterEvent("ADDON_LOADED") end end)
+    end
+    -- 菜单：延迟重试直到就绪
+    C_Timer.After(1,initMenu)
 end
