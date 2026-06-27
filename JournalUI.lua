@@ -185,9 +185,16 @@ local function TryHookBlizzard()
 
     LOG("已 Hook PetJournal_InitPetButton")
 
-    -- 强制刷新当前显示的原生面板
+    -- 强制刷新当前显示的原生面板（pcall 保护，12.0 函数可能不存在）
     if PetJournal and PetJournal:IsShown() then
-        PetJournal_ListUpdate()
+        pcall(function()
+            if PetJournal_ListUpdate then PetJournal_ListUpdate() end
+        end)
+        -- 备用刷新方式：通过搜索 API 触发列表重绘
+        pcall(function()
+            C_PetJournal.ClearSearchFilter()
+            C_PetJournal.SetSearchFilter("")
+        end)
     end
 end
 
@@ -225,12 +232,10 @@ function addonTable.InitJournalUI()
         if mode~=prevMode then
             prevMode=mode
             if mode=="B" then
-                -- 切到原生面板时延迟刷新
                 C_Timer.After(0.3,function()
                     TryHookBlizzard()
-                    if PetJournal and PetJournal:IsShown() and PetJournal_InitPetButton then
-                        PetJournal_ListUpdate()
-                    end
+                    -- 安全刷新：用搜索 API 触发列表重绘
+                    pcall(function() C_PetJournal.ClearSearchFilter(); C_PetJournal.SetSearchFilter("") end)
                 end)
             end
             LOG("面板切换: %s",mode=="R" and "Rematch" or mode=="B" and "暴雪原生" or "关闭")
