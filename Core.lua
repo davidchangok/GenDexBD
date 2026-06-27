@@ -29,6 +29,14 @@ local C_Timer_After = C_Timer.After
 local ADDON_NAME = "GenDexBD"
 local CURRENT_DB_VERSION = 2
 
+-- 斜杠命令（模块加载时立即注册，不等 PLAYER_LOGIN）
+SlashCmdList["GENEDEXBDOPEN"] = function()
+    if addonTable.ToggleConfigPanel then
+        addonTable.ToggleConfigPanel()
+    end
+end
+_G["SLASH_GENEDEXBDOPEN1"] = "/gb"
+
 -- 数据库默认值
 local DB_DEFAULTS = {
     BestBreeds = {},       -- { [speciesID] = { [breedID] = { category, note, addedAt } } }
@@ -357,16 +365,16 @@ local function OnPlayerLogin()
         print("|cffff0000[GenDexBD]|r ⚠ Config 模块未找到")
     end
 
-    -- 注册斜杠命令（用 /genedexbd 为主，这是唯一不冲突的）
-    SlashCmdList["GENEDEXBD"] = function()
+    -- 斜杠命令：只在 PLAYER_LOGIN 最末尾注册，确保不被覆盖
+    -- 用一个完全独立的前缀避免与任何插件冲突
+    SlashCmdList["GENEDEXBDOPEN"] = function()
         if addonTable.ToggleConfigPanel then
             addonTable.ToggleConfigPanel()
         else
             print("|cffff0000[GenDexBD]|r 配置模块未加载，请输入 /reload")
         end
     end
-    _G["SLASH_GENEDEXBD1"] = "/genedexbd"
-    -- /gd 和 /genedex 与 GathererDB/GrimoireDeck 等冲突，不用
+    _G["SLASH_GENEDEXBDOPEN1"] = "/gb"
 
     -- 注册战斗事件
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START")
