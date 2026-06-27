@@ -87,8 +87,22 @@ local function CreateConfigPanel()
         return
     end
 
-    -- 主框架使用 BasicFrameTemplateWithInset
-    configFrame = CreateFrame("Frame", "GeneDexBDConfigFrame", UIParent, "BasicFrameTemplateWithInset")
+    -- 用 pcall 包裹模板创建，12.0 中模板名可能已变化
+    local ok, err = pcall(function()
+        configFrame = CreateFrame("Frame", "GeneDexBDConfigFrame", UIParent, "BasicFrameTemplateWithInset")
+    end)
+
+    -- 如果模板创建失败，回退到普通 Frame + 手动面板样式
+    if not ok or not configFrame then
+        configFrame = CreateFrame("Frame", "GeneDexBDConfigFrame", UIParent)
+        configFrame:SetBackdrop({
+            bgFile = "Interface\\DialogFrame\\UI-DialogBox-Background",
+            edgeFile = "Interface\\DialogFrame\\UI-DialogBox-Border",
+            tile = true, tileSize = 32, edgeSize = 32,
+            insets = { left = 8, right = 8, top = 8, bottom = 8 },
+        })
+        configFrame:SetBackdropColor(0.09, 0.09, 0.09, 1)
+    end
     configFrame:SetSize(PANEL_WIDTH, PANEL_HEIGHT)
     configFrame:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
@@ -140,6 +154,7 @@ local function CreateConfigPanel()
 
     -- 初始隐藏
     configFrame:Hide()
+    print("|cff00ff00[GenDexBD]|r 配置面板已创建。输入 /gd 打开设置")
 end
 
 --- 打开/关闭配置面板（Toggle）

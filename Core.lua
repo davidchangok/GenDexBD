@@ -267,12 +267,18 @@ local function OnPlayerLogin()
     local msg = GetLocaleString("ADDON_LOADED")
     print("|cff00ff00[GenDexBD]|r " .. msg)
 
-    -- 启动 UI 模块
+    -- 启动 UI 模块（带诊断日志）
     if addonTable.InitTooltip then
         addonTable.InitTooltip()
+        print("|cff00ff00[GenDexBD]|r Tooltip 模块已启动")
+    else
+        print("|cffff0000[GenDexBD]|r ⚠ Tooltip 模块未找到")
     end
     if addonTable.InitJournalUI then
         addonTable.InitJournalUI()
+        print("|cff00ff00[GenDexBD]|r JournalUI 模块已启动（等待首次打开宠物手册时注入）")
+    else
+        print("|cffff0000[GenDexBD]|r ⚠ JournalUI 模块未找到")
     end
 
     -- 注册斜杠命令
