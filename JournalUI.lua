@@ -163,6 +163,8 @@ end
 -- 按钮标注
 -- ============================================================================
 
+local labelFailReasons = {}
+
 local function LabelButton(button)
     if not button or not button.petID then return end
     if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
@@ -170,8 +172,16 @@ local function LabelButton(button)
     local _, sid, _, _, _, _, _, _, _, _, _, lv, q, hp, pw, sp = C_PetJournal.GetPetInfoByPetID(button.petID)
     if not sid then return end
 
+    if not hp or not pw or not sp then
+        labelFailReasons["noStats"] = (labelFailReasons["noStats"] or 0) + 1
+        return
+    end
+
     local bid = CalcBreed(sid, lv, q, hp, pw, sp)
-    if not bid then return end
+    if not bid then
+        labelFailReasons["noBreed"] = (labelFailReasons["noBreed"] or 0) + 1
+        return
+    end
 
     local code = GetBreedCode(bid)
     local isBest = addonTable.IsBestBreed(sid, bid)
@@ -199,10 +209,21 @@ end
 
 function RefreshAll()
     if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
+    labelFailReasons = {}
     local btns, src = FindPetListButtons()
-    local n = 0
-    for _, b in ipairs(btns) do pcall(LabelButton, b); n = n + 1 end
-    if n > 0 then LOG("标注 %d 个按钮 (来源=%s)", n, src) end
+    local n, labeled = 0, 0
+    for _, b in ipairs(btns) do
+        local ok, err = pcall(LabelButton, b)
+        if not ok then labelFailReasons["error"] = (labelFailReasons["error"] or 0) + 1 end
+        n = n + 1
+    end
+    if n > 0 then
+        LOG("标注尝试 %d 个按钮 (来源=%s) noStats=%d noBreed=%d error=%d",
+            n, src,
+            labelFailReasons["noStats"] or 0,
+            labelFailReasons["noBreed"] or 0,
+            labelFailReasons["error"] or 0)
+    end
 end
 
 -- ============================================================================
