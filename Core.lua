@@ -10,7 +10,6 @@ local addonName, addonTable = ...
 
 local GetLocaleString = addonTable.GetLocaleString
 local CalculateBreedFromStats = addonTable.CalculateBreedFromStats
-local GuessBreedByRatio = addonTable.GuessBreedByRatio
 local GetBreedCode = addonTable.GetBreedCode
 local GetBreedDisplayName = addonTable.GetBreedDisplayName
 local time = time
@@ -213,10 +212,7 @@ end
 --- 在 GlowBox 中显示指定敌人的最优品种提示
 --- @param petIndex number 敌方宠物索引 (1-3)
 local function ShowAlertForPet(petIndex)
-    if not GeneDexDB.Options.AlertInBattle then
-        print("|cffff8800[GenDexBD]|r AlertInBattle 已关闭，跳过提示")
-        return
-    end
+    if not GeneDexDB.Options.AlertInBattle then return end
 
     -- 获取敌方宠物信息
     local speciesID = C_PetBattles.GetPetSpeciesID(2, petIndex)
@@ -224,9 +220,6 @@ local function ShowAlertForPet(petIndex)
     local power    = C_PetBattles.GetPower(2, petIndex)
     local speed    = C_PetBattles.GetSpeed(2, petIndex)
     local name     = C_PetBattles.GetName(2, petIndex)
-
-    print(string.format("|cffff8800[GenDexBD]|r 战斗检查: idx=%d speciesID=%s hp=%s pw=%s sp=%s name=%s",
-        petIndex, tostring(speciesID), tostring(health), tostring(power), tostring(speed), tostring(name)))
 
     if not speciesID or not health or not power or not speed then
         return
@@ -254,8 +247,6 @@ local function ShowAlertForPet(petIndex)
         if type(bdata) == "table" then breedID = bid; bestInfo = bdata; break end
     end
     if not bestInfo then return end
-
-    print(string.format("|cffff8800[GenDexBD]|r 目标匹配！speciesID=%d breedID=%d", speciesID, breedID))
 
     -- 标记已提示
     battleAlertCache[speciesID] = true

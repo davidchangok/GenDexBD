@@ -198,19 +198,7 @@ function addonTable.GuessBreedByRatio(health, power, speed)
     local obsP = power  * scale
     local obsS = speed  * scale
 
-    print(string.format("|cffff8800[GenDexBD:BreedMath]|r ratio-guess: raw=(%.0f,%.0f,%.0f) total=%.0f scale=%.4f norm=(%.4f,%.4f,%.4f)",
-        health, power, speed, total, scale, obsH, obsP, obsS))
-
-    -- 用宽松容差匹配
     local breedID = FindBestMatch(obsH, obsP, obsS, RATIO_TOLERANCE)
-
-    if breedID then
-        local code = addonTable.GetBreedCode(breedID) or "?"
-        print(string.format("|cffff8800[GenDexBD:BreedMath]|r ratio-guess 结果: breedID=%d (%s)", breedID, code))
-    else
-        print("|cffff8800[GenDexBD:BreedMath]|r ratio-guess 失败: 超出容差")
-    end
-
     return breedID
 end
 
