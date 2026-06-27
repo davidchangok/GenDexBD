@@ -65,6 +65,8 @@ local strings = {
     OPTION_ALERT_BATTLE   = { zhCN = "战斗目标提示",           enUS = "Alert in battle" },
     OPTION_ASSUME_RARE    = { zhCN = "默认按精良品质推算",       enUS = "Assume Rare quality" },
     OPTION_SHOW_NOTE      = { zhCN = "提示中显示最优备注",       enUS = "Show best breed note in tooltip" },
+    OPTION_ALERT_DURATION = { zhCN = "目标提示显示时间",          enUS = "Alert display duration" },
+    SECONDS              = { zhCN = "秒",                      enUS = "sec" },
 
     -- 战斗提示
     ALERT_PVP             = { zhCN = "PvP 目标发现！",    enUS = "PvP Target Found!" },
