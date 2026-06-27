@@ -1,5 +1,5 @@
 -- GenDexBD JournalUI.lua
--- Rematch: hooksecurefunc rematch.petsPanel.FillNormal/FillCompact → 改写 Breed
+-- Rematch: hooksecurefunc Rematch.petsPanel.FillNormal/FillCompact → 改写 Breed
 -- 暴雪原生: PET_JOURNAL_LIST_UPDATE → 扫描 PetJournal 子元素
 
 local addonName, addonTable = ...
@@ -72,20 +72,20 @@ end
 local rematchHooked=false
 local function TryHookRematch()
     if rematchHooked then return end
-    -- rematch.petsPanel.FillNormal(button, petID) — panel 级回调
+    -- Rematch.petsPanel.FillNormal(button, petID) — panel 级回调
     -- 签名来自 autoScrollBox: self.normalFill(button,data)
     -- 函数体中 self:Fill(petID) 即 button:Fill(data)
-    if not rematch or not rematch.petsPanel then return end
-    if not rematch.petsPanel.FillNormal then return end
+    if not Rematch or not Rematch.petsPanel then return end
+    if not Rematch.petsPanel.FillNormal then return end
 
     rematchHooked=true
-    hooksecurefunc(rematch.petsPanel,"FillNormal",function(_,button)
+    hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,button)
         Decorate(button)
     end)
-    hooksecurefunc(rematch.petsPanel,"FillCompact",function(_,button)
+    hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,button)
         Decorate(button)
     end)
-    LOG("已 Hook rematch.petsPanel FillNormal+FillCompact")
+    LOG("已 Hook Rematch.petsPanel FillNormal+FillCompact")
 end
 
 -- ========== Rematch 菜单注入 ==========
@@ -105,10 +105,10 @@ end
 local menuInjected=false
 local function TryInjectMenu()
     if menuInjected then return end
-    if not rematch or not rematch.menus or not rematch.menus.AddToMenu then return end
+    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
     menuInjected=true
 
-    rematch.menus:Register("GeneDexBD_BestCat",{
+    Rematch.menus:Register("GeneDexBD_BestCat",{
         {title="选择最优场景"},
         {text="PvP 对战", func=function(_,p) RematchSetBest(p,"pvp") end},
         {text="PvE 任务", func=function(_,p) RematchSetBest(p,"pve") end},
@@ -116,11 +116,11 @@ local function TryInjectMenu()
         {text="自定义",   func=function(_,p) RematchSetBest(p,"custom") end},
         {text=CANCEL},
     })
-    rematch.menus:AddToMenu("PetMenu",{
+    Rematch.menus:AddToMenu("PetMenu",{
         text="★ 设为最优品种",subMenu="GeneDexBD_BestCat",
         hidden=function(_,p) return not p or not C_PetJournal.GetPetInfoByPetID(p) end
     },"Find Teams")
-    rematch.menus:AddToMenu("PetMenu",{
+    Rematch.menus:AddToMenu("PetMenu",{
         text="取消最优品种",
         hidden=function(_,p) return not p or not RematchHasBest(p) end,
         func=function(_,p) RematchRemoveBest(p) end
