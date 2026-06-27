@@ -92,16 +92,37 @@ end
 
 -- ========== Rematch：Hook Fill + 菜单 ==========
 local function RematchDecorate(button)
-    if not button or not button.petID or not button.Breed then return end
+    if not button or not button.petID or not button.Icon then return end
     local _,sid,_,_,_,_,_,_,_,_,_,lv,q = C_PetJournal.GetPetInfoByPetID(button.petID)
     if not sid then return end
     local hp,pw,sp = C_PetJournal.GetPetStats(button.petID)
-    if not hp or hp<=0 then return end
-    local bid=CalcBreed(sid,lv,q,hp,pw,sp);if not bid then return end
-    local code=GetBreedCode(bid);local best=addonTable.IsBestBreed(sid,bid)
-    button.Breed:SetText(best and ("★"..code) or code)
-    button.Breed:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
-    button.Breed:Show()
+
+    -- 计算品种并保持 Breed 文本
+    if hp and hp>0 then
+        local bid=CalcBreed(sid,lv,q,hp,pw,sp)
+        if bid and button.Breed then
+            local code=GetBreedCode(bid)
+            button.Breed:SetText(code)
+            button.Breed:SetTextColor(0.6,0.6,0.6)
+            button.Breed:Show()
+        end
+    end
+
+    -- 金色五星：最优品种标记（锚定到 Icon 右上角）
+    local isBest = addonTable.GetAllBestBreeds(sid) and next(addonTable.GetAllBestBreeds(sid))
+    if isBest then
+        if not button._gStar then
+            local star = button:CreateTexture(nil, "OVERLAY")
+            -- 用暴雪内置的金色五星 atlAs（和 Favorite 一样）
+            star:SetAtlas("PetJournal-FavoritesIcon")
+            star:SetSize(16, 16)
+            star:SetPoint("TOPRIGHT", button.Icon, "TOPRIGHT", 4, 4)
+            button._gStar = star
+        end
+        button._gStar:Show()
+    else
+        if button._gStar then button._gStar:Hide() end
+    end
 end
 
 local rematchHooked=false
