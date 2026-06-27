@@ -1,17 +1,12 @@
 -- GenDexBD ConfigPanel.lua
--- 配置面板：InterfaceOptions_AddCategory → 界面→插件→GenDexBD
--- 加载顺序：第7个（最后加载）
+-- 配置面板：注册到系统选项（界面→插件→GenDexBD）
+-- Blizzard_InterfaceOptions / Blizzard_InterfaceOptionsFrame 是按需加载模块
 
 local addonName, addonTable = ...
 
 local GetLocaleString = addonTable.GetLocaleString
-local pairs = pairs
-local ipairs = ipairs
 
--- ============================================================================
 -- 选项定义
--- ============================================================================
-
 local OPTIONS = {
     { "ShowInTooltip",      "OPTION_SHOW_TOOLTIP"  },
     { "ShowInJournal",      "OPTION_SHOW_JOURNAL"  },
@@ -21,19 +16,30 @@ local OPTIONS = {
 }
 
 -- ============================================================================
--- 面板引用
+-- 面板
 -- ============================================================================
 
 local panel = nil
-local checkboxes = {}
 
--- ============================================================================
--- 初始化（由 Core.lua 在 PLAYER_LOGIN 时调用，此时所有 API 已就绪）
--- ============================================================================
+--- 确保 Blizzard 系统选项模块已加载
+local function LoadSystemModules()
+    if not InterfaceOptions_AddCategory then
+        C_AddOns.LoadAddOn("Blizzard_InterfaceOptions")
+    end
+    if not InterfaceOptionsFrame_OpenToCategory then
+        C_AddOns.LoadAddOn("Blizzard_InterfaceOptionsFrame")
+    end
+end
 
 function addonTable.InitConfig()
-    if panel then
-        return  -- 已初始化
+    if panel then return end
+
+    -- 先加载系统模块
+    LoadSystemModules()
+
+    if not InterfaceOptions_AddCategory then
+        print("|cffff0000[GenDexBD]|r InterfaceOptions_AddCategory 不可用")
+        return
     end
 
     -- 创建面板
@@ -66,46 +72,37 @@ function addonTable.InitConfig()
         cb:SetScript("OnClick", function(self)
             GeneDexDB.Options[opt[1]] = self:GetChecked() or false
         end)
-
-        checkboxes[opt[1]] = cb
     end
 
-    -- Show 时刷新复选框（因为可能通过其他方式改了选项）
-    panel:SetScript("OnShow", function()
-        for optKey, cb in pairs(checkboxes) do
-            cb:SetChecked(GeneDexDB.Options[optKey] == true)
-        end
-    end)
-
-    -- 注册到系统选项。
-    -- Blizzard_InterfaceOptions 是按需加载的模块，PLAYER_LOGIN 时可能尚未加载。
-    -- 如果 InterfaceOptions_AddCategory 为 nil，先加载。
-    if not InterfaceOptions_AddCategory then
-        C_AddOns.LoadAddOn("Blizzard_InterfaceOptions")
-    end
-
-    if InterfaceOptions_AddCategory then
-        InterfaceOptions_AddCategory(panel)
-        print("|cff00ff00[GenDexBD]|r 配置面板已注册到 界面→插件→GenDexBD")
-    else
-        print("|cffff0000[GenDexBD]|r 无法注册配置面板：InterfaceOptions_AddCategory 不可用")
-    end
+    -- 注册到系统选项（界面→插件 列表中）
+    InterfaceOptions_AddCategory(panel)
+    print("|cff00ff00[GenDexBD]|r 配置已注册到 界面→插件→GenDexBD")
 end
 
 -- ============================================================================
--- 斜杠命令回调
+-- 斜杠命令
 -- ============================================================================
 
 function addonTable.ToggleConfigPanel()
-    -- 确保面板已注册（如果之前注册失败，重试）
+    -- 确保模块已加载（用户可能在 PLAYER_LOGIN 之前输入命令）
     if not panel then
         addonTable.InitConfig()
-        if not panel then
-            print("|cffff0000[GenDexBD]|r 配置面板不可用，请输入 /reload")
-            return
-        end
     end
 
-    -- InterfaceOptionsFrame_OpenToCategory 也会按需加载 Blizzard_InterfaceOptions
-    InterfaceOptionsFrame_OpenToCategory(panel)
+    if not panel then
+        print("|cffff0000[GenDexBD]|r 配置面板不可用，请输入 /reload")
+        return
+    end
+
+    -- 确保 OpenToCategory 所在模块已加载
+    if not InterfaceOptionsFrame_OpenToCategory then
+        C_AddOns.LoadAddOn("Blizzard_InterfaceOptionsFrame")
+    end
+
+    if InterfaceOptionsFrame_OpenToCategory then
+        InterfaceOptionsFrame_OpenToCategory(panel)
+    else
+        print("|cffff0000[GenDexBD]|r 无法打开系统选项（InterfaceOptionsFrame_OpenToCategory 不可用）")
+        print("|cffff0000[GenDexBD]|r 请手动打开 ESC→界面→插件→GenDexBD")
+    end
 end
