@@ -1,10 +1,12 @@
 -- GenDexBD ConfigPanel.lua
--- 配置面板：注册到系统选项（界面→插件→GenDexBD）
--- Blizzard_InterfaceOptions / Blizzard_InterfaceOptionsFrame 是按需加载模块
+-- 配置面板：Settings.RegisterCanvasLayoutCategory + Settings.RegisterAddOnCategory
+-- 参考 Talon / LorisID 的实现方式，完全对齐 12.0 标准
+-- 加载顺序：第7个
 
 local addonName, addonTable = ...
 
 local GetLocaleString = addonTable.GetLocaleString
+local ipairs = ipairs
 
 -- 选项定义
 local OPTIONS = {
@@ -15,44 +17,23 @@ local OPTIONS = {
     { "ShowBestBreedNote",  "OPTION_SHOW_NOTE"     },
 }
 
--- ============================================================================
--- 面板
--- ============================================================================
-
+-- 面板引用 & category ID（供斜杠命令打开）
 local panel = nil
-
---- 确保 Blizzard 系统选项模块已加载
-local function LoadSystemModules()
-    if not InterfaceOptions_AddCategory then
-        C_AddOns.LoadAddOn("Blizzard_InterfaceOptions")
-    end
-    if not InterfaceOptionsFrame_OpenToCategory then
-        C_AddOns.LoadAddOn("Blizzard_InterfaceOptionsFrame")
-    end
-end
+local categoryID = nil
 
 function addonTable.InitConfig()
     if panel then return end
 
-    -- 先加载系统模块
-    LoadSystemModules()
-
-    if not InterfaceOptions_AddCategory then
-        print("|cffff0000[GenDexBD]|r InterfaceOptions_AddCategory 不可用")
-        return
-    end
-
-    -- 创建面板
+    -- 创建面板（parent = UIParent，与 Talon/LorisID 一致）
     panel = CreateFrame("Frame", nil, UIParent)
     panel.name = "GenDexBD"
-    panel:SetSize(340, 200)
 
     -- 标题
-    local title = panel:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetText(GetLocaleString("CONFIG_TITLE"))
 
-    -- 复选框
+    -- 复选框（InterfaceOptionsCheckButtonTemplate）
     local prevCB = nil
     for i, opt in ipairs(OPTIONS) do
         local cb = CreateFrame("CheckButton", nil, panel, "InterfaceOptionsCheckButtonTemplate")
@@ -65,44 +46,26 @@ function addonTable.InitConfig()
         end
         prevCB = cb
 
-        -- 初始状态
         cb:SetChecked(GeneDexDB and GeneDexDB.Options and GeneDexDB.Options[opt[1]] == true)
 
-        -- 即时写入
         cb:SetScript("OnClick", function(self)
             GeneDexDB.Options[opt[1]] = self:GetChecked() or false
         end)
     end
 
-    -- 注册到系统选项（界面→插件 列表中）
-    InterfaceOptions_AddCategory(panel)
-    print("|cff00ff00[GenDexBD]|r 配置已注册到 界面→插件→GenDexBD")
+    -- 注册到 Settings（与 Talon/LorisID 完全一致的调用顺序）
+    local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
+    categoryID = category:GetID()
+    Settings.RegisterAddOnCategory(category)
+
+    print("|cff00ff00[GenDexBD]|r 配置已注册，categoryID=" .. tostring(categoryID))
 end
 
--- ============================================================================
--- 斜杠命令
--- ============================================================================
-
 function addonTable.ToggleConfigPanel()
-    -- 确保模块已加载（用户可能在 PLAYER_LOGIN 之前输入命令）
-    if not panel then
-        addonTable.InitConfig()
-    end
-
-    if not panel then
-        print("|cffff0000[GenDexBD]|r 配置面板不可用，请输入 /reload")
+    if not categoryID then
+        print("|cffff0000[GenDexBD]|r 配置面板未注册，请输入 /reload")
         return
     end
 
-    -- 确保 OpenToCategory 所在模块已加载
-    if not InterfaceOptionsFrame_OpenToCategory then
-        C_AddOns.LoadAddOn("Blizzard_InterfaceOptionsFrame")
-    end
-
-    if InterfaceOptionsFrame_OpenToCategory then
-        InterfaceOptionsFrame_OpenToCategory(panel)
-    else
-        print("|cffff0000[GenDexBD]|r 无法打开系统选项（InterfaceOptionsFrame_OpenToCategory 不可用）")
-        print("|cffff0000[GenDexBD]|r 请手动打开 ESC→界面→插件→GenDexBD")
-    end
+    Settings.OpenToCategory(categoryID)
 end
