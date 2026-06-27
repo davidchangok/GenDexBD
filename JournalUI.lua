@@ -160,16 +160,19 @@ end
 function addonTable.InitJournalUI()
     LOG("初始化")
 
-    -- Rematch Fill Hook（轮询等待 rematch.petsPanel 就绪）
-    local rf=CreateFrame("Frame");rf:SetScript("OnUpdate",function()
-        TryHookRematch();TryInjectMenu()
-        if rematchHooked and menuInjected then rf:SetScript("OnUpdate",nil) end
-    end)
-
-    -- Rematch 加载时注入菜单
-    local rlf=CreateFrame("Frame");rlf:RegisterEvent("ADDON_LOADED")
-    rlf:SetScript("OnEvent",function(_,_,a)
-        if a=="Rematch" then TryInjectMenu();rlf:UnregisterEvent("ADDON_LOADED") end
+    -- 注册 ADDON_LOADED 等待 Rematch 完全加载
+    local rf=CreateFrame("Frame");rf:RegisterEvent("ADDON_LOADED")
+    rf:SetScript("OnEvent",function(_,_,a)
+        if a=="Rematch" then
+            LOG("Rematch 已加载，等待 rematch.petsPanel 就绪...")
+            -- Rematch ADDON_LOADED 后可能 petsPanel 还没完成初始化，短延迟
+            C_Timer.After(1, function()
+                TryHookRematch();TryInjectMenu()
+                if not rematchHooked then LOG("⚠ Hook 失败：rematch.petsPanel 不可用") end
+                if not menuInjected then LOG("⚠ 菜单注入失败：rematch.menus 不可用") end
+            end)
+            rf:UnregisterEvent("ADDON_LOADED")
+        end
     end)
 
     -- 暴雪原生面板
