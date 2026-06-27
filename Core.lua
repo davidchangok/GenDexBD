@@ -281,22 +281,23 @@ local function OnPlayerLogin()
         print("|cffff0000[GenDexBD]|r ⚠ JournalUI 模块未找到")
     end
 
-    -- 注册斜杠命令
+    -- 注册斜杠命令（多个别名 + 唯一主命令防止覆盖）
     SlashCmdList["GENEDEXBD"] = function()
         if addonTable.ToggleConfigPanel then
             addonTable.ToggleConfigPanel()
+        else
+            print("|cffff0000[GenDexBD]|r 配置模块未加载，请输入 /reload 重载界面")
         end
     end
     _G["SLASH_GENEDEXBD1"] = "/genedex"
-    _G["SLASH_GENEDEXBD2"] = "/gd"
+    _G["SLASH_GENEDEXBD2"] = "/genedexbd"
+    _G["SLASH_GENEDEXBD3"] = "/gd"
+    -- 注意：/gd 可能与其他插件冲突（如 GrimoireDeck），已添加 /genedexbd 作为后备
 
     -- 注册战斗事件
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START")
     eventFrame:RegisterEvent("PET_BATTLE_PET_CHANGED")
     eventFrame:RegisterEvent("PET_BATTLE_CLOSE")
-
-    -- 注册宠物手册刷新事件
-    eventFrame:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
 end
 
 --- 统一事件回调
@@ -305,10 +306,6 @@ local function OnEvent(_, event, ...)
         OnAddonLoaded(...)
     elseif event == "PLAYER_LOGIN" then
         OnPlayerLogin()
-    elseif event == "PET_JOURNAL_LIST_UPDATE" then
-        if addonTable.RefreshJournalList then
-            addonTable.RefreshJournalList()
-        end
     elseif event == "PET_BATTLE_OPENING_START" then
         -- 延迟 0.5 秒等战斗数据填充完毕
         C_Timer_After(0.5, CheckEnemyTeam)
