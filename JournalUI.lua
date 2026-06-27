@@ -1,7 +1,9 @@
--- GenDexBD JournalUI.lua — Fill Hook: ★Breed文本 + Rematch 右键菜单
+-- GenDexBD JournalUI.lua
+-- 策略：OnUpdate 节流扫描 RematchFrame 按钮，改写 Breed 文本
+-- Fill Hook 对 Rematch 无效（scrollBox 缓存了旧函数引用）
 
 local addonName, addonTable = ...
-local time=time;local next=next
+local time=time;local next=next;local pairs=pairs
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 -- API
@@ -27,15 +29,27 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
--- Fill Hook
-local function onFill(_,button)
-    if not button or not button.Breed or not button.petID then return end
+-- 按钮标注（改写 Breed FontString 文本）
+local function label(b)
+    if not b or not b.Breed or not b.petID then return end
     if not Rematch or not Rematch.petInfo then return end
-    local info=Rematch.petInfo:Fetch(button.petID)
-    if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return end
-    local best=addonTable.IsBestBreed(info.speciesID,info.breedID)
-    button.Breed:SetText(best and ("★"..info.breedName) or info.breedName)
-    button.Breed:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
+    local i=Rematch.petInfo:Fetch(b.petID)
+    if not i or not i.hasBreed or not i.breedID or i.breedID==0 then return end
+    local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
+    b.Breed:SetText(best and ("★"..i.breedName) or i.breedName)
+    b.Breed:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
+end
+
+-- 扫描所有可见按钮
+local function scanAll()
+    if not RematchFrame or not RematchFrame:IsShown() then return end
+    local function s(p,d)
+        if d>6 then return end
+        for _,c in ipairs({p:GetChildren()}) do
+            if c.petID and c:IsVisible() then label(c) end;s(c,d+1)
+        end
+    end
+    s(RematchFrame,0)
 end
 
 -- 右键菜单
@@ -62,39 +76,34 @@ end
 -- 初始化
 function addonTable.InitJournalUI()
     LOG("初始化")
-    -- Fill Hook：Rematch ADDON_LOADED 时安装
-    local function initFill()
-        hooksecurefunc(Rematch.petsPanel,"FillNormal",onFill)
-        hooksecurefunc(Rematch.petsPanel,"FillCompact",onFill)
-        LOG("已 Hook Rematch Fill")
-        Rematch.petsPanel:Update()
-    end
-    -- 菜单注入：延迟重试直到 Rematch PetMenu 就绪
-    local menuInjected=false
-    local menuRetries=0
-    local function initMenu()
-        if menuInjected then return end;menuRetries=menuRetries+1
+
+    -- OnUpdate 扫描（0.3s 节流，不依赖 Fill Hook）
+    local sf=CreateFrame("Frame");sf._t=0
+    sf:SetScript("OnUpdate",function(self,elapsed)
+        self._t=self._t+elapsed;if self._t<0.3 then return end;self._t=0
+        scanAll()
+    end)
+
+    -- 菜单注入（延迟重试）
+    local menuTries=0
+    local function tryMenu()
+        menuTries=menuTries+1
         if Rematch and Rematch.menus and Rematch.menus.AddToMenu then
-            menuInjected=true
             Rematch.menus:AddToMenu("PetMenu",{
                 text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
                 hidden=function(_,p) return not p end,
                 func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
             },"Find Teams")
-            LOG("Rematch 菜单已注入 (第%d次尝试)",menuRetries)
-        elseif menuRetries<30 then
-            C_Timer.After(1,initMenu)
-        else
-            LOG("⚠ 菜单注入放弃：尝试30次后 Rematch.menus 仍不可用")
+            LOG("Rematch 菜单已注入 (第%d次)",menuTries)
+        elseif menuTries<30 then
+            C_Timer.After(1,tryMenu)
         end
     end
+    C_Timer.After(1,tryMenu)
 
-    -- Fill Hook：Rematch 加载后立即安装
-    if C_AddOns.IsAddOnLoaded("Rematch") then initFill()
-    else
-        local f=CreateFrame("Frame");f:RegisterEvent("ADDON_LOADED")
-        f:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then initFill();f:UnregisterEvent("ADDON_LOADED") end end)
+    -- 保存/取消后立即刷新
+    Rematch._genedexRefresh = function()
+        if Rematch.petsPanel then Rematch.petsPanel:Update() end
+        C_Timer.After(0.3,scanAll)
     end
-    -- 菜单：延迟重试直到就绪
-    C_Timer.After(1,initMenu)
 end
