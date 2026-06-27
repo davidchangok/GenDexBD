@@ -69,18 +69,23 @@ function addonTable.InitJournalUI()
         LOG("已 Hook Rematch Fill")
         Rematch.petsPanel:Update()
     end
-    -- 菜单注入：延迟到 PLAYER_LOGIN 之后（Rematch 的 PetMenu 在 PLAYER_LOGIN 才注册）
+    -- 菜单注入：延迟重试直到 Rematch PetMenu 就绪
+    local menuInjected=false
+    local menuRetries=0
     local function initMenu()
+        if menuInjected then return end;menuRetries=menuRetries+1
         if Rematch and Rematch.menus and Rematch.menus.AddToMenu then
+            menuInjected=true
             Rematch.menus:AddToMenu("PetMenu",{
                 text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
                 hidden=function(_,p) return not p end,
                 func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
             },"Find Teams")
-            LOG("Rematch 菜单已注入")
-        else
-            -- 还没就绪，每秒重试
+            LOG("Rematch 菜单已注入 (第%d次尝试)",menuRetries)
+        elseif menuRetries<30 then
             C_Timer.After(1,initMenu)
+        else
+            LOG("⚠ 菜单注入放弃：尝试30次后 Rematch.menus 仍不可用")
         end
     end
 
