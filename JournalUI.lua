@@ -1,15 +1,15 @@
 -- GenDexBD JournalUI.lua
--- Rematch: hooksecurefunc Rematch.petsPanel.FillNormal/FillCompact → 改写 Breed
--- 暴雪原生: PET_JOURNAL_LIST_UPDATE → 扫描 PetJournal 子元素
+-- Rematch: hook FillNormal/FillCompact 改写 Breed + 菜单注入
+-- 暴雪原生: 不集成（Rematch 已接管宠物面板）
 
 local addonName, addonTable = ...
-local GetBreedCode=addonTable.GetBreedCode;local time=time;local type=type
-local pairs=pairs;local ipairs=ipairs;local next=next;local strlower=string.lower;local strfind=string.find
+local GetBreedCode=addonTable.GetBreedCode;local time=time
+local pairs=pairs;local next=next;local strlower=string.lower;local strfind=string.find
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 -- ========== API ==========
 function addonTable.SetBestBreed(sid,bid,cat,note)
-    if not sid or not bid then return end; if not GeneDexDB then return end
+    if not sid or not bid then return end;if not GeneDexDB then return end
     local bb=GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then GeneDexDB.BestBreeds={} end
     if not GeneDexDB.BestBreeds[sid] then GeneDexDB.BestBreeds[sid]={} end
     GeneDexDB.BestBreeds[sid][bid]={category=cat or "custom",note=note or "",addedAt=time()}
@@ -25,17 +25,6 @@ function addonTable.IsBestBreed(sid,bid)
     local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return false end
     local sd=bb[sid];if not sd or type(sd)~="table" then return false end;return sd[bid]~=nil
 end
-function addonTable.GetBestBreedInfo(sid,bid)
-    if not sid or not bid then return nil end
-    local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return nil end
-    local sd=bb[sid];if not sd or type(sd)~="table" then return nil end
-    local bd=sd[bid];return (bd and type(bd)=="table") and bd or nil
-end
-function addonTable.GetAllBestBreeds(sid)
-    if not sid then return {} end
-    local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return {} end
-    local sd=bb[sid];return (sd and type(sd)=="table") and sd or {}
-end
 
 -- ========== 品种推算 ==========
 local fields=nil
@@ -45,7 +34,7 @@ local function Detect()
     local ks={};for k in pairs(s) do ks[#ks+1]=k end
     local function f(ps) for _,k in ipairs(ks) do local l=strlower(k);for _,p in ipairs(ps) do if strfind(l,p,1,true) then return k end end end end
     local h=f({"health","hp"});local p=f({"power","attack","atk"});local sp=f({"speed","spd"})
-    LOG("字段: H=%s P=%s S=%s",tostring(h),tostring(p),tostring(sp));fields={h,p,sp};return h,p,sp
+    fields={h,p,sp};LOG("字段: H=%s P=%s S=%s",tostring(h),tostring(p),tostring(sp));return h,p,sp
 end
 local function Extract(pi) if not pi then return end;local h,p,s=Detect();if not h then return end;return pi[h],pi[p],pi[s] end
 local function CalcBreed(sid,lv,q,hp,pw,sp)
@@ -56,12 +45,11 @@ local function CalcBreed(sid,lv,q,hp,pw,sp)
     return addonTable.CalculateBreedFromStats(hp,pw,sp,bh,bp,bs,lv,q2)
 end
 
--- ========== 改写单个按钮的 Breed ==========
+-- ========== Rematch Breed 改写 ==========
 local function Decorate(button)
     if not button or not button.petID or not button.Breed then return end
     local _,sid,_,_,_,_,_,_,_,_,_,lv,q = C_PetJournal.GetPetInfoByPetID(button.petID)
     if not sid then return end
-    -- Rematch 也推荐用 GetPetStats 拿属性
     local hp,pw,sp = C_PetJournal.GetPetStats(button.petID)
     if not hp or hp<=0 then return end
     local bid=CalcBreed(sid,lv,q,hp,pw,sp);if not bid then return end
@@ -71,27 +59,19 @@ local function Decorate(button)
     button.Breed:Show()
 end
 
--- ========== Rematch Fill Hook（参照 tdBattlePetScript hook FillTeamButton 的方式）==========
+-- ========== Rematch Hook ==========
 local rematchHooked=false
 local function TryHookRematch()
     if rematchHooked then return end
-    -- Rematch.petsPanel.FillNormal(button, petID) — panel 级回调
-    -- 签名来自 autoScrollBox: self.normalFill(button,data)
-    -- 函数体中 self:Fill(petID) 即 button:Fill(data)
     if not Rematch or not Rematch.petsPanel then return end
     if not Rematch.petsPanel.FillNormal then return end
-
     rematchHooked=true
-    hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,button)
-        Decorate(button)
-    end)
-    hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,button)
-        Decorate(button)
-    end)
+    hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,button) Decorate(button) end)
+    hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,button) Decorate(button) end)
     LOG("已 Hook Rematch.petsPanel FillNormal+FillCompact")
 end
 
--- ========== Rematch 菜单注入 ==========
+-- ========== Rematch 菜单 ==========
 function RematchSetBest(petID,cat)
     local _,sid,_,_,_,_,_,_,_,_,_,lv,q,hp,pw,sp=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return end
     local bid=CalcBreed(sid,lv,q,hp,pw,sp);if bid then addonTable.SetBestBreed(sid,bid,cat,"") end
@@ -104,13 +84,17 @@ function RematchHasBest(petID)
     local _,sid=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return false end
     return next(addonTable.GetAllBestBreeds(sid))
 end
+function addonTable.GetAllBestBreeds(sid)
+    if not sid then return {} end
+    local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return {} end
+    local sd=bb[sid];return (sd and type(sd)=="table") and sd or {}
+end
 
 local menuInjected=false
 local function TryInjectMenu()
     if menuInjected then return end
     if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
     menuInjected=true
-
     Rematch.menus:Register("GeneDexBD_BestCat",{
         {title="选择最优场景"},
         {text="PvP 对战", func=function(_,p) RematchSetBest(p,"pvp") end},
@@ -131,109 +115,25 @@ local function TryInjectMenu()
     LOG("Rematch 菜单已注入")
 end
 
--- ========== 暴雪原生面板：hook PetJournal_InitPetButton ==========
-local blizzHookInstalled = false
-local blizzBtnCount = 0
-
-local function InstallBlizzHook()
-    if blizzHookInstalled then return end
-    if not PetJournal_InitPetButton then return end
-    blizzHookInstalled = true
-
-    hooksecurefunc("PetJournal_InitPetButton", function(button, elementData)
-        if not button or not elementData or not elementData.index then return end
-        if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
-
-        local petID = C_PetJournal.GetPetInfoByIndex(elementData.index)
-        if not petID then return end
-
-        local _, maxHP, power, speed, rarity = C_PetJournal.GetPetStats(petID)
-        if not rarity then return end
-        local _, speciesID, _, _, _, _, _, _, _, _, _, level = C_PetJournal.GetPetInfoByPetID(petID)
-        if not speciesID then return end
-
-        local q = (GeneDexDB.Options.AssumeRareQuality and rarity < 4) and 4 or rarity
-        local bid = CalcBreed(speciesID, level, q, maxHP, power, speed)
-        if not bid then return end
-        local code = GetBreedCode(bid)
-        local best = addonTable.IsBestBreed(speciesID, bid)
-        local text = best and ("★"..code) or code
-
-        blizzBtnCount = blizzBtnCount + 1
-
-        if button.name then
-            local cur = button.name:GetText() or ""
-            if not cur:find(code, 1, true) then
-                button.name:SetText(cur .. "  " .. text)
-            end
-            if best then button.name:SetTextColor(1, 0.84, 0) end
-        end
-    end)
-
-    LOG("已 Hook PetJournal_InitPetButton，共处理 %d 个按钮", blizzBtnCount)
-
-    -- 强制刷新列表，确保 hook 作用于当前显示的按钮
-    if PetJournal and PetJournal:IsShown() then
-        PetJournal_ListUpdate()
-    end
-end
-
 -- ========== 初始化 ==========
 function addonTable.InitJournalUI()
     LOG("初始化")
 
-    -- 先检查 Rematch 是否已加载（Rematch 可能在 GenDexBD 之前加载）
-    if C_AddOns.IsAddOnLoaded("Rematch") then
-        LOG("Rematch 已加载，1秒后 Hook...")
-        C_Timer.After(1, function()
+    local function initRematch()
+        C_Timer.After(0.5, function()
             TryHookRematch();TryInjectMenu()
             if not rematchHooked then LOG("⚠ Hook 失败") end
             if not menuInjected then LOG("⚠ 菜单注入失败") end
         end)
     end
 
-    -- 若未加载，等 ADDON_LOADED 事件
+    if C_AddOns.IsAddOnLoaded("Rematch") then
+        LOG("Rematch 已加载")
+        initRematch()
+    end
+
     local rf=CreateFrame("Frame");rf:RegisterEvent("ADDON_LOADED")
     rf:SetScript("OnEvent",function(_,_,a)
-        if a=="Rematch" then
-            LOG("Rematch ADDON_LOADED，1秒后 Hook...")
-            C_Timer.After(1, function()
-                TryHookRematch();TryInjectMenu()
-                if not rematchHooked then LOG("⚠ Hook 失败") end
-                if not menuInjected then LOG("⚠ 菜单注入失败") end
-            end)
-            rf:UnregisterEvent("ADDON_LOADED")
-        end
-    end)
-
-    -- 暴雪原生面板：PET_JOURNAL_LIST_UPDATE 时尝试安装 hook
-    local jf=CreateFrame("Frame");jf:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
-    jf:SetScript("OnEvent",function() InstallBlizzHook() end)
-
-    -- Blizzard_Collections 加载时安装 hook（此时 PetJournal_InitPetButton 才存在）
-    local bcf=CreateFrame("Frame");bcf:RegisterEvent("ADDON_LOADED")
-    bcf:SetScript("OnEvent",function(_,_,a)
-        if a=="Blizzard_Collections" then InstallBlizzHook();bcf:UnregisterEvent("ADDON_LOADED") end
-    end)
-
-    -- 面板切换通知 + 原生面板强制刷新
-    local prevMode="";local sw=CreateFrame("Frame");sw._t=0
-    sw:SetScript("OnUpdate",function(self,elapsed)
-        self._t=self._t+elapsed;if self._t<1 then return end;self._t=0
-        local mode
-        if RematchFrame and RematchFrame:IsShown() then mode="Rematch"
-        elseif PetJournal and PetJournal:IsShown() then mode="原生"
-        else mode="" end
-        if mode~=prevMode then
-            prevMode=mode
-            if mode=="Rematch" then LOG("当前面板: Rematch (标注 ✓  右键菜单 ✓)")
-            elseif mode=="原生" then
-                LOG("当前面板: 暴雪原生 (标注 ✓)")
-                -- 切到原生面板时强制刷新列表，触发 PetJournal_InitPetButton hook
-                if PetJournal_InitPetButton and PetJournal and PetJournal:IsShown() then
-                    PetJournal_ListUpdate()
-                end
-            end
-        end
+        if a=="Rematch" then initRematch();rf:UnregisterEvent("ADDON_LOADED") end
     end)
 end
