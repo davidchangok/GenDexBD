@@ -131,42 +131,51 @@ local function TryInjectMenu()
     LOG("Rematch 菜单已注入")
 end
 
--- ========== 暴雪原生面板：PET_JOURNAL_LIST_UPDATE 扫描 ==========
-local function ScanBlizzard()
-    if not PetJournal or not PetJournal:IsShown() then return end
+-- ========== 暴雪原生面板：hook PetJournal_InitPetButton ==========
+local blizzHookInstalled = false
+local blizzBtnCount = 0
 
-    local total, hasPetID, noStats, labeled = 0, 0, 0, 0
-    local function scan(p,d)
-        if d>5 then return end
-        for _,c in ipairs({p:GetChildren()}) do
-            total=total+1
-            if c.petID and c:IsVisible() and not c.Breed then
-                hasPetID=hasPetID+1
-                local _,sid,_,_,_,_,_,_,_,_,_,lv,q = C_PetJournal.GetPetInfoByPetID(c.petID)
-                -- 原生面板需要用 GetPetStats（不是 GetPetInfoByPetID）拿属性
-                local hp,pw,sp = C_PetJournal.GetPetStats(c.petID)
-                if sid and hp and hp>0 then
-                    local bid=CalcBreed(sid,lv,q,hp,pw,sp)
-                    if bid then
-                        local code=GetBreedCode(bid);local best=addonTable.IsBestBreed(sid,bid)
-                        if not c._gLabel then
-                            local fs=c:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
-                            fs:SetPoint("RIGHT",-4,0);fs:SetJustifyH("RIGHT");c._gLabel=fs
-                        end
-                        c._gLabel:SetText(best and ("★"..code) or code)
-                        c._gLabel:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
-                        c._gLabel:Show()
-                        labeled=labeled+1
-                    end
-                else
-                    noStats=noStats+1
-                end
+local function InstallBlizzHook()
+    if blizzHookInstalled then return end
+    if not PetJournal_InitPetButton then return end
+    blizzHookInstalled = true
+
+    hooksecurefunc("PetJournal_InitPetButton", function(button, elementData)
+        if not button or not elementData or not elementData.index then return end
+        if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
+
+        local petID = C_PetJournal.GetPetInfoByIndex(elementData.index)
+        if not petID then return end
+
+        local _, maxHP, power, speed, rarity = C_PetJournal.GetPetStats(petID)
+        if not rarity then return end
+        local _, speciesID, _, _, _, _, _, _, _, _, _, level = C_PetJournal.GetPetInfoByPetID(petID)
+        if not speciesID then return end
+
+        local q = (GeneDexDB.Options.AssumeRareQuality and rarity < 4) and 4 or rarity
+        local bid = CalcBreed(speciesID, level, q, maxHP, power, speed)
+        if not bid then return end
+        local code = GetBreedCode(bid)
+        local best = addonTable.IsBestBreed(speciesID, bid)
+        local text = best and ("★"..code) or code
+
+        blizzBtnCount = blizzBtnCount + 1
+
+        if button.name then
+            local cur = button.name:GetText() or ""
+            if not cur:find(code, 1, true) then
+                button.name:SetText(cur .. "  " .. text)
             end
-            scan(c,d+1)
+            if best then button.name:SetTextColor(1, 0.84, 0) end
         end
+    end)
+
+    LOG("已 Hook PetJournal_InitPetButton，共处理 %d 个按钮", blizzBtnCount)
+
+    -- 强制刷新列表，确保 hook 作用于当前显示的按钮
+    if PetJournal and PetJournal:IsShown() then
+        PetJournal_ListUpdate()
     end
-    scan(PetJournal,0)
-    if total>0 then LOG("Blizz: 扫描%d 有petID=%d noStats=%d 标注=%d",total,hasPetID,noStats,labeled) end
 end
 
 -- ========== 初始化 ==========
@@ -197,13 +206,13 @@ function addonTable.InitJournalUI()
         end
     end)
 
-    -- 暴雪原生面板
+    -- 暴雪原生面板：PET_JOURNAL_LIST_UPDATE 时尝试安装 hook
     local jf=CreateFrame("Frame");jf:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
-    jf:SetScript("OnEvent",function() ScanBlizzard() end)
+    jf:SetScript("OnEvent",function() InstallBlizzHook() end)
 
-    -- Blizzard_Collections 加载
+    -- Blizzard_Collections 加载时安装 hook（此时 PetJournal_InitPetButton 才存在）
     local bcf=CreateFrame("Frame");bcf:RegisterEvent("ADDON_LOADED")
     bcf:SetScript("OnEvent",function(_,_,a)
-        if a=="Blizzard_Collections" then ScanBlizzard();bcf:UnregisterEvent("ADDON_LOADED") end
+        if a=="Blizzard_Collections" then InstallBlizzHook();bcf:UnregisterEvent("ADDON_LOADED") end
     end)
 end
