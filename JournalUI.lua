@@ -130,11 +130,19 @@ end
 
 -- ========== 暴雪原生面板：PET_JOURNAL_LIST_UPDATE 扫描 ==========
 local function ScanBlizzard()
-    if not PetJournal or not PetJournal:IsShown() then return end
+    local show = PetJournal and PetJournal:IsShown()
+    if not show then
+        -- 静默，等下次事件
+        return
+    end
+
+    local total, hasPetID, noStats, labeled = 0, 0, 0, 0
     local function scan(p,d)
-        if d>4 then return end
+        if d>5 then return end
         for _,c in ipairs({p:GetChildren()}) do
+            total=total+1
             if c.petID and c:IsVisible() and not c.Breed then
+                hasPetID=hasPetID+1
                 local _,sid,_,_,_,_,_,_,_,_,_,lv,q,hp,pw,sp=C_PetJournal.GetPetInfoByPetID(c.petID)
                 if sid and hp then
                     local bid=CalcBreed(sid,lv,q,hp,pw,sp)
@@ -147,13 +155,17 @@ local function ScanBlizzard()
                         c._gLabel:SetText(best and ("★"..code) or code)
                         c._gLabel:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
                         c._gLabel:Show()
+                        labeled=labeled+1
                     end
+                else
+                    noStats=noStats+1
                 end
             end
             scan(c,d+1)
         end
     end
     scan(PetJournal,0)
+    if total>0 then LOG("Blizz: 扫描%d 有petID=%d noStats=%d 标注=%d",total,hasPetID,noStats,labeled) end
 end
 
 -- ========== 初始化 ==========
