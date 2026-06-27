@@ -97,19 +97,20 @@ local function RematchDecorate(button)
     if not sid then return end
     local hp,pw,sp = C_PetJournal.GetPetStats(button.petID)
 
-    -- 计算品种并保持 Breed 文本
+    -- 金色五星：检查**当前宠物的具体品种**是否被标记为最优
+    local isBest = false
     if hp and hp>0 then
         local bid=CalcBreed(sid,lv,q,hp,pw,sp)
-        if bid and button.Breed then
-            local code=GetBreedCode(bid)
-            button.Breed:SetText(code)
-            button.Breed:SetTextColor(0.6,0.6,0.6)
-            button.Breed:Show()
+        if bid then
+            isBest = addonTable.IsBestBreed(sid, bid)  -- 精确匹配 breedID
+            if button.Breed then
+                local code=GetBreedCode(bid)
+                button.Breed:SetText(isBest and ("★"..code) or code)
+                button.Breed:SetTextColor(isBest and 1 or 0.6, isBest and 0.84 or 0.6, 0.6)
+                button.Breed:Show()
+            end
         end
     end
-
-    -- 金色五星：最优品种标记（锚定到 Icon 右上角）
-    local isBest = addonTable.GetAllBestBreeds(sid) and next(addonTable.GetAllBestBreeds(sid))
     if isBest then
         if not button._gStar then
             local star = button:CreateTexture(nil, "OVERLAY")
@@ -142,18 +143,21 @@ function RematchSetBest(petID,cat)
     local hp,pw,sp = C_PetJournal.GetPetStats(petID)
     local bid=CalcBreed(speciesID,level,4,hp,pw,sp)
     if bid then
+        local code=GetBreedCode(bid)
         addonTable.SetBestBreed(speciesID,bid,cat or "custom","")
-        -- 强制刷新 Rematch 列表让 Breed 文本更新
+        LOG("已保存: speciesID=%d breedID=%d (%s)", speciesID, bid, code)
         if Rematch and Rematch.petsPanel and Rematch.petsPanel.Update then
             Rematch.petsPanel:Update()
         end
+    else
+        LOG("⚠ 推算失败: speciesID=%d hp=%s", speciesID, tostring(hp))
     end
 end
 function RematchRemoveBest(petID)
     local speciesID = C_PetJournal.GetPetInfoByPetID(petID)
     if not speciesID then return end
     for bid in pairs(addonTable.GetAllBestBreeds(speciesID)) do addonTable.RemoveBestBreed(speciesID,bid) end
-    -- 强制刷新
+    LOG("已移除: speciesID=%d", speciesID)
     if Rematch and Rematch.petsPanel and Rematch.petsPanel.Update then
         Rematch.petsPanel:Update()
     end
