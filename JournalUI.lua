@@ -33,7 +33,7 @@ end
 
 -- ========== Rematch 品种标注 + 五星 ==========
 local function Decorate(button)
-    if not button or not button.petID or not button.Icon then return end
+    if not button or not button.petID then return end
     if not Rematch or not Rematch.petInfo then return end
     local info=Rematch.petInfo:Fetch(button.petID)
     if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return end
@@ -51,7 +51,7 @@ local function Decorate(button)
         if not button._gStar then
             local star=button:CreateTexture(nil,"OVERLAY")
             star:SetAtlas("PetJournal-FavoritesIcon");star:SetSize(16,16)
-            star:SetPoint("TOPRIGHT",button.Icon,"TOPRIGHT",4,4);button._gStar=star
+            star:SetPoint("TOPRIGHT",button,"TOPRIGHT",2,-2);button._gStar=star
         end;button._gStar:Show()
     else
         if button._gStar then button._gStar:Hide() end
@@ -63,14 +63,13 @@ local function DecorateAllVisible()
     if not RematchFrame or not RematchFrame:IsShown() then return end
     local count=0
     local function scan(p,d)
-        if d>5 then return end
+        if d>6 then return end
         for _,c in ipairs({p:GetChildren()}) do
-            if c.petID and c.Icon and c.Breed and c:IsVisible() then
-                Decorate(c);count=count+1
-            end;scan(c,d+1)
+            if c.petID and c:IsVisible() then Decorate(c);count=count+1 end;scan(c,d+1)
         end
     end
     scan(RematchFrame,0)
+    if count==0 then LOG("DecorateAll: 0个可见按钮 (RematchFrame可见=%s)",tostring(RematchFrame:IsShown())) end
     return count
 end
 
