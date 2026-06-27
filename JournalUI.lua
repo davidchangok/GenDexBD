@@ -141,10 +141,6 @@ end
 -- ============================================================================
 -- 列表按钮品种标注
 -- ============================================================================
-
-local firstScanDone = false
-
---- 从 ScrollFrame / ScrollBox 中获取所有可见的宠物列表按钮
 local function FindPetListButtons()
     local btns = {}
     local method = ""
@@ -157,17 +153,18 @@ local function FindPetListButtons()
                 if b and b:IsVisible() and b.petID then btns[#btns + 1] = b end
             end
         end
-        if #btns > 0 then
-            LOG("找到 %d 个按钮 (方法=%s)", #btns, method)
-            return btns
-        end
+        if #btns > 0 then return btns end
     end
 
-    -- 方法2：遍历 PetJournal 的全部子 Frame（12.0 ScrollBox）
-    method = "PetJournal 深度遍历"
-    if PetJournal then
+    -- 方法2：遍历 PetJournal / CollectionsJournal 的全部子 Frame（12.0 ScrollBox）
+    local searchRoots = {}
+    if PetJournal then searchRoots[#searchRoots + 1] = { name = "PetJournal", frame = PetJournal } end
+    if CollectionsJournal then searchRoots[#searchRoots + 1] = { name = "CollectionsJournal", frame = CollectionsJournal } end
+
+    for _, root in ipairs(searchRoots) do
+        method = root.name .. " 深度遍历"
         local function scan(parent, depth)
-            if depth > 5 then return end
+            if depth > 6 then return end
             local children = { parent:GetChildren() }
             for _, child in ipairs(children) do
                 if child:IsVisible() and child.petID then
@@ -176,7 +173,7 @@ local function FindPetListButtons()
                 scan(child, depth + 1)
             end
         end
-        scan(PetJournal, 0)
+        scan(root.frame, 0)
         if #btns > 0 then
             LOG("找到 %d 个按钮 (方法=%s)", #btns, method)
             return btns
@@ -184,37 +181,13 @@ local function FindPetListButtons()
     end
 
     -- 方法3：全局命名表
-    method = "全局命名表 PetJournalListScrollFrameButtonN"
+    method = "全局命名表"
     for i = 1, 50 do
         local b = _G["PetJournalListScrollFrameButton" .. i]
         if not b then break end
         if b:IsVisible() and b.petID then btns[#btns + 1] = b end
     end
-    if #btns > 0 then
-        LOG("找到 %d 个按钮 (方法=%s)", #btns, method)
-        return btns
-    end
 
-    if not firstScanDone then
-        firstScanDone = true
-        -- 只报一次：输出环境诊断
-        LOG("--- 首次扫描诊断 ---")
-        LOG("PetJournal: %s", PetJournal and "存在" or "nil")
-        LOG("PetJournalListScrollFrame: %s", PetJournalListScrollFrame and "存在" or "nil")
-        if PetJournal then
-            local allChildren = { PetJournal:GetChildren() }
-            LOG("PetJournal 直接子 Frame 数: %d", #allChildren)
-            for _, child in ipairs(allChildren) do
-                local cn = child:GetName() or "<无名>"
-                local cv = child:IsVisible() and "可见" or "隐藏"
-                local cp = child.petID and ("[petID=" .. tostring(child.petID) .. "]") or ""
-                LOG("  子: %s (%s) %s", cn, cv, cp)
-            end
-        end
-        LOG("--- 诊断结束 ---")
-    end
-
-    ERR("找不到任何宠物列表按钮 (方法=%s)", method)
     return btns
 end
 
@@ -379,11 +352,43 @@ local updateCount = 0
 
 local function OnJournalUpdate()
     updateCount = updateCount + 1
-    LOG("PET_JOURNAL_LIST_UPDATE #%d", updateCount)
+
+    -- PetJournal 在 Blizzard_Collections 加载前为 nil，直接跳过
+    if not PetJournal then
+        LOG("#%d PetJournal=nil 跳过", updateCount)
+        return
+    end
+
+    local hasCJ = CollectionsJournal ~= nil
+    LOG("#%d PJ=%s CJ=%s PJ.show=%s",
+        updateCount,
+        PetJournal and "T" or "nil",
+        hasCJ and "T" or "nil",
+        PetJournal:IsShown() and "yes" or "no")
+
+    -- 首次 PetJournal 存在时打印所有子 Frame 结构
+    if not PetJournal._genedex_dumped then
+        PetJournal._genedex_dumped = true
+        LOG("=== PetJournal 子 Frame 结构 ===")
+        local function dump(parent, indent)
+            if indent > 3 then return end
+            local children = { parent:GetChildren() }
+            for _, child in ipairs(children) do
+                local cn = child:GetName() or "<unnamed>"
+                local cv = child:IsVisible() and "可见" or "隐藏"
+                local extra = ""
+                if child.petID then extra = " [petID=" .. tostring(child.petID) .. "]" end
+                if child.buttonType then extra = extra .. " [buttonType]" end
+                LOG("  " .. string.rep("  ", indent) .. "%s (%s)%s", cn, cv, extra)
+                dump(child, indent + 1)
+            end
+        end
+        dump(PetJournal, 0)
+        LOG("=== 结构结束 ===")
+    end
 
     RefreshAllButtons()
 
-    -- 给新出现的按钮加右键 hook
     local btns = FindPetListButtons()
     for _, b in ipairs(btns) do
         if b and b.petID then HookRightClick(b) end
