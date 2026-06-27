@@ -26,10 +26,124 @@ local next = next
 local tostring = tostring
 local tinsert = table.insert
 local tconcat = table.concat
+local strlower = string.lower
+local strfind = string.find
 
 -- ============================================================================
--- 品种缓存
+-- API 字段自动探测
 -- ============================================================================
+
+--- 已探测到的 C_PetJournal.GetPetInfoBySpeciesID 返回字段名（缓存）
+local petInfoFields = nil  -- { healthKey, powerKey, speedKey }
+
+--- 运行时自动探测 GetPetInfoBySpeciesID 返回表中三围基准属性的字段名
+--- 用任意一个已知物种ID（如 39=机械小鸡）取一次数据，然后根据字段名模式匹配
+--- @return healthKey, powerKey, speedKey 实际字段名
+local function DetectPetInfoFields()
+    if petInfoFields then
+        return petInfoFields[1], petInfoFields[2], petInfoFields[3]
+    end
+
+    -- 尝试用物种ID=39（机械小鸡，几乎所有版本都有）取一次返回值来探测字段
+    local sample = C_PetJournal.GetPetInfoBySpeciesID(39)
+    if not sample then
+        -- 退而求其次，取任意已知物种
+        sample = C_PetJournal.GetPetInfoBySpeciesID(1)
+    end
+    if not sample then
+        return nil, nil, nil
+    end
+
+    local allKeys = {}
+    for k in pairs(sample) do
+        allKeys[#allKeys + 1] = k
+    end
+
+    -- 字段匹配规则：字段名转换为小写后，包含特定关键词则判定为该属性类型
+    local healthPatterns = { "health", "hp" }
+    local powerPatterns = { "power", "attack", "atk" }
+    local speedPatterns = { "speed", "spd" }
+
+    local function findKey(patterns)
+        for _, key in ipairs(allKeys) do
+            local lowerKey = strlower(key)
+            for _, pat in ipairs(patterns) do
+                if strfind(lowerKey, pat, 1, true) then
+                    return key
+                end
+            end
+        end
+        return nil
+    end
+
+    local healthKey = findKey(healthPatterns)
+    local powerKey = findKey(powerPatterns)
+    local speedKey = findKey(speedPatterns)
+
+    petInfoFields = { healthKey, powerKey, speedKey }
+    return healthKey, powerKey, speedKey
+end
+
+--- 从 GetPetInfoBySpeciesID 返回表中提取三围基准属性
+--- @param petInfo table API 返回的物种信息表
+--- @return number|nil baseHealth, number|nil basePower, number|nil baseSpeed
+local function ExtractBaseStats(petInfo)
+    if not petInfo then
+        return nil, nil, nil
+    end
+    local hKey, pKey, sKey = DetectPetInfoFields()
+    if not hKey or not pKey or not sKey then
+        return nil, nil, nil
+    end
+    return petInfo[hKey], petInfo[pKey], petInfo[sKey]
+end
+
+-- ============================================================================
+-- 宠物列表按钮自动发现
+-- ============================================================================
+
+--- 运行时动态获取宠物手册滚动列表中的所有可见按钮
+--- 不依赖硬编码的按钮命名规则，而是通过遍历 scrollFrame 子元素自动发现
+--- @return table Frame 对象数组
+local function FindJournalListButtons()
+    local buttons = {}
+
+    -- 方法1：通过 HybridScrollFrame 标准 API 获取
+    if PetJournalListScrollFrame and PetJournalListScrollFrame.buttons then
+        for _, btn in ipairs(PetJournalListScrollFrame.buttons) do
+            if btn and btn:IsVisible() then
+                buttons[#buttons + 1] = btn
+            end
+        end
+        if #buttons > 0 then
+            return buttons
+        end
+    end
+
+    -- 方法2：遍历 ScrollFrame 子元素，按命名模式和可见性筛选
+    local children = { PetJournalListScrollFrame:GetChildren() }
+    for _, child in ipairs(children) do
+        -- 判断是否为按钮 Frame（有 GetPetID 属性的或名字匹配 Button 模式的）
+        local childName = child:GetName()
+        if childName and strfind(childName, "PetJournalListScrollFrameButton") then
+            if child:IsVisible() then
+                buttons[#buttons + 1] = child
+            end
+        end
+    end
+
+    -- 方法3：如果以上都失败，回退到遍历全局命名表（兼容旧版）
+    if #buttons == 0 then
+        for i = 1, 40 do
+            local btn = _G["PetJournalListScrollFrameButton" .. i]
+            if btn and btn:IsVisible() then
+                buttons[#buttons + 1] = btn
+            end
+        end
+    end
+
+    return buttons
+end
 
 -- 缓存键: speciesID .. "_" .. petID → breedID
 -- 在宠物列表刷新和详情切换时使用，避免重复计算
@@ -296,10 +410,10 @@ end
 function addonTable.RefreshJournalList()
     -- 检查开关
     if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then
-        -- 隐藏所有已有的标注
-        for i = 1, 30 do  -- 30 个足够覆盖任何滚动列表
-            local button = _G["PetJournalListScrollFrameButton" .. i]
-            if button and button.GeneDexBreedText then
+        -- 隐藏所有已有的标注（自动发现按钮）
+        local allButtons = FindJournalListButtons()
+        for _, button in ipairs(allButtons) do
+            if button.GeneDexBreedText then
                 button.GeneDexBreedText:Hide()
             end
         end
@@ -312,19 +426,20 @@ function addonTable.RefreshJournalList()
         return
     end
 
-    -- 尝试获取滚动偏移
+    -- 尝试获取滚动偏移（支持多种 API）
     local scrollOffset = 0
-    if PetJournalListScrollFrame and PetJournalListScrollFrame.offset then
-        scrollOffset = PetJournalListScrollFrame.offset
+    if PetJournalListScrollFrame then
+        if PetJournalListScrollFrame.offset then
+            scrollOffset = PetJournalListScrollFrame.offset
+        elseif PetJournalListScrollFrame.scrollOffset then
+            scrollOffset = PetJournalListScrollFrame.scrollOffset
+        end
     end
 
-    -- 遍历可见的列表按钮
-    for i = 1, 30 do
-        local button = _G["PetJournalListScrollFrameButton" .. i]
-        if not button then
-            break
-        end
+    -- 自动发现所有可见的列表按钮
+    local buttons = FindJournalListButtons()
 
+    for i, button in ipairs(buttons) do
         local petIndex = i + scrollOffset
         if petIndex > numPets then
             -- 超出范围，隐藏
@@ -338,14 +453,9 @@ function addonTable.RefreshJournalList()
                     C_PetJournal.GetPetInfoByPetID(petID)
 
                 if speciesID and level then
-                    -- 获取物种基准属性
+                    -- 用自动探测获取物种基准属性
                     local petInfo = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
-                    local baseHealth, basePower, baseSpeed
-                    if petInfo then
-                        baseHealth = petInfo.baseHealth or petInfo.health or petInfo.baseHp
-                        basePower = petInfo.basePower or petInfo.power or petInfo.baseAtk
-                        baseSpeed = petInfo.baseSpeed or petInfo.speed or petInfo.baseSpd
-                    end
+                    local baseHealth, basePower, baseSpeed = ExtractBaseStats(petInfo)
 
                     -- 获取缓存/推算品种
                     local breedID = GetCachedBreed(
@@ -705,14 +815,9 @@ local function UpdateDetailView()
         return
     end
 
-    -- 获取物种基准属性
+    -- 获取物种基准属性（自动探测 API 字段名）
     local petInfo = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
-    local baseHealth, basePower, baseSpeed
-    if petInfo then
-        baseHealth = petInfo.baseHealth or petInfo.health or petInfo.baseHp
-        basePower = petInfo.basePower or petInfo.power or petInfo.baseAtk
-        baseSpeed = petInfo.baseSpeed or petInfo.speed or petInfo.baseSpd
-    end
+    local baseHealth, basePower, baseSpeed = ExtractBaseStats(petInfo)
 
     -- 推算品种
     local breedID = GetCachedBreed(

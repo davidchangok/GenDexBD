@@ -15,7 +15,75 @@ local GetBreedDisplayName = addonTable.GetBreedDisplayName
 local GetBestBreedCategoryName = addonTable.GetBestBreedCategoryName
 local GetLocaleString = addonTable.GetLocaleString
 
-local TooltipDataProcessor_AddTooltipPostCall = TooltipDataProcessor.AddTooltipPostCall
+local type = type
+local pairs = pairs
+local strlower = string.lower
+local strfind = string.find
+
+-- ============================================================================
+-- API 返回字段自动探测（C_PetJournal.GetPetInfoBySpeciesID）
+-- ============================================================================
+
+-- 已探测到的字段名缓存
+local petInfoFields = nil  -- { healthKey, powerKey, speedKey }
+
+--- 运行时自动探测 GetPetInfoBySpeciesID 返回表的三围基准属性字段名
+--- 不依赖任何硬编码的字段名
+--- @return healthKey, powerKey, speedKey 或均为 nil
+local function DetectPetInfoFields()
+    if petInfoFields then
+        return petInfoFields[1], petInfoFields[2], petInfoFields[3]
+    end
+
+    -- 尝试取一个已知物种的返回数据来分析字段结构
+    local sample = C_PetJournal.GetPetInfoBySpeciesID(39)  -- 机械小鸡
+    if not sample then
+        sample = C_PetJournal.GetPetInfoBySpeciesID(1)
+    end
+    if not sample then
+        return nil, nil, nil
+    end
+
+    -- 收集所有键名
+    local allKeys = {}
+    for k in pairs(sample) do
+        allKeys[#allKeys + 1] = k
+    end
+
+    -- 按关键词模式匹配字段
+    local function findKey(patterns)
+        for _, key in ipairs(allKeys) do
+            local lowerKey = strlower(key)
+            for _, pat in ipairs(patterns) do
+                if strfind(lowerKey, pat, 1, true) then
+                    return key
+                end
+            end
+        end
+        return nil
+    end
+
+    local healthKey = findKey({"health", "hp"})
+    local powerKey  = findKey({"power", "attack", "atk"})
+    local speedKey  = findKey({"speed", "spd"})
+
+    petInfoFields = { healthKey, powerKey, speedKey }
+    return healthKey, powerKey, speedKey
+end
+
+--- 从 GetPetInfoBySpeciesID 返回表提取三围基准属性
+--- @param petInfo table|nil
+--- @return number|nil baseHealth, number|nil basePower, number|nil baseSpeed
+local function ExtractBaseStats(petInfo)
+    if not petInfo then
+        return nil, nil, nil
+    end
+    local hKey, pKey, sKey = DetectPetInfoFields()
+    if not hKey or not pKey or not sKey then
+        return nil, nil, nil
+    end
+    return petInfo[hKey], petInfo[pKey], petInfo[sKey]
+end
 
 -- ============================================================================
 -- 内部辅助函数
@@ -101,17 +169,13 @@ local function OnBattlePetTooltip(tooltip, data)
         return  -- 数据不完整，无法推算
     end
 
-    -- 获取物种基准属性
+    -- 获取物种基准属性（自动探测 API 字段名，不硬编码）
     local petInfo = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
     if not petInfo then
         return
     end
 
-    -- 尝试多种可能的字段名（WoW API 返回字段名可能因版本而异）
-    local baseHealth = petInfo.baseHealth or petInfo.health or petInfo.baseHp or petInfo.baseHP
-    local basePower = petInfo.basePower or petInfo.power or petInfo.baseAtk or petInfo.baseAttack
-    local baseSpeed = petInfo.baseSpeed or petInfo.speed or petInfo.baseSpd or petInfo.baseSpeed2
-
+    local baseHealth, basePower, baseSpeed = ExtractBaseStats(petInfo)
     if not baseHealth or not basePower or not baseSpeed then
         return
     end
@@ -212,15 +276,33 @@ end
 
 --- 注册 Tooltip 回调（由 Core.lua 在 PLAYER_LOGIN 时调用）
 function addonTable.InitTooltip()
+    -- 运行时检测 TooltipDataProcessor API 是否存在（10.0+）
+    if not TooltipDataProcessor
+        or not TooltipDataProcessor.AddTooltipPostCall
+        or type(TooltipDataProcessor.AddTooltipPostCall) ~= "function"
+    then
+        -- 旧版客户端，静默跳过（Interface 版本号会阻止加载，此检查为额外防护）
+        return
+    end
+
+    -- 检测 TooltipDataType 枚举是否存在
+    if not Enum or not Enum.TooltipDataType then
+        return
+    end
+
     -- 注册 BattlePet 类型 Tooltip 回调
-    TooltipDataProcessor_AddTooltipPostCall(
-        Enum.TooltipDataType.BattlePet,
-        OnBattlePetTooltip
-    )
+    if Enum.TooltipDataType.BattlePet then
+        TooltipDataProcessor.AddTooltipPostCall(
+            Enum.TooltipDataType.BattlePet,
+            OnBattlePetTooltip
+        )
+    end
 
     -- 注册 Item 类型 Tooltip 回调（宠物笼物品）
-    TooltipDataProcessor_AddTooltipPostCall(
-        Enum.TooltipDataType.Item,
-        OnItemTooltip
-    )
+    if Enum.TooltipDataType.Item then
+        TooltipDataProcessor.AddTooltipPostCall(
+            Enum.TooltipDataType.Item,
+            OnItemTooltip
+        )
+    end
 end
