@@ -1,13 +1,12 @@
 -- GenDexBD JournalUI.lua
--- Rematch: hook FillNormal/FillCompact 改写 Breed + 菜单注入
--- 暴雪原生: 不集成（Rematch 已接管宠物面板）
+-- 双模式品种标注：Rematch (Hook Fill) + 暴雪原生 (Hook PetJournal_InitPetButton)
 
 local addonName, addonTable = ...
 local GetBreedCode=addonTable.GetBreedCode;local time=time
 local pairs=pairs;local next=next;local strlower=string.lower;local strfind=string.find
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
--- ========== API ==========
+-- ========== 最优品种管理 API ==========
 function addonTable.SetBestBreed(sid,bid,cat,note)
     if not sid or not bid then return end;if not GeneDexDB then return end
     local bb=GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then GeneDexDB.BestBreeds={} end
@@ -17,13 +16,23 @@ end
 function addonTable.RemoveBestBreed(sid,bid)
     if not sid or not bid then return end
     local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return end
-    local sd=bb[sid];if not sd or type(sd)~="table" then return end
-    sd[bid]=nil;if not next(sd) then bb[sid]=nil end
+    local sd=bb[sid];if not sd or type(sd)~="table" then return end;sd[bid]=nil;if not next(sd) then bb[sid]=nil end
 end
 function addonTable.IsBestBreed(sid,bid)
     if not sid or not bid then return false end
     local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return false end
     local sd=bb[sid];if not sd or type(sd)~="table" then return false end;return sd[bid]~=nil
+end
+function addonTable.GetBestBreedInfo(sid,bid)
+    if not sid or not bid then return nil end
+    local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return nil end
+    local sd=bb[sid];if not sd or type(sd)~="table" then return nil end
+    local bd=sd[bid];return (bd and type(bd)=="table") and bd or nil
+end
+function addonTable.GetAllBestBreeds(sid)
+    if not sid then return {} end
+    local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return {} end
+    local sd=bb[sid];return (sd and type(sd)=="table") and sd or {}
 end
 
 -- ========== 品种推算 ==========
@@ -45,8 +54,8 @@ local function CalcBreed(sid,lv,q,hp,pw,sp)
     return addonTable.CalculateBreedFromStats(hp,pw,sp,bh,bp,bs,lv,q2)
 end
 
--- ========== Rematch Breed 改写 ==========
-local function Decorate(button)
+-- ========== Rematch：Hook Fill + 菜单 ==========
+local function RematchDecorate(button)
     if not button or not button.petID or not button.Breed then return end
     local _,sid,_,_,_,_,_,_,_,_,_,lv,q = C_PetJournal.GetPetInfoByPetID(button.petID)
     if not sid then return end
@@ -59,19 +68,16 @@ local function Decorate(button)
     button.Breed:Show()
 end
 
--- ========== Rematch Hook ==========
 local rematchHooked=false
 local function TryHookRematch()
     if rematchHooked then return end
-    if not Rematch or not Rematch.petsPanel then return end
-    if not Rematch.petsPanel.FillNormal then return end
+    if not Rematch or not Rematch.petsPanel or not Rematch.petsPanel.FillNormal then return end
     rematchHooked=true
-    hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,button) Decorate(button) end)
-    hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,button) Decorate(button) end)
-    LOG("已 Hook Rematch.petsPanel FillNormal+FillCompact")
+    hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,button) RematchDecorate(button) end)
+    hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,button) RematchDecorate(button) end)
+    LOG("已 Hook Rematch Fill")
 end
 
--- ========== Rematch 菜单 ==========
 function RematchSetBest(petID,cat)
     local _,sid,_,_,_,_,_,_,_,_,_,lv,q,hp,pw,sp=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return end
     local bid=CalcBreed(sid,lv,q,hp,pw,sp);if bid then addonTable.SetBestBreed(sid,bid,cat,"") end
@@ -84,14 +90,9 @@ function RematchHasBest(petID)
     local _,sid=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return false end
     return next(addonTable.GetAllBestBreeds(sid))
 end
-function addonTable.GetAllBestBreeds(sid)
-    if not sid then return {} end
-    local bb=GeneDexDB and GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then return {} end
-    local sd=bb[sid];return (sd and type(sd)=="table") and sd or {}
-end
 
 local menuInjected=false
-local function TryInjectMenu()
+local function TryInjectRematchMenu()
     if menuInjected then return end
     if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
     menuInjected=true
@@ -115,25 +116,124 @@ local function TryInjectMenu()
     LOG("Rematch 菜单已注入")
 end
 
+-- ========== 暴雪原生：Hook PetJournal_InitPetButton + 右键菜单 ==========
+local blizzMenuFrame=nil
+local function BlizzRightClick(button,petID)
+    local _,sid,_,_,_,_,_,_,_,_,_,lv,q,hp,pw,sp=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return end
+    local bid=CalcBreed(sid,lv,q,hp,pw,sp);if not bid then return end
+    if not blizzMenuFrame then blizzMenuFrame=CreateFrame("Frame","GeneDexBDMenu",UIParent,"UIDropDownMenuTemplate") end
+    local isBest=addonTable.IsBestBreed(sid,bid)
+    local code=GetBreedCode(bid) or "?";local name=addonTable.GetBreedDisplayName and addonTable.GetBreedDisplayName(bid,code) or (code.." 品种")
+
+    UIDropDownMenu_Initialize(blizzMenuFrame,function(_,lv)
+        local info=UIDropDownMenu_CreateInfo()
+        if lv==1 then
+            info.text=name;info.isTitle=true;info.notCheckable=true;UIDropDownMenu_AddButton(info,1)
+            if isBest then
+                info.isTitle=false;info.text="取消最优品种";info.notCheckable=true
+                info.func=function() addonTable.RemoveBestBreed(sid,bid) end;UIDropDownMenu_AddButton(info,1)
+            else
+                info.isTitle=false;info.text="设为最优品种";info.notCheckable=true;info.hasArrow=true;info.menuList="GeneDexBD_BlizzCats"
+                UIDropDownMenu_AddButton(info,1)
+            end
+        elseif lv==2 then
+            for _,cat in ipairs({"pvp","pve","collection","custom"}) do
+                info.text=cat;info.notCheckable=true
+                info.func=function() addonTable.SetBestBreed(sid,bid,cat,"") end;UIDropDownMenu_AddButton(info,2)
+            end
+        end
+    end)
+    ToggleDropDownMenu(1,nil,blizzMenuFrame,button,0,0)
+end
+
+local blizzHooked=false
+local function TryHookBlizzard()
+    if blizzHooked then return end
+    if not PetJournal_InitPetButton then return end
+    blizzHooked=true
+
+    hooksecurefunc("PetJournal_InitPetButton",function(button,elementData)
+        if not button or not elementData or not elementData.index then return end
+        if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
+
+        local petID = C_PetJournal.GetPetInfoByIndex(elementData.index)
+        if not petID then return end
+        local _,maxHP,power,speed,rarity = C_PetJournal.GetPetStats(petID)
+        if not rarity then return end
+        local _,speciesID,_,_,_,_,_,_,_,_,_,level = C_PetJournal.GetPetInfoByPetID(petID)
+        if not speciesID then return end
+
+        local q=(GeneDexDB.Options.AssumeRareQuality and rarity<4) and 4 or rarity
+        local bid=CalcBreed(speciesID,level,q,maxHP,power,speed);if not bid then return end
+        local code=GetBreedCode(bid);local best=addonTable.IsBestBreed(speciesID,bid)
+        local text=best and ("★"..code) or code
+
+        if button.name then
+            local cur=button.name:GetText() or ""
+            if not cur:find(code,1,true) then button.name:SetText(cur.."  "..text) end
+            if best then button.name:SetTextColor(1,0.84,0) end
+        end
+
+        -- 右键菜单
+        if not button._genedexRight then
+            button._genedexRight=true
+            button:SetScript("OnMouseUp",function(self,btnName)
+                if btnName=="RightButton" then BlizzRightClick(self,petID) end
+            end)
+        end
+    end)
+
+    LOG("已 Hook PetJournal_InitPetButton")
+
+    -- 强制刷新当前显示的原生面板
+    if PetJournal and PetJournal:IsShown() then
+        PetJournal_ListUpdate()
+    end
+end
+
 -- ========== 初始化 ==========
 function addonTable.InitJournalUI()
     LOG("初始化")
 
-    local function initRematch()
-        C_Timer.After(0.5, function()
-            TryHookRematch();TryInjectMenu()
-            if not rematchHooked then LOG("⚠ Hook 失败") end
-            if not menuInjected then LOG("⚠ 菜单注入失败") end
-        end)
+    -- Rematch 初始化
+    local function initR()
+        C_Timer.After(0.3,function() TryHookRematch();TryInjectRematchMenu() end)
     end
-
-    if C_AddOns.IsAddOnLoaded("Rematch") then
-        LOG("Rematch 已加载")
-        initRematch()
-    end
-
+    if C_AddOns.IsAddOnLoaded("Rematch") then initR() end
     local rf=CreateFrame("Frame");rf:RegisterEvent("ADDON_LOADED")
-    rf:SetScript("OnEvent",function(_,_,a)
-        if a=="Rematch" then initRematch();rf:UnregisterEvent("ADDON_LOADED") end
+    rf:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then initR();rf:UnregisterEvent("ADDON_LOADED") end end)
+
+    -- 暴雪原生初始化
+    local function initB()
+        TryHookBlizzard()
+    end
+    local bcf=CreateFrame("Frame");bcf:RegisterEvent("ADDON_LOADED")
+    bcf:SetScript("OnEvent",function(_,_,a)
+        if a=="Blizzard_Collections" then initB();bcf:UnregisterEvent("ADDON_LOADED") end
+    end)
+    local pjf=CreateFrame("Frame");pjf:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
+    pjf:SetScript("OnEvent",function() TryHookBlizzard() end)
+
+    -- 面板切换时强制刷新原生
+    local prevMode="";local sw=CreateFrame("Frame");sw._t=0
+    sw:SetScript("OnUpdate",function(self,elapsed)
+        self._t=self._t+elapsed;if self._t<1 then return end;self._t=0
+        local mode
+        if RematchFrame and RematchFrame:IsShown() then mode="R"
+        elseif PetJournal and PetJournal:IsShown() then mode="B"
+        else mode="" end
+        if mode~=prevMode then
+            prevMode=mode
+            if mode=="B" then
+                -- 切到原生面板时延迟刷新
+                C_Timer.After(0.3,function()
+                    TryHookBlizzard()
+                    if PetJournal and PetJournal:IsShown() and PetJournal_InitPetButton then
+                        PetJournal_ListUpdate()
+                    end
+                end)
+            end
+            LOG("面板切换: %s",mode=="R" and "Rematch" or mode=="B" and "暴雪原生" or "关闭")
+        end
     end)
 end
