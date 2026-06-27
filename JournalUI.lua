@@ -8,7 +8,8 @@ local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 function addonTable.SetBestBreed(s,b,c,n)
     if not s or not b then return end;if not GeneDexDB then return end
     local bb=GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then GeneDexDB.BestBreeds={} end
-    if not GeneDexDB.BestBreeds[s] then GeneDexDB.BestBreeds[s]={} end
+    -- 同一物种只允许一个最优：先清空该物种的所有已有标记
+    GeneDexDB.BestBreeds[s]={}
     GeneDexDB.BestBreeds[s][b]={category=c or "custom",note=n or "",addedAt=time()}
 end
 function addonTable.RemoveBestBreed(s,b)
