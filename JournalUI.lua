@@ -106,38 +106,57 @@ end
 -- 按钮发现（双来源）
 -- ============================================================================
 
-local function DeepScan(root, maxDepth)
+--- 扫描 Frame 树，找有 Breed 子元素（Rematch按钮标志）的 Frame
+local function ScanForButtons(root, maxDepth, label)
     local btns = {}
+    local totalVisible = 0
+    local withPetID = 0
+    local withBreed = 0
     local function scan(p, d)
         if d > maxDepth then return end
-        for _, c in ipairs({ p:GetChildren() }) do
-            if c:IsVisible() and c.petID and not c._genedexNoClick then btns[#btns+1] = c end
+        local children = { p:GetChildren() }
+        for _, c in ipairs(children) do
+            if c:IsVisible() then
+                totalVisible = totalVisible + 1
+                if c.petID then
+                    withPetID = withPetID + 1
+                    if c.Breed then withBreed = withBreed + 1 end
+                    btns[#btns+1] = c
+                end
+            end
             scan(c, d+1)
         end
     end
     scan(root, 0)
+    LOG("%s: 可见=%d 有petID=%d 有Breed=%d → 采用%d个",
+        label, totalVisible, withPetID, withBreed, #btns)
     return btns
 end
 
 local function FindPetListButtons()
     -- Rematch
     if RematchFrame and RematchFrame:IsShown() then
-        local b = DeepScan(RematchFrame, 4)
+        local b = ScanForButtons(RematchFrame, 5, "RematchFrame")
         if #b > 0 then return b, "Rematch" end
+    elseif RematchFrame then
+        -- 诊断：RematchFrame 存在但 IsShown false
+        local _, _, _, _, _, _, _, level = RematchFrame:GetPoint()
+        LOG("RematchFrame:IsShown=%s alpha=%s level=%s",
+            tostring(RematchFrame:IsShown()), tostring(RematchFrame:GetAlpha()), tostring(level))
+        -- 临时：即使 IsShown=false 也扫描一下，看按钮是否存在
+        local b2 = ScanForButtons(RematchFrame, 5, "RematchFrame(隐藏)")
+        LOG("隐藏状态扫描结果: %d 个按钮", #b2)
     end
+
     -- 暴雪原生
     if PetJournal and PetJournal:IsShown() then
-        local b = DeepScan(PetJournal, 4)
+        local b = ScanForButtons(PetJournal, 5, "PetJournal")
         if #b > 0 then return b, "PetJournal" end
+    elseif PetJournal then
+        LOG("PetJournal:IsShown=%s", tostring(PetJournal:IsShown()))
     end
-    -- 全局命名表兜底
-    local b = {}
-    for i = 1, 50 do
-        local btn = _G["PetJournalListScrollFrameButton"..i]
-        if not btn then break end
-        if btn:IsVisible() and btn.petID then b[#b+1] = btn end
-    end
-    return b, "legacy"
+
+    return {}, "none"
 end
 
 -- ============================================================================
