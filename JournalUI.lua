@@ -1,13 +1,9 @@
 -- GenDexBD JournalUI.lua
--- 宠物手册集成：轻量嵌入暴雪已有 UI 元素
--- 参考 BattlePetBreedID 的做法，不创建独立 Frame
--- 加载顺序：第6个
+-- 加载顺序：第6个（依赖 Core/DB、BreedMath、Locales、BreedData）
+-- 列表页：PET_JOURNAL_LIST_UPDATE 事件扫描按钮追加品种代码
+-- 右键菜单：最优属性管理
 
 local addonName, addonTable = ...
-
--- ============================================================================
--- 文件作用域 local 化
--- ============================================================================
 
 local CalculateBreedFromStats = addonTable.CalculateBreedFromStats
 local GetBreedCode = addonTable.GetBreedCode
@@ -18,38 +14,29 @@ local type = type
 local pairs = pairs
 local ipairs = ipairs
 local next = next
-local tostring = tostring
 local strlower = string.lower
 local strfind = string.find
 
 -- ============================================================================
--- 公开 API：最优品种管理（被 Tooltip / 战斗模块调用）
+-- 最优品种管理 API
 -- ============================================================================
 
 function addonTable.SetBestBreed(speciesID, breedID, category, note)
     if not speciesID or not breedID then return end
     if not GeneDexDB then return end
-    if not GeneDexDB.BestBreeds or type(GeneDexDB.BestBreeds) ~= "table" then
-        GeneDexDB.BestBreeds = {}
-    end
-    if not GeneDexDB.BestBreeds[speciesID] then
-        GeneDexDB.BestBreeds[speciesID] = {}
-    end
-    GeneDexDB.BestBreeds[speciesID][breedID] = {
-        category = category or "custom",
-        note = note or "",
-        addedAt = time(),
-    }
+    if not GeneDexDB.BestBreeds or type(GeneDexDB.BestBreeds) ~= "table" then GeneDexDB.BestBreeds = {} end
+    if not GeneDexDB.BestBreeds[speciesID] then GeneDexDB.BestBreeds[speciesID] = {} end
+    GeneDexDB.BestBreeds[speciesID][breedID] = { category = category or "custom", note = note or "", addedAt = time() }
 end
 
 function addonTable.RemoveBestBreed(speciesID, breedID)
     if not speciesID or not breedID then return end
-    local bestBreeds = GeneDexDB and GeneDexDB.BestBreeds
-    if not bestBreeds or type(bestBreeds) ~= "table" then return end
-    local sd = bestBreeds[speciesID]
+    local bb = GeneDexDB and GeneDexDB.BestBreeds
+    if not bb or type(bb) ~= "table" then return end
+    local sd = bb[speciesID]
     if not sd or type(sd) ~= "table" then return end
     sd[breedID] = nil
-    if not next(sd) then bestBreeds[speciesID] = nil end
+    if not next(sd) then bb[speciesID] = nil end
 end
 
 function addonTable.IsBestBreed(speciesID, breedID)
@@ -80,7 +67,7 @@ function addonTable.GetAllBestBreeds(speciesID)
 end
 
 -- ============================================================================
--- API 字段自动探测
+-- API 自动探测
 -- ============================================================================
 
 local petInfoFields = nil
@@ -91,17 +78,15 @@ local function DetectPetInfoFields()
     if not sample then return nil, nil, nil end
     local allKeys = {}
     for k in pairs(sample) do allKeys[#allKeys + 1] = k end
-    local function findKey(patterns)
+    local function fk(patterns)
         for _, key in ipairs(allKeys) do
             local lk = strlower(key)
-            for _, pat in ipairs(patterns) do
-                if strfind(lk, pat, 1, true) then return key end
-            end
+            for _, pat in ipairs(patterns) do if strfind(lk, pat, 1, true) then return key end end
         end
     end
-    local hk = findKey({"health", "hp"})
-    local pk = findKey({"power", "attack", "atk"})
-    local sk = findKey({"speed", "spd"})
+    local hk = fk({"health", "hp"})
+    local pk = fk({"power", "attack", "atk"})
+    local sk = fk({"speed", "spd"})
     petInfoFields = { hk, pk, sk }
     return hk, pk, sk
 end
@@ -114,78 +99,107 @@ local function ExtractBaseStats(petInfo)
 end
 
 -- ============================================================================
--- 品种推算（内联缓存版本）
+-- 品种计算
 -- ============================================================================
 
-local breedCache = {}
-
-local function GetBreed(petID, speciesID, level, quality, health, power, speed)
-    local key = "p" .. tostring(petID)
-    if breedCache[key] ~= nil then return breedCache[key] end
-
-    if not health or not power or not speed then
-        breedCache[key] = nil
-        return nil
-    end
-
+local function CalcBreed(speciesID, level, quality, health, power, speed)
+    if not health or not power or not speed then return nil end
     local petInfo = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
     local bh, bp, bs = ExtractBaseStats(petInfo)
-    if not bh or not bp or not bs then
-        breedCache[key] = nil
-        return nil
-    end
-
+    if not bh or not bp or not bs then return nil end
     local calcQuality = quality or 4
     if GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.AssumeRareQuality then
         if not quality or calcQuality < 4 then calcQuality = 4 end
     end
-
-    local breedID = CalculateBreedFromStats(health, power, speed, bh, bp, bs, level, calcQuality)
-    breedCache[key] = breedID
-    return breedID
+    return CalculateBreedFromStats(health, power, speed, bh, bp, bs, level, calcQuality)
 end
 
 -- ============================================================================
--- 宠物册列表按钮品种标注（对齐 BattlePetBreedID 的 PetJournal_InitPetButton hook）
+-- 列表按钮品种标注 — PET_JOURNAL_LIST_UPDATE 扫描模式
 -- ============================================================================
 
---- Hook PetJournal_InitPetButton：在暴雪初始化每个列表按钮后，
---- 在按钮的物种名字后面追加品种短代码 + 最优标记 ★
-local function OnPetButtonInit(button)
-    if not button then return end
-    if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
+--- 从 ScrollFrame 或 ScrollBox 中获取所有可见的宠物条目按钮
+local function FindPetListButtons()
+    local btns = {}
 
-    local petID = button.petID
-    if not petID then return end
+    -- 方法1：旧式 HybridScrollFrame (PetJournalListScrollFrame)
+    if PetJournalListScrollFrame then
+        if PetJournalListScrollFrame.buttons then
+            for _, b in ipairs(PetJournalListScrollFrame.buttons) do
+                if b and b:IsVisible() and b.petID then btns[#btns + 1] = b end
+            end
+        end
+        if #btns > 0 then return btns end
+    end
 
-    local _, speciesID, _, _, _, _, _, _, _, _, _, level, quality, health, power, speed =
-        C_PetJournal.GetPetInfoByPetID(petID)
-    if not speciesID then return end
+    -- 方法2：12.0 新式 ScrollBox — 遍历 ScrollFrame 的子 Frame
+    local scrollFrame = PetJournalListScrollFrame or PetJournal
+    if scrollFrame then
+        -- 深度遍历子 Frame 找有 petID 属性的可见按钮
+        local function scan(parent, depth)
+            if depth > 4 then return end
+            local children = { parent:GetChildren() }
+            for _, child in ipairs(children) do
+                if child:IsVisible() and child.petID then
+                    btns[#btns + 1] = child
+                end
+                scan(child, depth + 1)
+            end
+        end
+        scan(scrollFrame, 0)
+        if #btns > 0 then return btns end
+    end
 
-    local breedID = GetBreed(petID, speciesID, level, quality, health, power, speed)
-    if not breedID then
-        -- 未能确定品种，不做任何修改
+    -- 方法3：全局命名表逐个查（传统兼容，最先匹配到就返回）
+    for i = 1, 50 do
+        local b = _G["PetJournalListScrollFrameButton" .. i]
+        if not b then break end
+        if b:IsVisible() and b.petID then btns[#btns + 1] = b end
+    end
+
+    return btns
+end
+
+--- 为单个列表按钮追加品种标注
+local function LabelButton(button)
+    if not button or not button.petID then return end
+    if not button._genedexLabel then
+        -- 创建一个 FontString 挂在按钮上
+        local fs = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        fs:SetPoint("RIGHT", button, "RIGHT", -6, 0)
+        fs:SetJustifyH("RIGHT")
+        button._genedexLabel = fs
+    end
+
+    local label = button._genedexLabel
+    if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then
+        label:Hide()
         return
     end
 
-    -- 品种短代码
-    local breedCode = GetBreedCode(breedID)
+    local _, speciesID, _, _, _, _, _, _, _, _, _, level, quality, health, power, speed =
+        C_PetJournal.GetPetInfoByPetID(button.petID)
+    if not speciesID then label:Hide(); return end
+
+    local breedID = CalcBreed(speciesID, level, quality, health, power, speed)
+    if not breedID then label:Hide(); return end
+
+    local code = GetBreedCode(breedID)
     local isBest = addonTable.IsBestBreed(speciesID, breedID)
 
-    local suffix = " " .. breedCode
-    if isBest then suffix = " ★" .. breedCode end
+    label:SetText(isBest and ("★" .. code) or code)
+    label:SetTextColor(isBest and 1 or 0.6, isBest and 0.84 or 0.6, 0.6)
+    label:Show()
+end
 
-    -- 追加到按钮的物种名文本后面（BattlePetBreedID 同样修改 name/subname）
-    -- 暴雪的按钮结构：button.name 是物种名的 FontString
-    if button.name then
-        local original = button.name:GetText() or ""
-        -- 避免重复追加
-        if not original:find(breedCode, 1, true) then
-            button.name:SetText(original .. suffix)
-        end
-        if isBest then
-            button.name:SetTextColor(1, 0.84, 0)  -- 最优品种金色
-        end
+--- 刷新所有列表按钮的品种标注
+local function RefreshAllButtons()
+    if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then
+        return
+    end
+    local btns = FindPetListButtons()
+    for _, b in ipairs(btns) do
+        pcall(LabelButton, b)  -- 单个按钮失败不阻塞其他
     end
 end
 
@@ -193,84 +207,68 @@ end
 -- 右键菜单：最优属性管理
 -- ============================================================================
 
+local CATEGORY_LIST = { "pvp", "pve", "collection", "custom" }
 local menuFrame = nil
 
-local function CreateBestBreedMenu()
+local function EnsureMenu()
     if menuFrame then return end
     menuFrame = CreateFrame("Frame", "GeneDexBDMenu", UIParent, "UIDropDownMenuTemplate")
 end
 
-local CATEGORY_KEYS = { pvp = true, pve = true, collection = true, custom = true }
-
 local function ShowBestBreedMenu(button, petID, speciesID, breedID)
     if not speciesID or not breedID then return end
-
-    CreateBestBreedMenu()
+    EnsureMenu()
 
     local isBest = addonTable.IsBestBreed(speciesID, breedID)
+    local code = GetBreedCode(breedID) or "?"
+    local name = GetBreedDisplayName(breedID, code)
 
-    UIDropDownMenu_Initialize(menuFrame, function(self, level)
+    UIDropDownMenu_Initialize(menuFrame, function(_, level)
         local info = UIDropDownMenu_CreateInfo()
 
-        -- 品种信息（不可点击）
-        local breedCode = GetBreedCode(breedID) or "?"
-        local breedName = GetBreedDisplayName(breedID, breedCode)
-        info.text = "品种: " .. breedName
-        info.isTitle = true
-        info.notCheckable = true
-        UIDropDownMenu_AddButton(info, level)
+        if level == 1 then
+            info.text = name
+            info.isTitle = true
+            info.notCheckable = true
+            UIDropDownMenu_AddButton(info, 1)
 
-        if isBest then
-            -- 已标记：显示分类 + 备注，提供取消选项
-            local bi = addonTable.GetBestBreedInfo(speciesID, breedID)
-            if bi then
-                local catName = addonTable.GetBestBreedCategoryName and addonTable.GetBestBreedCategoryName(bi.category) or bi.category
-                info.text = "已标记: " .. catName
-                info.isTitle = true
-                info.notCheckable = true
-                UIDropDownMenu_AddButton(info, level)
-
-                if bi.note and bi.note ~= "" then
-                    info.text = "备注: " .. bi.note
+            if isBest then
+                local bi = addonTable.GetBestBreedInfo(speciesID, breedID)
+                if bi then
                     info.isTitle = true
-                    info.notCheckable = true
-                    UIDropDownMenu_AddButton(info, level)
+                    info.text = "已标记: " .. (bi.category or "custom")
+                    UIDropDownMenu_AddButton(info, 1)
+                    if bi.note and bi.note ~= "" then
+                        info.text = "备注: " .. bi.note
+                        UIDropDownMenu_AddButton(info, 1)
+                    end
                 end
+                info.isTitle = false
+                info.text = "取消最优品种"
+                info.notCheckable = true
+                info.func = function()
+                    addonTable.RemoveBestBreed(speciesID, breedID)
+                    RefreshAllButtons()
+                end
+                UIDropDownMenu_AddButton(info, 1)
+            else
+                info.isTitle = false
+                info.text = "设为最优品种"
+                info.notCheckable = true
+                info.hasArrow = true
+                info.menuList = "GENEDEX_CATS"
+                UIDropDownMenu_AddButton(info, 1)
             end
-
-            -- 取消
-            info.isTitle = false
-            info.text = "取消最优品种"
-            info.notCheckable = true
-            info.func = function()
-                addonTable.RemoveBestBreed(speciesID, breedID)
-                breedCache = {}  -- 清缓存强制刷新
-            end
-            UIDropDownMenu_AddButton(info, level)
-        else
-            -- 未标记：提供按分类标记的子菜单
-            info.isTitle = false
-            info.text = "设为最优品种"
-            info.notCheckable = true
-            info.hasArrow = true
-            info.menuList = { "pvp", "pve", "collection", "custom" }
-            UIDropDownMenu_AddButton(info, level)
-        end
-    end)
-
-    -- 二级菜单：选择分类
-    UIDropDownMenu_Initialize(menuFrame, function(self, level)
-        if level == 2 then
-            for _, cat in ipairs({"pvp", "pve", "collection", "custom"}) do
-                local info = UIDropDownMenu_CreateInfo()
+        elseif level == 2 then
+            for _, cat in ipairs(CATEGORY_LIST) do
                 local catName = addonTable.GetBestBreedCategoryName and addonTable.GetBestBreedCategoryName(cat) or cat
                 info.text = catName
                 info.notCheckable = true
                 info.func = function()
                     addonTable.SetBestBreed(speciesID, breedID, cat, "")
-                    breedCache = {}
+                    RefreshAllButtons()
                 end
-                UIDropDownMenu_AddButton(info, level)
+                UIDropDownMenu_AddButton(info, 2)
             end
         end
     end)
@@ -278,76 +276,63 @@ local function ShowBestBreedMenu(button, petID, speciesID, breedID)
     ToggleDropDownMenu(1, nil, menuFrame, button, 0, 0)
 end
 
---- Hook 列表按钮右键点击
-local function OnPetButtonRightClick(button, petID, speciesID, breedID)
-    ShowBestBreedMenu(button, petID, speciesID, breedID)
-end
-
 -- ============================================================================
--- 为每个列表按钮添加右键菜单 hook
--- 在 PetJournal_InitPetButton 后立即执行
+-- 按钮右键 Hook
 -- ============================================================================
 
-local function HookPetButtonRightClick(button)
-    if not button or button._genedex_RightClickHooked then return end
-    button._genedex_RightClickHooked = true
+local function HookRightClick(button)
+    if button._genedexRightHooked then return end
+    button._genedexRightHooked = true
 
-    -- 原有点击行为保持不变
     local petID = button.petID
-    button:HookScript("OnClick", function(self, buttonName)
-        if buttonName == "RightButton" then
-            local _, speciesID, _, _, _, _, _, _, _, _, _, level, quality, health, power, speed =
-                C_PetJournal.GetPetInfoByPetID(petID)
-            if speciesID then
-                local breedID = GetBreed(petID, speciesID, level, quality, health, power, speed)
-                if breedID then
-                    OnPetButtonRightClick(self, petID, speciesID, breedID)
-                end
-            end
-        end
+    button:HookScript("OnClick", function(self, btnName)
+        if btnName ~= "RightButton" then return end
+        local _, speciesID, _, _, _, _, _, _, _, _, _, level, quality, health, power, speed =
+            C_PetJournal.GetPetInfoByPetID(petID)
+        if not speciesID then return end
+        local breedID = CalcBreed(speciesID, level, quality, health, power, speed)
+        if not breedID then return end
+        ShowBestBreedMenu(self, petID, speciesID, breedID)
     end)
 end
 
 -- ============================================================================
--- 组合 Hook：在 PetJournal_InitPetButton 后一次性完成所有注入
+-- PET_JOURNAL_LIST_UPDATE 事件处理
 -- ============================================================================
 
-local function FullInitPetButton(button)
-    if not button or not button.petID then return end
+local eventFrame = nil
 
-    -- 1. 追加品种文本到按钮
-    OnPetButtonInit(button)
-
-    -- 2. 添加右键菜单
-    HookPetButtonRightClick(button)
+local function OnJournalUpdate()
+    RefreshAllButtons()
+    -- 给新出现的按钮加右键 hook
+    local btns = FindPetListButtons()
+    for _, b in ipairs(btns) do
+        if b and b.petID then HookRightClick(b) end
+    end
 end
 
 -- ============================================================================
 -- 初始化
 -- ============================================================================
 
-local hooksInstalled = false
-
-local function InstallHooks()
-    if hooksInstalled then return end
-    hooksInstalled = true
-
-    hooksecurefunc("PetJournal_InitPetButton", FullInitPetButton)
-    print("|cff00ff00[GenDexBD]|r 已 Hook PetJournal_InitPetButton")
-end
-
 function addonTable.InitJournalUI()
-    -- 参考 BattlePetBreedID：监听 Blizzard_Collections 加载
-    if C_AddOns.IsAddOnLoaded("Blizzard_Collections") then
-        InstallHooks()
-    else
-        local waiter = CreateFrame("Frame")
-        waiter:RegisterEvent("ADDON_LOADED")
-        waiter:SetScript("OnEvent", function(_, _, addon)
-            if addon == "Blizzard_Collections" then
-                InstallHooks()
-                waiter:UnregisterEvent("ADDON_LOADED")
-            end
-        end)
-    end
+    eventFrame = CreateFrame("Frame")
+    eventFrame:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
+    eventFrame:SetScript("OnEvent", function(_, event)
+        if event == "PET_JOURNAL_LIST_UPDATE" then
+            OnJournalUpdate()
+        end
+    end)
+
+    -- 也注册 Blizzard_Collections 加载时的刷新
+    local waiter = CreateFrame("Frame")
+    waiter:RegisterEvent("ADDON_LOADED")
+    waiter:SetScript("OnEvent", function(_, _, addon)
+        if addon == "Blizzard_Collections" then
+            OnJournalUpdate()
+            waiter:UnregisterEvent("ADDON_LOADED")
+        end
+    end)
+
+    print("|cff00ff00[GenDexBD]|r JournalUI 已初始化（PET_JOURNAL_LIST_UPDATE 模式）")
 end
