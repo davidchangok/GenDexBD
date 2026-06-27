@@ -342,17 +342,17 @@ end
 -- ============================================================================
 
 local function OnListUpdate()
-    local btns, src = FindPetListButtons()
-    if #btns > 0 then
-        for _, b in ipairs(btns) do
-            pcall(LabelButton, b)
-            -- 只给原生按钮绑右键（Rematch 按钮由菜单系统处理）
-            if not b.Breed and not b._genedexRightHooked then
-                b._genedexRightHooked = true
-                b:SetScript("OnMouseUp", function(self, button)
-                    BlizzardRightClick(self, button)
-                end)
-            end
+    -- 标注所有按钮
+    RefreshAll()
+
+    -- 给原生按钮绑右键（Rematch 按钮由菜单系统处理）
+    local btns = FindPetListButtons()
+    for _, b in ipairs(btns) do
+        if not b.Breed and not b._genedexRightHooked then
+            b._genedexRightHooked = true
+            b:SetScript("OnMouseUp", function(self, button)
+                BlizzardRightClick(self, button)
+            end)
         end
     end
 end
