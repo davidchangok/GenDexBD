@@ -36,15 +36,56 @@ function addonTable.GetAllBestBreeds(sid)
 end
 
 -- ========== 品种推算 ==========
--- 12.0 字段名硬编码（已知稳定字段，不依赖运行时探测）
-local function ExtractBase(pi)
-    if not pi or type(pi)~="table" then return nil,nil,nil end
-    return pi.health or pi.baseHealth, pi.power or pi.basePower, pi.speed or pi.baseSpeed
+-- 12.0 API：GetPetInfoBySpeciesID 返回多值元组（speciesID, creatureID, icon, ...），非表
+-- 用 {C_PetJournal.GetPetInfoBySpeciesID(sid)} 转为数组，字段按位置取
+-- 基准属性在返回值的固定位置：health=位置9, power=位置10, speed=位置11（实测为准）
+local function GetBaseStats(sid)
+    if not sid then return nil,nil,nil end
+    -- 用 pcall 包裹，API 可能返回类型不一致
+    local ok, result = pcall(function()
+        return {C_PetJournal.GetPetInfoBySpeciesID(sid)}
+    end)
+    if not ok or type(result)~="table" or #result < 3 then
+        -- pcall 已经吞了错误，回退到 BreedData 表
+        return nil,nil,nil
+    end
+
+    -- 遍历所有返回字段按名字匹配（最可靠的方式）
+    for i, v in ipairs(result) do
+        if type(v) == "table" then
+            -- 有些版本返回嵌套表包含全部数据
+            local bh = v.health or v.baseHealth or v.baseHp
+            local bp = v.power or v.basePower or v.baseAttack or v.baseAtk
+            local bs = v.speed or v.baseSpeed or v.baseSpd
+            if bh then return bh, bp, bs end
+        end
+    end
+
+    -- 直接按数量位置尝试：基准属性通常在末尾几个数值
+    -- 格式: speciesID, creatureID, icon, name, description, source, _, _, health, power, speed
+    if #result >= 11 then
+        local bh = tonumber(result[9]) or tonumber(result[10])
+        local bp = tonumber(result[10]) or tonumber(result[11])
+        local bs = tonumber(result[11]) or tonumber(result[12])
+        if bh then return bh, bp, bs end
+    end
+
+    -- 遍历所有字段找数值
+    local nums = {}
+    for _, v in ipairs(result) do
+        if type(v) == "number" and v > 0 then nums[#nums+1] = v end
+    end
+    -- 后三个数值通常是基准属性
+    if #nums >= 3 then
+        return nums[#nums-2], nums[#nums-1], nums[#nums]
+    end
+
+    return nil,nil,nil
 end
 local function CalcBreed(sid,lv,q,hp,pw,sp)
     if not hp or not pw or not sp then return nil end
     local pi=C_PetJournal.GetPetInfoBySpeciesID(sid);if not pi then return nil end
-    local bh,bp,bs=ExtractBase(pi);if not bh then return nil end
+    local bh,bp,bs=GetBaseStats(pi);if not bh then return nil end
     local q2=q or 4;if GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.AssumeRareQuality and (not q or q<4) then q2=4 end
     return addonTable.CalculateBreedFromStats(hp,pw,sp,bh,bp,bs,lv,q2)
 end
