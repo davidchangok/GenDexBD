@@ -160,16 +160,25 @@ end
 function addonTable.InitJournalUI()
     LOG("初始化")
 
-    -- 注册 ADDON_LOADED 等待 Rematch 完全加载
+    -- 先检查 Rematch 是否已加载（Rematch 可能在 GenDexBD 之前加载）
+    if C_AddOns.IsAddOnLoaded("Rematch") then
+        LOG("Rematch 已加载，1秒后 Hook...")
+        C_Timer.After(1, function()
+            TryHookRematch();TryInjectMenu()
+            if not rematchHooked then LOG("⚠ Hook 失败") end
+            if not menuInjected then LOG("⚠ 菜单注入失败") end
+        end)
+    end
+
+    -- 若未加载，等 ADDON_LOADED 事件
     local rf=CreateFrame("Frame");rf:RegisterEvent("ADDON_LOADED")
     rf:SetScript("OnEvent",function(_,_,a)
         if a=="Rematch" then
-            LOG("Rematch 已加载，等待 rematch.petsPanel 就绪...")
-            -- Rematch ADDON_LOADED 后可能 petsPanel 还没完成初始化，短延迟
+            LOG("Rematch ADDON_LOADED，1秒后 Hook...")
             C_Timer.After(1, function()
                 TryHookRematch();TryInjectMenu()
-                if not rematchHooked then LOG("⚠ Hook 失败：rematch.petsPanel 不可用") end
-                if not menuInjected then LOG("⚠ 菜单注入失败：rematch.menus 不可用") end
+                if not rematchHooked then LOG("⚠ Hook 失败") end
+                if not menuInjected then LOG("⚠ 菜单注入失败") end
             end)
             rf:UnregisterEvent("ADDON_LOADED")
         end
