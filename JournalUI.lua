@@ -505,36 +505,38 @@ local function InjectIntoJournal()
     end
 end
 
---- 安全 Hook PetJournal:Show（可能在 ADDON_LOADED 时还不可用）
+--- 安全 Hook PetJournal:Show。
+--- PetJournal 是 Blizzard_Collections 的子 Frame，该模块按需加载。
+--- 参考 Rematch 的做法：检查 C_AddOns.IsAddOnLoaded 然后监听 ADDON_LOADED。
 local function TryHookPetJournal()
-    if not PetJournal or not PetJournal.Show then
-        -- PetJournal 尚未加载，等 PLAYER_LOGIN 后再试
+    if not PetJournal then
         return false
     end
-
     hooksecurefunc(PetJournal, "Show", InjectIntoJournal)
+    hooksecurefunc(PetJournal, "Show", UpdateDetailView)
     print("|cff00ff00[GenDexBD]|r 已 Hook PetJournal:Show")
     return true
 end
 
 -- ============================================================================
--- 初始化
+-- 初始化（参考 Rematch journal.lua 第15-26行）
 -- ============================================================================
 
 function addonTable.InitJournalUI()
-    -- 先尝试立刻 Hook（如果 PetJournal 已加载）
-    if not TryHookPetJournal() then
-        -- PetJournal 尚未加载，在 PLAYER_LOGIN 之后等待
-        -- 创建一个等待帧，每 0.5s 检查一次
-        local waitFrame = CreateFrame("Frame")
-        waitFrame.tick = 0
-        waitFrame:SetScript("OnUpdate", function(self, elapsed)
-            self.tick = self.tick + elapsed
-            if self.tick < 0.5 then return end
-            self.tick = 0
-            if TryHookPetJournal() then
-                self:SetScript("OnUpdate", nil)
-                self = nil
+    -- 检查 Blizzard_Collections 是否已加载
+    if C_AddOns.IsAddOnLoaded("Blizzard_Collections") then
+        TryHookPetJournal()
+        if PetJournal and PetJournal:IsShown() then
+            InjectIntoJournal()
+        end
+    else
+        -- 注册 ADDON_LOADED 等待 Blizzard_Collections 加载
+        local waiter = CreateFrame("Frame")
+        waiter:RegisterEvent("ADDON_LOADED")
+        waiter:SetScript("OnEvent", function(_, _, addon)
+            if addon == "Blizzard_Collections" then
+                TryHookPetJournal()
+                waiter:UnregisterEvent("ADDON_LOADED")
             end
         end)
     end
