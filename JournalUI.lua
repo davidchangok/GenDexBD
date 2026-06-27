@@ -58,6 +58,22 @@ local function Decorate(button)
     end
 end
 
+-- 扫描 RematchFrame 中所有可见按钮并重新 Decorate
+local function DecorateAllVisible()
+    if not RematchFrame or not RematchFrame:IsShown() then return end
+    local count=0
+    local function scan(p,d)
+        if d>5 then return end
+        for _,c in ipairs({p:GetChildren()}) do
+            if c.petID and c.Icon and c.Breed and c:IsVisible() then
+                Decorate(c);count=count+1
+            end;scan(c,d+1)
+        end
+    end
+    scan(RematchFrame,0)
+    return count
+end
+
 local rematchHooked=false
 local function TryHookRematch()
     if rematchHooked then return end
@@ -65,7 +81,9 @@ local function TryHookRematch()
     rematchHooked=true
     hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,b) Decorate(b) end)
     hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,b) Decorate(b) end)
-    LOG("已 Hook Rematch Fill");Rematch.petsPanel:Update()
+    LOG("已 Hook Rematch Fill")
+    -- 强制刷新已有按钮
+    local n=DecorateAllVisible();LOG("初始标注: %d 个按钮",n)
 end
 
 -- ========== Rematch 右键菜单 ==========
@@ -75,14 +93,14 @@ function RematchSetBest(petID,cat)
     if not info or not info.hasBreed then LOG("⚠ 品种未确定");return end
     addonTable.SetBestBreed(info.speciesID,info.breedID,cat or "custom","")
     LOG("已保存: speciesID=%d breedID=%d (%s)",info.speciesID,info.breedID,info.breedName or "?")
-    Rematch.petsPanel:Update()
+    DecorateAllVisible()
 end
 function RematchRemoveBest(petID)
     if not Rematch or not Rematch.petInfo then return end
     local info=Rematch.petInfo:Fetch(petID)
     if not info or not info.speciesID then return end
     for bid in pairs(addonTable.GetAllBestBreeds(info.speciesID)) do addonTable.RemoveBestBreed(info.speciesID,bid) end
-    LOG("已移除: speciesID=%d",info.speciesID);Rematch.petsPanel:Update()
+    LOG("已移除: speciesID=%d",info.speciesID);DecorateAllVisible()
 end
 function RematchHasBest(petID)
     if not Rematch or not Rematch.petInfo then return false end
