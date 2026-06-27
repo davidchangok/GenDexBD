@@ -1,5 +1,5 @@
 -- GenDexBD JournalUI.lua
--- Rematch: Badge(五星) + Fill Hook(Breed文本) + 右键菜单
+-- Rematch: Fill Hook 改写 Breed 文本（★P/P 金色/ P/P 灰色）+ 右键菜单
 -- 暴雪原生: Hook PetJournal_InitPetButton
 
 local addonName, addonTable = ...
@@ -29,28 +29,7 @@ function addonTable.GetAllBestBreeds(sid)
     local sd=bb[sid];return (sd and type(sd)=="table") and sd or {}
 end
 
--- ========== Rematch Badge：金色五星（和升级标志一样用 badge 系统） ==========
-local badgeRegistered=false
-local function RegisterStarBadge()
-    if badgeRegistered then return end
-    if not Rematch or not Rematch.badges or not Rematch.badges.RegisterBadge then
-        LOG("⚠ Rematch.badges 不可用，延迟注册")
-        return
-    end
-    badgeRegistered=true
-    Rematch.badges:RegisterBadge("pets","genedex_best",
-        "PetJournal-FavoritesIcon", nil,
-        function(button,petID)
-            if not petID then return false end
-            if not Rematch.petInfo then return false end
-            local info=Rematch.petInfo:Fetch(petID)
-            if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return false end
-            return addonTable.IsBestBreed(info.speciesID,info.breedID)
-        end)
-    LOG("金色五星 Badge 已注册到 pets 列表")
-end
-
--- ========== Fill Hook：Breed 文本着色 ==========
+-- ========== Fill Hook: 改写 Breed 文本 ==========
 local fillHooked=false
 local function HookFill()
     if fillHooked then return end
@@ -58,16 +37,18 @@ local function HookFill()
     fillHooked=true
     local function onFill(_,button)
         if not button or not button.Breed or not button.petID then return end
-        if not Rematch.petInfo then return end
+        if not Rematch or not Rematch.petInfo then return end
         local info=Rematch.petInfo:Fetch(button.petID)
         if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return end
         local isBest=addonTable.IsBestBreed(info.speciesID,info.breedID)
-        -- Breed 文本保持 Rematch 原有的品种名，只改颜色
-        button.Breed:SetTextColor(isBest and 1 or 0.6,isBest and 0.84 or 0.6,0.6)
+        -- 改写 Breed 文本：最优品种加 ★ 前缀 + 金色
+        button.Breed:SetText(isBest and ("★"..info.breedName) or info.breedName)
+        button.Breed:SetTextColor(isBest and 1 or 0.6, isBest and 0.84 or 0.6, 0.6)
     end
     hooksecurefunc(Rematch.petsPanel,"FillNormal",onFill)
     hooksecurefunc(Rematch.petsPanel,"FillCompact",onFill)
-    LOG("已 Hook Rematch Fill (Breed着色)")
+    LOG("已 Hook Rematch Fill (Breed改写)")
+    Rematch.petsPanel:Update()
 end
 
 -- ========== 右键菜单 ==========
@@ -126,7 +107,7 @@ end
 function addonTable.InitJournalUI()
     LOG("初始化")
     local function init()
-        RegisterStarBadge();HookFill();InjectMenu()
+        HookFill();InjectMenu()
         if Rematch.petsPanel and Rematch.petsPanel.Update then Rematch.petsPanel:Update() end
     end
     if C_AddOns.IsAddOnLoaded("Rematch") then init()
