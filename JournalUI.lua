@@ -1,4 +1,4 @@
--- GenDexBD JournalUI.lua — Mixin Fill Hook + PLAYER_LOGIN 菜单注入
+-- GenDexBD JournalUI.lua — Mixin Fill Hook + 延时菜单注入
 
 local addonName, addonTable = ...
 local time=time;local next=next
@@ -27,7 +27,7 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
--- Breed 改写（Mixin Fill hook 触发）
+-- Breed 改写
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
     if not Rematch or not Rematch.petInfo then return end
@@ -63,7 +63,7 @@ end
 function addonTable.InitJournalUI()
     LOG("初始化")
 
-    -- Mixin Fill Hook：等 Rematch 模块加载
+    -- Mixin Fill Hook：等 Rematch 模块加载后再 hook，不调 Update
     local function hookFill()
         if RematchNormalPetListButtonMixin and not RematchNormalPetListButtonMixin._gHooked then
             RematchNormalPetListButtonMixin._gHooked=true
@@ -75,35 +75,26 @@ function addonTable.InitJournalUI()
             hooksecurefunc(RematchCompactPetListButtonMixin,"Fill",function(b) label(b) end)
             LOG("已 Hook Compact Mixin Fill")
         end
-        if Rematch.petsPanel and Rematch.petsPanel.Update then Rematch.petsPanel:Update() end
     end
 
-    if C_AddOns.IsAddOnLoaded("Rematch") then
-        hookFill()
+    if C_AddOns.IsAddOnLoaded("Rematch") then hookFill()
     else
         local f=CreateFrame("Frame");f:RegisterEvent("ADDON_LOADED")
         f:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then hookFill();f:UnregisterEvent("ADDON_LOADED") end end)
     end
 
-    -- 菜单注入：仿 Talon——注册 PLAYER_LOGIN
-    -- GenDexBD 先加载，Rematch 后加载。PLAYER_LOGIN 时 Rematch 已完全就绪
-    local menuDone=false
-    local function injectMenu()
-        if menuDone then return end
-        if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
-        menuDone=true
-        Rematch.menus:AddToMenu("PetMenu",{
-            text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
-            hidden=function(_,p) return not p end,
-            func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
-        },"Find Teams")
-        LOG("Rematch 菜单已注入")
-    end
-
-    local menuFrame=CreateFrame("Frame")
-    menuFrame:RegisterEvent("PLAYER_LOGIN")
-    menuFrame:SetScript("OnEvent",function()
-        -- PLAYER_LOGIN 后 Rematch 已经初始化完毕，延迟 0.5s 确保 menu 注册完成
-        C_Timer.After(0.5,injectMenu)
+    -- 菜单注入：GenDexBD 的 PLAYER_LOGIN 先执行，Rematch 的在后
+    -- 只需延时 1 秒，Rematch 的 PetMenu 必然已注册完毕
+    C_Timer.After(1,function()
+        if Rematch and Rematch.menus and Rematch.menus.AddToMenu then
+            Rematch.menus:AddToMenu("PetMenu",{
+                text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
+                hidden=function(_,p) return not p end,
+                func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
+            },"Find Teams")
+            LOG("Rematch 菜单已注入")
+        else
+            LOG("⚠ 菜单注入失败")
+        end
     end)
 end
