@@ -1,4 +1,4 @@
--- GenDexBD JournalUI.lua — Rematch Mixin Fill Hook + 右键菜单
+-- GenDexBD JournalUI.lua — Mixin Fill Hook + PLAYER_LOGIN 菜单注入
 
 local addonName, addonTable = ...
 local time=time;local next=next
@@ -27,7 +27,7 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
--- Breed 改写
+-- Breed 改写（Mixin Fill hook 触发）
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
     if not Rematch or not Rematch.petInfo then return end
@@ -59,62 +59,51 @@ function RematchHasBest(petID)
     return i and i.hasBreed and addonTable.IsBestBreed(i.speciesID,i.breedID)
 end
 
--- 菜单注入（用 ADDON_LOADED for Rematch 确保在 PLAYER_LOGIN 之后）
-local menuDone=false
-local function injectMenu()
-    if menuDone then return end
-    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then
-        return  -- 静默，等下次 PET_JOURNAL_LIST_UPDATE 触发时再试
-    end
-    menuDone=true
-    Rematch.menus:AddToMenu("PetMenu",{
-        text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
-        hidden=function(_,p) return not p end,
-        func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
-    },"Find Teams")
-    LOG("Rematch 菜单已注入")
-end
-
 -- 初始化
 function addonTable.InitJournalUI()
     LOG("初始化")
 
-    -- Mixin Fill Hook
+    -- Mixin Fill Hook：等 Rematch 模块加载
     local function hookFill()
         if RematchNormalPetListButtonMixin and not RematchNormalPetListButtonMixin._gHooked then
             RematchNormalPetListButtonMixin._gHooked=true
             hooksecurefunc(RematchNormalPetListButtonMixin,"Fill",function(b) label(b) end)
-            LOG("已 Hook Normal Mixin")
+            LOG("已 Hook Normal Mixin Fill")
         end
         if RematchCompactPetListButtonMixin and not RematchCompactPetListButtonMixin._gHooked then
             RematchCompactPetListButtonMixin._gHooked=true
             hooksecurefunc(RematchCompactPetListButtonMixin,"Fill",function(b) label(b) end)
-            LOG("已 Hook Compact Mixin")
+            LOG("已 Hook Compact Mixin Fill")
         end
         if Rematch.petsPanel and Rematch.petsPanel.Update then Rematch.petsPanel:Update() end
     end
 
-    -- Fill Hook 入口
-    if C_AddOns.IsAddOnLoaded("Rematch") then hookFill()
+    if C_AddOns.IsAddOnLoaded("Rematch") then
+        hookFill()
     else
         local f=CreateFrame("Frame");f:RegisterEvent("ADDON_LOADED")
         f:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then hookFill();f:UnregisterEvent("ADDON_LOADED") end end)
     end
 
-    -- 菜单注入：Rematch PetMenu 在 PLAYER_LOGIN + 0.5s 延迟后才就绪
-    -- 在 PET_JOURNAL_LIST_UPDATE + PLAYER_LOGIN 两个时机触发
-    local function tryMenu()
-        injectMenu()
+    -- 菜单注入：仿 Talon——注册 PLAYER_LOGIN
+    -- GenDexBD 先加载，Rematch 后加载。PLAYER_LOGIN 时 Rematch 已完全就绪
+    local menuDone=false
+    local function injectMenu()
+        if menuDone then return end
+        if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
+        menuDone=true
+        Rematch.menus:AddToMenu("PetMenu",{
+            text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
+            hidden=function(_,p) return not p end,
+            func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
+        },"Find Teams")
+        LOG("Rematch 菜单已注入")
     end
-    C_Timer.After(2, tryMenu)  -- 2秒后肯定 PLAYER_LOGIN 都完成了
 
-    -- 备胎：PET_JOURNAL_LIST_UPDATE 每次也尝试（用户打开宠物面板时一定触发）
-    local mf=CreateFrame("Frame");mf:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
-    mf:SetScript("OnEvent",function() injectMenu() end)
-
-    -- 备胎2：Rematch ADDON_LOADED
-    local rf=CreateFrame("Frame");rf:RegisterEvent("ADDON_LOADED")
-    rf:SetScript("OnEvent",function(_,_,a)
-        if a=="Rematch" then C_Timer.After(3,tryMenu);rf:UnregisterEvent("ADDON_LOADED") end
+    local menuFrame=CreateFrame("Frame")
+    menuFrame:RegisterEvent("PLAYER_LOGIN")
+    menuFrame:SetScript("OnEvent",function()
+        -- PLAYER_LOGIN 后 Rematch 已经初始化完毕，延迟 0.5s 确保 menu 注册完成
+        C_Timer.After(0.5,injectMenu)
     end)
 end
