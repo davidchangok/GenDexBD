@@ -79,12 +79,27 @@ local function TryHookRematch()
 end
 
 function RematchSetBest(petID,cat)
-    local _,sid,_,_,_,_,_,_,_,_,_,lv,q,hp,pw,sp=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return end
-    local bid=CalcBreed(sid,lv,q,hp,pw,sp);if bid then addonTable.SetBestBreed(sid,bid,cat,"") end
+    -- speciesID 是第1个返回值，level 是第3个
+    local speciesID,_,level= C_PetJournal.GetPetInfoByPetID(petID)
+    if not speciesID then return end
+    local hp,pw,sp = C_PetJournal.GetPetStats(petID)
+    local bid=CalcBreed(speciesID,level,4,hp,pw,sp)
+    if bid then
+        addonTable.SetBestBreed(speciesID,bid,cat or "custom","")
+        -- 强制刷新 Rematch 列表让 Breed 文本更新
+        if Rematch and Rematch.petsPanel and Rematch.petsPanel.Update then
+            Rematch.petsPanel:Update()
+        end
+    end
 end
 function RematchRemoveBest(petID)
-    local _,sid=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return end
-    for bid in pairs(addonTable.GetAllBestBreeds(sid)) do addonTable.RemoveBestBreed(sid,bid) end
+    local speciesID = C_PetJournal.GetPetInfoByPetID(petID)
+    if not speciesID then return end
+    for bid in pairs(addonTable.GetAllBestBreeds(speciesID)) do addonTable.RemoveBestBreed(speciesID,bid) end
+    -- 强制刷新
+    if Rematch and Rematch.petsPanel and Rematch.petsPanel.Update then
+        Rematch.petsPanel:Update()
+    end
 end
 function RematchHasBest(petID)
     local _,sid=C_PetJournal.GetPetInfoByPetID(petID);if not sid then return false end
@@ -96,15 +111,13 @@ local function TryInjectRematchMenu()
     if menuInjected then return end
     if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
     menuInjected=true
+    -- 单个切换项：非最优→"设为最优品种"，已最优→"取消最优品种"
     Rematch.menus:AddToMenu("PetMenu",{
-        text="设为最优品种",
-        hidden=function(_,p) return not p or RematchHasBest(p) end,
-        func=function(_,p) RematchSetBest(p,"custom") end
-    },"Find Teams")
-    Rematch.menus:AddToMenu("PetMenu",{
-        text="取消最优品种",
-        hidden=function(_,p) return not p or not RematchHasBest(p) end,
-        func=function(_,p) RematchRemoveBest(p) end
+        text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
+        hidden=function(_,p) return not p end,
+        func=function(_,p)
+            if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p,"custom") end
+        end
     },"Find Teams")
     LOG("Rematch 菜单已注入")
 end
