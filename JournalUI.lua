@@ -314,16 +314,21 @@ local function HookRightClick(button)
     if button._genedexRightHooked then return end
     button._genedexRightHooked = true
 
-    local petID = button.petID
-    button:HookScript("OnClick", function(self, btnName)
+    -- PetJournalPetCard（详情卡片）也有 petID 但没有 OnClick 脚本，HookScript 会崩溃
+    local ok = pcall(button.HookScript, button, "OnClick", function(self, btnName)
         if btnName ~= "RightButton" then return end
         local _, speciesID, _, _, _, _, _, _, _, _, _, level, quality, health, power, speed =
-            C_PetJournal.GetPetInfoByPetID(petID)
+            C_PetJournal.GetPetInfoByPetID(button.petID)
         if not speciesID then return end
         local breedID = CalcBreed(speciesID, level, quality, health, power, speed)
         if not breedID then return end
         ShowBestBreedMenu(self, speciesID, breedID)
     end)
+
+    if not ok then
+        -- 没有 OnClick 脚本的 Frame（如 PetCard），标记为已处理避免重试
+        button._genedexNoClick = true
+    end
 end
 
 -- ============================================================================
