@@ -437,7 +437,9 @@ end
 -- ============================================================================
 
 local function UpdateDetailView()
+    -- 双重保护：PetJournal 不可见或 C_PetJournal API 不可用则跳过
     if not PetJournal or not PetJournal:IsShown() then return end
+    if not C_PetJournal or not C_PetJournal.GetSelectedSpeciesID then return end
 
     local sid = C_PetJournal.GetSelectedSpeciesID()
     local pid = C_PetJournal.GetSelectedPetID()
@@ -513,7 +515,9 @@ local function TryHookPetJournal()
         return false
     end
     hooksecurefunc(PetJournal, "Show", InjectIntoJournal)
-    hooksecurefunc(PetJournal, "Show", UpdateDetailView)
+    -- 注意：不要 Hook UpdateDetailView 到 PetJournal:Show
+    -- Rematch 等插件操作 PetJournal 时会触发 Show 但 C_PetJournal API 可能不可用
+    -- UpdateDetailView 已由 OnUpdate 监听帧负责轮询
     print("|cff00ff00[GenDexBD]|r 已 Hook PetJournal:Show")
     return true
 end
