@@ -1,6 +1,5 @@
 -- GenDexBD JournalUI.lua
--- 宠物手册集成：品种标注 + 右键最优管理
--- 全量诊断日志覆盖每个决策点
+-- 双模式品种标注：暴雪原生面板 + Rematch 面板
 
 local addonName, addonTable = ...
 
@@ -16,13 +15,8 @@ local next = next
 local strlower = string.lower
 local strfind = string.find
 
-local function LOG(fmt, ...)
-    print("|cff00ccff[GenDexBD]|r " .. fmt:format(...))
-end
-
-local function ERR(fmt, ...)
-    print("|cffff0000[GenDexBD]|r " .. fmt:format(...))
-end
+local function LOG(fmt, ...) print("|cff00ccff[GenDexBD]|r " .. fmt:format(...)) end
+local function ERR(fmt, ...) print("|cffff0000[GenDexBD]|r " .. fmt:format(...)) end
 
 -- ============================================================================
 -- 最优品种管理 API
@@ -30,11 +24,12 @@ end
 
 function addonTable.SetBestBreed(speciesID, breedID, category, note)
     if not speciesID or not breedID then return end
-    if not GeneDexDB then ERR("SetBestBreed: GeneDexDB nil"); return end
+    if not GeneDexDB then ERR("GeneDexDB nil"); return end
     if not GeneDexDB.BestBreeds or type(GeneDexDB.BestBreeds) ~= "table" then GeneDexDB.BestBreeds = {} end
     if not GeneDexDB.BestBreeds[speciesID] then GeneDexDB.BestBreeds[speciesID] = {} end
     GeneDexDB.BestBreeds[speciesID][breedID] = { category = category or "custom", note = note or "", addedAt = time() }
     LOG("SetBestBreed species=%d breed=%d cat=%s", speciesID, breedID, category or "custom")
+    RefreshAllButtons()
 end
 
 function addonTable.RemoveBestBreed(speciesID, breedID)
@@ -45,6 +40,7 @@ function addonTable.RemoveBestBreed(speciesID, breedID)
     if not sd or type(sd) ~= "table" then return end
     sd[breedID] = nil
     if not next(sd) then bb[speciesID] = nil end
+    RefreshAllButtons()
 end
 
 function addonTable.IsBestBreed(speciesID, breedID)
@@ -75,7 +71,7 @@ function addonTable.GetAllBestBreeds(speciesID)
 end
 
 -- ============================================================================
--- API 自动探测
+-- API 字段探测
 -- ============================================================================
 
 local petInfoFields = nil
@@ -83,13 +79,9 @@ local petInfoFields = nil
 local function DetectPetInfoFields()
     if petInfoFields then return petInfoFields[1], petInfoFields[2], petInfoFields[3] end
     local sample = C_PetJournal.GetPetInfoBySpeciesID(39) or C_PetJournal.GetPetInfoBySpeciesID(1)
-    if not sample then
-        ERR("无法获取 C_PetJournal.GetPetInfoBySpeciesID 返回值")
-        return nil, nil, nil
-    end
+    if not sample then return nil, nil, nil end
     local allKeys = {}
     for k in pairs(sample) do allKeys[#allKeys + 1] = k end
-    LOG("宠物信息字段: %s", table.concat(allKeys, ", "))
     local function fk(patterns)
         for _, key in ipairs(allKeys) do
             local lk = strlower(key)
@@ -99,11 +91,6 @@ local function DetectPetInfoFields()
     local hk = fk({"health", "hp"})
     local pk = fk({"power", "attack", "atk"})
     local sk = fk({"speed", "spd"})
-    if not hk or not pk or not sk then
-        ERR("无法匹配基准属性字段: H=%s P=%s S=%s", tostring(hk), tostring(pk), tostring(sk))
-    else
-        LOG("基准属性字段: H=%s P=%s S=%s", hk, pk, sk)
-    end
     petInfoFields = { hk, pk, sk }
     return hk, pk, sk
 end
@@ -116,150 +103,147 @@ local function ExtractBaseStats(petInfo)
 end
 
 -- ============================================================================
--- 品种计算
+-- 品种推算
 -- ============================================================================
 
 local function CalcBreed(speciesID, level, quality, health, power, speed)
-    if not health or not power or not speed then
-        -- 正常情况：背包里的宠物可能没有属性数据
-        return nil
-    end
+    if not health or not power or not speed then return nil end
     local petInfo = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
     if not petInfo then return nil end
-
     local bh, bp, bs = ExtractBaseStats(petInfo)
     if not bh or not bp or not bs then return nil end
-
     local calcQuality = quality or 4
     if GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.AssumeRareQuality then
         if not quality or calcQuality < 4 then calcQuality = 4 end
     end
-
     return CalculateBreedFromStats(health, power, speed, bh, bp, bs, level, calcQuality)
 end
 
 -- ============================================================================
--- 列表按钮品种标注
+-- 按钮发现：双来源
 -- ============================================================================
-local function FindPetListButtons()
+
+--- 判断按钮是否为 Rematch 按钮（有 Breed FontString 子元素的特征）
+local function IsRematchButton(button)
+    return button.Breed ~= nil
+end
+
+--- 深度遍历 Frame 找有 petID 的可见子元素
+local function DeepScan(root, maxDepth)
     local btns = {}
-    local method = ""
-
-    -- 方法1：旧式 HybridScrollFrame
-    if PetJournalListScrollFrame then
-        method = "HybridScrollFrame.buttons"
-        if PetJournalListScrollFrame.buttons then
-            for _, b in ipairs(PetJournalListScrollFrame.buttons) do
-                if b and b:IsVisible() and b.petID then btns[#btns + 1] = b end
+    local function scan(parent, depth)
+        if depth > maxDepth then return end
+        local children = { parent:GetChildren() }
+        for _, child in ipairs(children) do
+            if child:IsVisible() and child.petID then
+                btns[#btns + 1] = child
             end
+            scan(child, depth + 1)
         end
-        if #btns > 0 then return btns end
     end
+    scan(root, 0)
+    return btns
+end
 
-    -- 方法2：遍历 PetJournal / CollectionsJournal 的全部子 Frame（12.0 ScrollBox）
-    local searchRoots = {}
-    if PetJournal then searchRoots[#searchRoots + 1] = { name = "PetJournal", frame = PetJournal } end
-    if CollectionsJournal then searchRoots[#searchRoots + 1] = { name = "CollectionsJournal", frame = CollectionsJournal } end
-
-    for _, root in ipairs(searchRoots) do
-        method = root.name .. " 深度遍历"
-        local function scan(parent, depth)
-            if depth > 6 then return end
-            local children = { parent:GetChildren() }
-            for _, child in ipairs(children) do
-                if child:IsVisible() and child.petID then
-                    btns[#btns + 1] = child
-                end
-                scan(child, depth + 1)
-            end
-        end
-        scan(root.frame, 0)
+--- 获取所有可见的宠物列表按钮（暴雪原生 + Rematch）
+local function FindPetListButtons()
+    -- 源1：Rematch 面板
+    if RematchFrame and RematchFrame:IsShown() then
+        local btns = DeepScan(RematchFrame, 4)
         if #btns > 0 then
-            LOG("找到 %d 个按钮 (方法=%s)", #btns, method)
-            return btns
+            return btns, "Rematch"
         end
     end
 
-    -- 方法3：全局命名表
-    method = "全局命名表"
+    -- 源2：暴雪原生 PetJournal
+    if PetJournal and PetJournal:IsShown() then
+        local btns = DeepScan(PetJournal, 4)
+        if #btns > 0 then
+            return btns, "PetJournal"
+        end
+    end
+
+    -- 源3：全局命名表（旧版兼容）
+    local btns = {}
     for i = 1, 50 do
         local b = _G["PetJournalListScrollFrameButton" .. i]
         if not b then break end
         if b:IsVisible() and b.petID then btns[#btns + 1] = b end
     end
+    if #btns > 0 then return btns, "全局命名表" end
 
-    return btns
+    return {}, "none"
 end
 
---- 为单个按钮添加品种标注
+-- ============================================================================
+-- 按钮品种标注（通用，适配双来源）
+-- ============================================================================
+
+--- 为单个按钮添加/更新品种标注
 local function LabelButton(button)
-    if not button or not button.petID then
-        ERR("LabelButton: 无效按钮")
-        return
-    end
-
-    -- 创建标注 FontString（仅首次）
-    if not button._genedexLabel then
-        local fs = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        fs:SetPoint("RIGHT", button, "RIGHT", -6, 0)
-        fs:SetJustifyH("RIGHT")
-        button._genedexLabel = fs
-    end
-
-    local label = button._genedexLabel
-
-    -- 配置开关检查
+    if not button or not button.petID then return end
     if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then
-        label:Hide()
         return
     end
 
-    -- 获取宠物数据
     local _, speciesID, _, _, _, _, _, _, _, _, _, level, quality, health, power, speed =
         C_PetJournal.GetPetInfoByPetID(button.petID)
-    if not speciesID then
-        label:Hide()
-        return
-    end
+    if not speciesID then return end
 
-    -- 推算品种
     local breedID = CalcBreed(speciesID, level, quality, health, power, speed)
-    if not breedID then
-        label:Hide()
-        return
-    end
+    if not breedID then return end
 
     local code = GetBreedCode(breedID)
     local isBest = addonTable.IsBestBreed(speciesID, breedID)
 
-    label:SetText(isBest and ("★" .. code) or code)
-    label:SetTextColor(isBest and 1 or 0.6, isBest and 0.84 or 0.6, 0.6)
-    label:Show()
+    if IsRematchButton(button) then
+        -- Rematch 按钮：改写已有的 Breed FontString
+        if button.Breed then
+            button.Breed:SetText(isBest and ("★" .. code) or code)
+            button.Breed:SetTextColor(isBest and 1 or 0.6, isBest and 0.84 or 0.6, 0.6)
+            button.Breed:Show()
+        end
+        -- 同时改写 SpeciesName（如果可见）追加品种信息
+        if button.SpeciesName and button.SpeciesName:IsShown() then
+            local cur = button.SpeciesName:GetText() or ""
+            -- 去重
+            if not cur:find(code, 1, true) then
+                button.SpeciesName:SetText(cur .. "  [" .. code .. "]")
+            end
+        end
+    else
+        -- 暴雪原生按钮：创建独立的 FontString
+        if not button._genedexLabel then
+            local fs = button:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            fs:SetPoint("RIGHT", button, "RIGHT", -6, 0)
+            fs:SetJustifyH("RIGHT")
+            button._genedexLabel = fs
+        end
+        local label = button._genedexLabel
+        label:SetText(isBest and ("★" .. code) or code)
+        label:SetTextColor(isBest and 1 or 0.6, isBest and 0.84 or 0.6, 0.6)
+        label:Show()
+    end
 end
 
---- 刷新全部列表按钮
-local function RefreshAllButtons()
-    if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then
-        return
-    end
+--- 刷新所有列表按钮的品种标注
+function RefreshAllButtons()
+    if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then return end
 
-    local btns = FindPetListButtons()
+    local btns, source = FindPetListButtons()
     local count = 0
     for _, b in ipairs(btns) do
         local ok, err = pcall(LabelButton, b)
-        if ok then count = count + 1 end
-        if not ok then ERR("LabelButton 失败: %s", tostring(err)) end
+        if ok then count = count + 1
+        elseif err then ERR("LabelButton: %s", tostring(err)) end
     end
-    if count > 0 then
-        LOG("已标注 %d 个按钮", count)
-    end
+    if count > 0 then LOG("已标注 %d 个按钮 (来源=%s)", count, source) end
 end
 
 -- ============================================================================
 -- 右键菜单
 -- ============================================================================
 
-local CATEGORY_LIST = { "pvp", "pve", "collection", "custom" }
 local menuFrame = nil
 
 local function EnsureMenu()
@@ -267,7 +251,7 @@ local function EnsureMenu()
     menuFrame = CreateFrame("Frame", "GeneDexBDMenu", UIParent, "UIDropDownMenuTemplate")
 end
 
-local function ShowBestBreedMenu(button, petID, speciesID, breedID)
+local function ShowBestBreedMenu(button, speciesID, breedID)
     if not speciesID or not breedID then return end
     EnsureMenu()
 
@@ -300,7 +284,6 @@ local function ShowBestBreedMenu(button, petID, speciesID, breedID)
                 info.notCheckable = true
                 info.func = function()
                     addonTable.RemoveBestBreed(speciesID, breedID)
-                    RefreshAllButtons()
                 end
                 UIDropDownMenu_AddButton(info, 1)
             else
@@ -312,13 +295,12 @@ local function ShowBestBreedMenu(button, petID, speciesID, breedID)
                 UIDropDownMenu_AddButton(info, 1)
             end
         elseif level == 2 then
-            for _, cat in ipairs(CATEGORY_LIST) do
+            for _, cat in ipairs({"pvp", "pve", "collection", "custom"}) do
                 local catName = addonTable.GetBestBreedCategoryName and addonTable.GetBestBreedCategoryName(cat) or cat
                 info.text = catName
                 info.notCheckable = true
                 info.func = function()
                     addonTable.SetBestBreed(speciesID, breedID, cat, "")
-                    RefreshAllButtons()
                 end
                 UIDropDownMenu_AddButton(info, 2)
             end
@@ -340,58 +322,26 @@ local function HookRightClick(button)
         if not speciesID then return end
         local breedID = CalcBreed(speciesID, level, quality, health, power, speed)
         if not breedID then return end
-        ShowBestBreedMenu(self, petID, speciesID, breedID)
+        ShowBestBreedMenu(self, speciesID, breedID)
     end)
 end
 
 -- ============================================================================
--- PET_JOURNAL_LIST_UPDATE 回调
+-- 事件回调
 -- ============================================================================
 
 local updateCount = 0
 
-local function OnJournalUpdate()
+local function OnListUpdate()
     updateCount = updateCount + 1
+    local btns, source = FindPetListButtons()
+    LOG("#%d 找到 %d 个按钮 (来源=%s)", updateCount, #btns, source)
 
-    -- PetJournal 在 Blizzard_Collections 加载前为 nil，直接跳过
-    if not PetJournal then
-        LOG("#%d PetJournal=nil 跳过", updateCount)
-        return
-    end
-
-    local hasCJ = CollectionsJournal ~= nil
-    LOG("#%d PJ=%s CJ=%s PJ.show=%s",
-        updateCount,
-        PetJournal and "T" or "nil",
-        hasCJ and "T" or "nil",
-        PetJournal:IsShown() and "yes" or "no")
-
-    -- 首次 PetJournal 存在时打印所有子 Frame 结构
-    if not PetJournal._genedex_dumped then
-        PetJournal._genedex_dumped = true
-        LOG("=== PetJournal 子 Frame 结构 ===")
-        local function dump(parent, indent)
-            if indent > 3 then return end
-            local children = { parent:GetChildren() }
-            for _, child in ipairs(children) do
-                local cn = child:GetName() or "<unnamed>"
-                local cv = child:IsVisible() and "可见" or "隐藏"
-                local extra = ""
-                if child.petID then extra = " [petID=" .. tostring(child.petID) .. "]" end
-                if child.buttonType then extra = extra .. " [buttonType]" end
-                LOG("  " .. string.rep("  ", indent) .. "%s (%s)%s", cn, cv, extra)
-                dump(child, indent + 1)
-            end
+    if #btns > 0 then
+        for _, b in ipairs(btns) do
+            pcall(LabelButton, b)
+            HookRightClick(b)
         end
-        dump(PetJournal, 0)
-        LOG("=== 结构结束 ===")
-    end
-
-    RefreshAllButtons()
-
-    local btns = FindPetListButtons()
-    for _, b in ipairs(btns) do
-        if b and b.petID then HookRightClick(b) end
     end
 end
 
@@ -399,29 +349,51 @@ end
 -- 初始化
 -- ============================================================================
 
-function addonTable.InitJournalUI()
-    LOG("JournalUI 初始化开始")
+local inited = false
 
-    -- PET_JOURNAL_LIST_UPDATE 事件
+function addonTable.InitJournalUI()
+    if inited then return end
+    inited = true
+    LOG("初始化 (双模式: 原生面板+Rematch)")
+
+    -- 触发1：PET_JOURNAL_LIST_UPDATE（两者都会触发）
     local ef = CreateFrame("Frame")
     ef:RegisterEvent("PET_JOURNAL_LIST_UPDATE")
-    ef:SetScript("OnEvent", function(_, event)
-        if event == "PET_JOURNAL_LIST_UPDATE" then
-            OnJournalUpdate()
-        end
+    ef:SetScript("OnEvent", function(_, e)
+        if e == "PET_JOURNAL_LIST_UPDATE" then OnListUpdate() end
     end)
-    LOG("已注册 PET_JOURNAL_LIST_UPDATE")
 
-    -- Blizzard_Collections 加载时
-    local wf = CreateFrame("Frame")
-    wf:RegisterEvent("ADDON_LOADED")
-    wf:SetScript("OnEvent", function(_, _, a)
+    -- 触发2：Blizzard_Collections 加载
+    local bcf = CreateFrame("Frame")
+    bcf:RegisterEvent("ADDON_LOADED")
+    bcf:SetScript("OnEvent", function(_, _, a)
         if a == "Blizzard_Collections" then
-            LOG("Blizzard_Collections 已加载，触发刷新")
-            OnJournalUpdate()
-            wf:UnregisterEvent("ADDON_LOADED")
+            LOG("Blizzard_Collections 已加载")
+            OnListUpdate()
+            bcf:UnregisterEvent("ADDON_LOADED")
         end
     end)
 
-    LOG("JournalUI 初始化完成")
+    -- 触发3：RematchFrame Show（Rematch 打开/切换到日志模式时）
+    local rmf = CreateFrame("Frame")
+    rmf:SetScript("OnUpdate", function(self, elapsed)
+        self._t = (self._t or 0) + elapsed
+        if self._t < 0.5 then return end
+        self._t = 0
+
+        if RematchFrame and RematchFrame:IsShown() then
+            if not self._wasShown then
+                self._wasShown = true
+                LOG("RematchFrame 已显示，触发刷新")
+                OnListUpdate()
+            end
+        else
+            self._wasShown = false
+        end
+    end)
+
+    -- 触发4：如果 Rematch 正在显示中（插件加载时已经在用 Rematch）
+    if RematchFrame and RematchFrame:IsShown() then
+        C_Timer.After(0.5, function() OnListUpdate() end)
+    end
 end
