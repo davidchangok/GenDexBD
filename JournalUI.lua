@@ -413,8 +413,13 @@ local InjectIntoJournal
 
 --- 刷新整个宠物列表的品种标注
 function addonTable.RefreshJournalList()
-    -- 首次调用时尝试注入 Journal UI（PetJournal 框架此时才被打开）
+    -- 首次调用时尝试注入 Journal UI
     if InjectIntoJournal then InjectIntoJournal() end
+
+    -- 如果暴雪原生 PetJournal 不可见（被 Rematch 等插件接管），跳过列表刷新
+    if not PetJournal or not PetJournal:IsShown() then
+        return
+    end
 
     -- 检查开关
     if not GeneDexDB or not GeneDexDB.Options or not GeneDexDB.Options.ShowInJournal then
@@ -796,8 +801,8 @@ end
 
 --- 当选中宠物变化时更新详情页
 local function UpdateDetailView()
-    local parent = FindJournalParent()
-    if not parent or not parent:IsShown() then
+    -- 仅在暴雪原生 PetJournal 可见时更新
+    if not PetJournal or not PetJournal:IsShown() then
         return
     end
 
@@ -849,32 +854,30 @@ local journalInjected = false
 local journalWatcherFrame = nil
 
 --- 运行时查找宠物手册的父容器 Frame
---- 多版本兼容：尝试多种已知命名，并通过遍历子 Frame 验证
+--- 12.0 中 CollectionsJournal 是主容器，PetJournal 是暴雪宠物面板（子 Frame）
 --- @return table|nil 找到的父 Frame
 local function FindJournalParent()
-    -- 候选名称列表（涵盖各版本可能的名字）
+    -- 候选名称列表（12.0 真名优先）
     local candidates = {
-        "PetJournalParent",       -- 经典名称
-        "CollectionsJournal",    -- Dragonflight+ 收藏界面
+        "CollectionsJournal",    -- 12.0 (Midnight) 收藏界面主容器
+        "PetJournalParent",      -- 旧版经典名称
+        "PetJournal",            -- 暴雪宠物面板
         "PetJournalFrame",       -- 变体
-        "PetJournal",            -- 简化名称
     }
 
     for _, name in ipairs(candidates) do
         local frame = _G[name]
         if frame then
+            print("|cff00ff00[GenDexBD]|r 找到宠物手册容器: " .. name)
             return frame
         end
     end
 
-    -- 以上都没有：从 PetJournalListScrollFrame 向上遍历找父容器
-    if PetJournalListScrollFrame then
-        local parent = PetJournalListScrollFrame:GetParent()
-        for _ = 1, 10 do  -- 最多向上10层
-            if not parent then
-                break
-            end
-            -- 检查是否是大的容器 Frame（有名字且包含多个子元素）
+    -- 以上都没有：尝试从已知子元素向上遍历
+    if PetJournal then
+        local parent = PetJournal:GetParent()
+        for _ = 1, 5 do
+            if not parent then break end
             local children = { parent:GetChildren() }
             if #children >= 3 then
                 return parent
@@ -887,24 +890,31 @@ local function FindJournalParent()
 end
 
 --- 运行时查找详情页的宠物卡片 Frame
+--- 12.0 中 PetJournal 是暴雪宠物面板（CollectionsJournal 的子 Frame）
+--- PetCard 是 PetJournal 内部显示宠物模型的区域
 --- @return table|nil
 local function FindPetCard()
-    -- 直接检查已知名称
-    if PetJournalPetCard then
-        return PetJournalPetCard
+    -- 已知名称列表（12.0 优先）
+    local cardNames = {
+        "PetJournalPetCard",           -- 经典名称
+        "PetJournalPetCardFrame",      -- 变体
+        "CollectionsJournalPetCard",   -- 12.0 可能的命名
+    }
+    for _, name in ipairs(cardNames) do
+        local frame = _G[name]
+        if frame then
+            return frame
+        end
     end
 
-    -- 在父容器中搜索（按名字模式匹配）
-    local parent = FindJournalParent()
-    if not parent then
-        return nil
-    end
-
-    local children = { parent:GetChildren() }
-    for _, child in ipairs(children) do
-        local name = child:GetName() or ""
-        if strfind(name, "Card") or strfind(name, "Detail") or strfind(name, "Model") then
-            return child
+    -- 在 PetJournal 内搜索包含 "Card" 的子 Frame
+    if PetJournal then
+        local children = { PetJournal:GetChildren() }
+        for _, child in ipairs(children) do
+            local childName = child:GetName() or ""
+            if strfind(childName, "Card") then
+                return child
+            end
         end
     end
 
@@ -912,44 +922,51 @@ local function FindPetCard()
 end
 
 --- 执行首次注入：在 PetJournal 界面中创建品种显示和管理 UI
---- 由 RefreshJournalList 在 PET_JOURNAL_LIST_UPDATE 首次触发时调用
+--- 仅在暴雪原生宠物面板（PetJournal）可见时注入
+--- 如果 Rematch 等插件已接管（PetJournal 被隐藏），则跳过
 local function InjectIntoJournal()
     if journalInjected then
         return
     end
 
-    -- 找到父容器
+    -- 确定父容器：12.0 中是 CollectionsJournal（不是 PetJournalParent）
+    -- PetJournal 是暴雪宠物面板（CollectionsJournal 的子 Frame）
     local parentFrame = FindJournalParent()
     if not parentFrame then
-        -- 仍然找不到，等下次事件再试
         return
     end
 
-    -- 标记已注入，不再重复尝试
+    -- 检查 PetJournal 是否存在且可见
+    -- 如果 Rematch 等插件已接管宠物面板，PetJournal 会被隐藏
+    -- 此时应跳过注入，避免与插件冲突
+    if PetJournal and not PetJournal:IsShown() then
+        -- Rematch 等插件已激活，推迟到 PetJournal 可见时再注入
+        return
+    end
+
     journalInjected = true
 
-    print("|cff00ff00[GenDexBD]|r 已检测到宠物手册框架: " .. (parentFrame:GetName() or "<未命名>") .. "，品种UI已注入")
+    print("|cff00ff00[GenDexBD]|r 宠物手册框架: " .. (parentFrame:GetName() or "<未命名>") .. "，品种UI注入中...")
 
-    -- 创建详情品种行（使用动态查找的 PetCard）
-    CreateDetailBreedLine(parentFrame)
+    -- 将详情行和最优管理区挂在 PetJournal 上（而不是 CollectionsJournal）
+    -- 这样当 Rematch 接管时 PetJournal 隐藏，我们的 UI 也随之隐藏
+    local journalFrame = PetJournal or parentFrame
 
-    -- 创建最优属性管理区
-    CreateBestBreedUI(parentFrame)
+    CreateDetailBreedLine(journalFrame)
+    CreateBestBreedUI(journalFrame)
+    print("|cff00ff00[GenDexBD]|r 品种UI已注入到: " .. (journalFrame:GetName() or "<未命名>"))
 
-    -- 创建选择变化监听帧（节流到 ~3Hz，降低 CPU 开销）
+    -- 创建选择变化监听帧
     if not journalWatcherFrame then
         journalWatcherFrame = CreateFrame("Frame")
         journalWatcherFrame.tick = 0
         journalWatcherFrame:SetScript("OnUpdate", function(self, elapsed)
             self.tick = self.tick + elapsed
-            if self.tick < 0.3 then
-                return
-            end
+            if self.tick < 0.3 then return end
             self.tick = 0
 
-            -- 检测宠物选择是否发生变化
-            local parent = FindJournalParent()
-            if parent and parent:IsShown() then
+            -- 仅在 PetJournal 可见时工作
+            if PetJournal and PetJournal:IsShown() then
                 local speciesID = C_PetJournal.GetSelectedSpeciesID()
                 if speciesID ~= currentSpeciesID then
                     UpdateDetailView()
