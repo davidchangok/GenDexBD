@@ -133,7 +133,9 @@ local function TryHookRematch()
     rematchHooked=true
     hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,button) RematchDecorate(button) end)
     hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,button) RematchDecorate(button) end)
-    LOG("已 Hook Rematch Fill")
+    LOG("已 Hook Rematch Fill + 强制刷新已有列表")
+    -- 强制刷新当前正在显示的按钮（填充时已错过 Hook 的）
+    if Rematch.petsPanel.Update then Rematch.petsPanel:Update() end
 end
 
 function RematchSetBest(petID,cat)
@@ -146,6 +148,7 @@ function RematchSetBest(petID,cat)
         local code=GetBreedCode(bid)
         addonTable.SetBestBreed(speciesID,bid,cat or "custom","")
         LOG("已保存: speciesID=%d breedID=%d (%s)", speciesID, bid, code)
+        -- 强制刷新列表，让所有按钮重新 Fill → Hook 触发 → 五星+标注更新
         if Rematch and Rematch.petsPanel and Rematch.petsPanel.Update then
             Rematch.petsPanel:Update()
         end
