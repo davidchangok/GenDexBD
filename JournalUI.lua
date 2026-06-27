@@ -1,7 +1,7 @@
 -- GenDexBD JournalUI.lua
 -- Rematch: Hook Fill + 品种标注 + 金色五星 + 右键菜单
--- 暴雪原生: Hook PetJournal_InitPetButton + 右键菜单
--- 品种来源: 直接用 Rematch petInfo（BattlePetBreedID 提供数据）
+-- 暴雪原生: Hook PetJournal_InitPetButton
+-- 品种来源: Rematch petInfo (BattlePetBreedID)
 
 local addonName, addonTable = ...
 local GetBreedCode=addonTable.GetBreedCode;local time=time
@@ -41,15 +41,17 @@ local function Decorate(button)
     local breedID,breedName,speciesID=info.breedID,info.breedName,info.speciesID
     local isBest=addonTable.IsBestBreed(speciesID,breedID)
 
-    button.Breed:SetText(isBest and ("★"..breedName) or breedName)
+    -- Breed 文本：纯品种代码，不加 ★ 字符（五星用独立纹理）
+    button.Breed:SetText(breedName)
     button.Breed:SetTextColor(isBest and 1 or 0.6,isBest and 0.84 or 0.6,0.6)
     button.Breed:Show()
 
+    -- 金色五星纹理（仅最优品种显示）
     if isBest then
         if not button._gStar then
             local star=button:CreateTexture(nil,"OVERLAY")
             star:SetAtlas("PetJournal-FavoritesIcon");star:SetSize(16,16)
-            star:SetPoint("RIGHT",button.Breed,"LEFT",-80,0);button._gStar=star
+            star:SetPoint("RIGHT",button.Breed,"LEFT",-60,0);button._gStar=star
         end;button._gStar:Show()
     else
         if button._gStar then button._gStar:Hide() end
@@ -67,7 +69,7 @@ local function DecorateAll()
         end
     end
     s(RematchFrame,0)
-    if c>0 then LOG("已标注 %d 个按钮",c) else LOG("DecorateAll: 0个可见按钮") end
+    if c>0 then LOG("已标注 %d 个按钮",c) end
 end
 
 -- ========== Rematch Fill Hook ==========
@@ -79,31 +81,31 @@ local function TryHookRematch()
     hooksecurefunc(Rematch.petsPanel,"FillNormal",function(_,b) Decorate(b) end)
     hooksecurefunc(Rematch.petsPanel,"FillCompact",function(_,b) Decorate(b) end)
     LOG("已 Hook Rematch Fill")
-    Rematch.petsPanel:Update()
-    C_Timer.After(0.3,function() DecorateAll() end)
+    Rematch.petsPanel:Update();C_Timer.After(0.3,function() DecorateAll() end)
 end
 
 -- ========== Rematch 右键菜单 ==========
-function RematchSetBest(petID,cat)
+function RematchSetBest(petID)
     if not Rematch or not Rematch.petInfo then return end
     local info=Rematch.petInfo:Fetch(petID)
     if not info or not info.hasBreed then LOG("⚠ 品种未确定");return end
-    addonTable.SetBestBreed(info.speciesID,info.breedID,cat or "custom","")
+    addonTable.SetBestBreed(info.speciesID,info.breedID,"custom","")
     LOG("已保存: speciesID=%d breedID=%d (%s)",info.speciesID,info.breedID,info.breedName or "?")
     Rematch.petsPanel:Update();C_Timer.After(0.3,function() DecorateAll() end)
 end
 function RematchRemoveBest(petID)
     if not Rematch or not Rematch.petInfo then return end
     local info=Rematch.petInfo:Fetch(petID)
-    if not info or not info.speciesID then return end
-    for bid in pairs(addonTable.GetAllBestBreeds(info.speciesID)) do addonTable.RemoveBestBreed(info.speciesID,bid) end
-    LOG("已移除: speciesID=%d",info.speciesID)
+    if not info or not info.hasBreed then return end
+    -- 只取消当前品种（不是整个物种）
+    addonTable.RemoveBestBreed(info.speciesID,info.breedID)
+    LOG("已移除: speciesID=%d breedID=%d",info.speciesID,info.breedID)
     Rematch.petsPanel:Update();C_Timer.After(0.3,function() DecorateAll() end)
 end
 function RematchHasBest(petID)
     if not Rematch or not Rematch.petInfo then return false end
     local info=Rematch.petInfo:Fetch(petID)
-    return info and info.speciesID and next(addonTable.GetAllBestBreeds(info.speciesID))
+    return info and info.hasBreed and addonTable.IsBestBreed(info.speciesID,info.breedID)
 end
 
 local menuInjected=false
@@ -113,7 +115,7 @@ local function TryInjectRematchMenu()
     Rematch.menus:AddToMenu("PetMenu",{
         text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
         hidden=function(_,p) return not p end,
-        func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p,"custom") end end
+        func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
     },"Find Teams")
     LOG("Rematch 菜单已注入")
 end
