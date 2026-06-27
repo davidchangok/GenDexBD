@@ -3,7 +3,7 @@
 
 local addonName, addonTable = ...
 local GetBreedCode=addonTable.GetBreedCode;local time=time
-local pairs=pairs;local next=next;local strlower=string.lower;local strfind=string.find
+local pairs=pairs;local next=next
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 -- ========== 最优品种管理 API ==========
@@ -36,20 +36,15 @@ function addonTable.GetAllBestBreeds(sid)
 end
 
 -- ========== 品种推算 ==========
-local fields=nil
-local function Detect()
-    if fields then return fields[1],fields[2],fields[3] end
-    local s=C_PetJournal.GetPetInfoBySpeciesID(39) or C_PetJournal.GetPetInfoBySpeciesID(1);if not s then return end
-    local ks={};for k in pairs(s) do ks[#ks+1]=k end
-    local function f(ps) for _,k in ipairs(ks) do local l=strlower(k);for _,p in ipairs(ps) do if strfind(l,p,1,true) then return k end end end end
-    local h=f({"health","hp"});local p=f({"power","attack","atk"});local sp=f({"speed","spd"})
-    fields={h,p,sp};LOG("字段: H=%s P=%s S=%s",tostring(h),tostring(p),tostring(sp));return h,p,sp
+-- 12.0 字段名硬编码（已知稳定字段，不依赖运行时探测）
+local function ExtractBase(pi)
+    if not pi or type(pi)~="table" then return nil,nil,nil end
+    return pi.health or pi.baseHealth, pi.power or pi.basePower, pi.speed or pi.baseSpeed
 end
-local function Extract(pi) if not pi then return end;local h,p,s=Detect();if not h then return end;return pi[h],pi[p],pi[s] end
 local function CalcBreed(sid,lv,q,hp,pw,sp)
     if not hp or not pw or not sp then return nil end
     local pi=C_PetJournal.GetPetInfoBySpeciesID(sid);if not pi then return nil end
-    local bh,bp,bs=Extract(pi);if not bh then return nil end
+    local bh,bp,bs=ExtractBase(pi);if not bh then return nil end
     local q2=q or 4;if GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.AssumeRareQuality and (not q or q<4) then q2=4 end
     return addonTable.CalculateBreedFromStats(hp,pw,sp,bh,bp,bs,lv,q2)
 end
