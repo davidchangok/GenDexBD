@@ -13,8 +13,6 @@ local CalculateBreedFromStats = addonTable.CalculateBreedFromStats
 local GuessBreedByRatio = addonTable.GuessBreedByRatio
 local GetBreedCode = addonTable.GetBreedCode
 local GetBreedDisplayName = addonTable.GetBreedDisplayName
-local GetBestBreedCategoryName = addonTable.GetBestBreedCategoryName
-
 local time = time
 local type = type
 local pairs = pairs
@@ -23,7 +21,6 @@ local next = next
 local tostring = tostring
 local print = print
 local C_Timer_After = C_Timer.After
-local RaidNotice_AddMessage = RaidNotice_AddMessage
 
 -- ============================================================================
 -- 常量
@@ -31,11 +28,6 @@ local RaidNotice_AddMessage = RaidNotice_AddMessage
 
 local ADDON_NAME = "GenDexBD"
 local CURRENT_DB_VERSION = 2
-
--- 战斗提示颜色：金色
-local ALERT_COLOR = { r = 1.0, g = 0.84, b = 0.0 }
--- 收藏提示颜色：淡金色
-local COLLECTION_ALERT_COLOR = { r = 0.9, g = 0.75, b = 0.4 }
 
 -- 数据库默认值
 local DB_DEFAULTS = {
@@ -138,104 +130,181 @@ function addonTable.MigrateBestBreeds(db)
 end
 
 -- ============================================================================
--- 战斗缓存与提示
+-- 战斗目标提示（GlowBoxTemplate — 参考 PetTracker 的方案）
 -- ============================================================================
+--
+-- 使用暴雪内置 GlowBoxTemplate：金色发光边框 + 指向箭头
+-- 锚定到 PetBattleFrame.ActiveEnemy.Icon 下方，类似 PetTracker 的提示框
 
--- 战斗内已提示缓存，防止重复提示同一只宠物
+-- 提示框单例
+local alertGlowBox = nil
+
+-- 本场战斗已提示的 speciesID 集合（防重复）
 local battleAlertCache = {}
 
---- 清空战斗缓存
-local function ClearBattleCache()
-    battleAlertCache = {}
+--- 创建或获取战斗提示框（单例，复用）
+local function GetAlertGlowBox()
+    if alertGlowBox then
+        return alertGlowBox
+    end
+
+    -- 用 GlowBoxTemplate 创建（暴雪内置）
+    alertGlowBox = CreateFrame("Frame", nil, PetBattleFrame, "GlowBoxTemplate")
+    alertGlowBox:SetSize(240, 90)
+    alertGlowBox:SetFrameStrata("HIGH")
+    alertGlowBox:EnableMouse(true)
+
+    -- 锚定到敌方宠物头像下方（与 PetTracker 一致的位置）
+    alertGlowBox:SetPoint("TOP", PetBattleFrame.ActiveEnemy.Icon, "BOTTOM", 0, -20)
+
+    -- 方向箭头指向上方（指向敌方宠物头像）
+    -- GlowBox 有四套箭头：Bottom/Top/Left/Right，我们让 Top 箭头的 Arrow 指向 0°（朝上）
+    if alertGlowBox.Top then
+        alertGlowBox.Top:Show()
+        if alertGlowBox.Top.Arrow then
+            alertGlowBox.Top.Arrow:SetClampedTextureRotation(0)  -- 箭头朝上
+        end
+        if alertGlowBox.Top.Glow then
+            alertGlowBox.Top.Glow:SetClampedTextureRotation(0)
+        end
+    end
+    -- 隐藏不用的箭头
+    for _, side in ipairs({"Bottom", "Left", "Right"}) do
+        if alertGlowBox[side] then
+            alertGlowBox[side]:Hide()
+        end
+    end
+
+    -- 文本：用 GameFontHighlightLeft
+    local text = alertGlowBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightLeft")
+    text:SetPoint("TOPLEFT", 16, -20)
+    text:SetWidth(208)
+    text:SetSpacing(4)
+    alertGlowBox.Text = text
+
+    -- 备注重叠行（小号灰色字体）
+    local subText = alertGlowBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    subText:SetPoint("TOPLEFT", text, "BOTTOMLEFT", 0, -2)
+    subText:SetWidth(208)
+    alertGlowBox.SubText = subText
+
+    -- 关闭按钮
+    local closeBtn = CreateFrame("Button", nil, alertGlowBox, "UIPanelCloseButton")
+    closeBtn:SetPoint("TOPRIGHT", 4, 5)
+    closeBtn:SetScript("OnClick", function()
+        PlaySound(SOUNDKIT and SOUNDKIT.IG_MAINMENU_CLOSE or 850)
+        alertGlowBox:Hide()
+        alertGlowBox.closedInThisBattle = true
+    end)
+    alertGlowBox.Close = closeBtn
+
+    alertGlowBox:Hide()
+    return alertGlowBox
 end
 
---- 检查单只敌方宠物是否在最优属性列表中
---- @param petIndex number 敌方宠物位置索引 (1-3)
-local function CheckEnemyPet(petIndex)
+--- 在 GlowBox 中显示指定敌人的最优品种提示
+--- @param petIndex number 敌方宠物索引 (1-3)
+local function ShowAlertForPet(petIndex)
     if not GeneDexDB.Options.AlertInBattle then
         return
     end
 
     -- 获取敌方宠物信息
-    local speciesID = C_PetBattles.GetPetSpeciesID(2, petIndex) -- team 2 = 敌方
-    local health = C_PetBattles.GetHealth(2, petIndex)
-    local power = C_PetBattles.GetPower(2, petIndex)
-    local speed = C_PetBattles.GetSpeed(2, petIndex)
-    local name = C_PetBattles.GetName(2, petIndex)
-    local level = C_PetBattles.GetLevel(2, petIndex)
+    local speciesID = C_PetBattles.GetPetSpeciesID(2, petIndex)
+    local health   = C_PetBattles.GetHealth(2, petIndex)
+    local power    = C_PetBattles.GetPower(2, petIndex)
+    local speed    = C_PetBattles.GetSpeed(2, petIndex)
+    local name     = C_PetBattles.GetName(2, petIndex)
 
     if not speciesID or not health or not power or not speed then
-        return  -- 战斗数据尚未就绪
-    end
-
-    -- 缓存键：同一场战斗中不重复提示同一只宠物
-    local cacheKey = speciesID
-    if battleAlertCache[cacheKey] then
         return
     end
 
-    -- 检查是否在最优属性列表中
+    -- 防重复
+    if battleAlertCache[speciesID] then
+        return
+    end
+
+    -- 检查最优列表
     local bestBreeds = GeneDexDB.BestBreeds[speciesID]
     if not bestBreeds or type(bestBreeds) ~= "table" then
         return
     end
 
-    -- 用比例估算方法推算品种
+    -- 比例估算品种
     local breedID = GuessBreedByRatio(health, power, speed)
-    if not breedID then
-        return
-    end
+    if not breedID then return end
 
-    -- 检查该品种是否是最优
     local bestInfo = bestBreeds[breedID]
     if not bestInfo or type(bestInfo) ~= "table" then
         return
     end
 
     -- 标记已提示
-    battleAlertCache[cacheKey] = true
+    battleAlertCache[speciesID] = true
 
-    -- 根据分类生成提示文本
-    local category = bestInfo.category or "custom"
-    local alertKey = "ALERT_CUSTOM"  -- 默认
-    local color = ALERT_COLOR
-
-    if category == "pvp" then
-        alertKey = "ALERT_PVP"
-    elseif category == "pve" then
-        alertKey = "ALERT_PVE"
-    elseif category == "collection" then
-        alertKey = "ALERT_COLLECTION"
-        color = COLLECTION_ALERT_COLOR
+    -- 获取 GlowBox
+    local box = GetAlertGlowBox()
+    if box.closedInThisBattle then
+        return  -- 用户已在本场战斗中手动关闭，不再弹出
     end
 
-    local alertTitle = GetLocaleString(alertKey)
+    -- 分类标题
+    local cat = bestInfo.category or "custom"
+    local alertKey = "ALERT_CUSTOM"
+    if cat == "pvp" then alertKey = "ALERT_PVP"
+    elseif cat == "pve" then alertKey = "ALERT_PVE"
+    elseif cat == "collection" then alertKey = "ALERT_COLLECTION" end
+
+    local title = GetLocaleString(alertKey)
     local breedCode = GetBreedCode(breedID) or "?"
     local breedName = GetBreedDisplayName(breedID, breedCode)
-    local categoryName = GetBestBreedCategoryName(category)
 
-    -- 屏幕中央金色浮动提示
-    local message = alertTitle .. " "
-                    .. (name or "?") .. " - "
-                    .. breedName .. " (" .. categoryName .. ")"
-    RaidNotice_AddMessage(RaidBossEmoteFrame, message, color)
+    -- 主文本行：标题 + 宠物名 + 品种
+    local mainText = title .. "\n" .. (name or "?") .. " — " .. breedName
+    box.Text:SetText(mainText)
+
+    -- 副文本行（备注，仅在有备注时显示）
+    if bestInfo.note and bestInfo.note ~= "" then
+        box.SubText:SetText(bestInfo.note)
+        box.SubText:Show()
+    else
+        box.SubText:Hide()
+    end
+
+    -- 锚定到当前上场的敌方宠物头像
+    -- 宠物切换时重新锚定
+    local enemyIcon = PetBattleFrame.ActiveEnemy.Icon
+    box:ClearAllPoints()
+    box:SetPoint("TOP", enemyIcon, "BOTTOM", 0, -20)
+
+    box:Show()
 end
 
 --- 检查敌方全部存活宠物（PET_BATTLE_OPENING_START 时调用）
 local function CheckEnemyTeam()
     for i = 1, 3 do
-        local health = C_PetBattles.GetHealth(2, i)
-        if health and health > 0 then
-            CheckEnemyPet(i)
+        local h = C_PetBattles.GetHealth(2, i)
+        if h and h > 0 then
+            ShowAlertForPet(i)
         end
     end
 end
 
 --- 检查当前上场的敌方宠物（PET_BATTLE_PET_CHANGED 时调用）
 local function CheckActiveEnemyPet()
-    local activePet = C_PetBattles.GetActivePet(2)  -- team 2 = 敌方
-    if activePet and activePet >= 1 and activePet <= 3 then
-        CheckEnemyPet(activePet)
+    local idx = C_PetBattles.GetActivePet(2)
+    if idx and idx >= 1 and idx <= 3 then
+        ShowAlertForPet(idx)
+    end
+end
+
+--- 清空战斗缓存 + 重置 GlowBox 关闭标记
+local function ClearBattleCache()
+    battleAlertCache = {}
+    if alertGlowBox then
+        alertGlowBox.closedInThisBattle = nil
+        alertGlowBox:Hide()
     end
 end
 
