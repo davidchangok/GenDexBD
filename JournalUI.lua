@@ -1,9 +1,8 @@
 -- GenDexBD JournalUI.lua
--- 策略：OnUpdate 节流扫描 RematchFrame 按钮，改写 Breed 文本
--- Fill Hook 对 Rematch 无效（scrollBox 缓存了旧函数引用）
+-- Rematch: Hook Mixin.Fill → 改写 Breed 文本 + 右键菜单
 
 local addonName, addonTable = ...
-local time=time;local next=next;local pairs=pairs
+local time=time;local next=next
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 -- API
@@ -29,7 +28,7 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
--- 按钮标注（改写 Breed FontString 文本）
+-- Breed 改写（在 Mixin Fill 之后被调用，button 此时已完成所有填充）
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
     if not Rematch or not Rematch.petInfo then return end
@@ -38,18 +37,6 @@ local function label(b)
     local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
     b.Breed:SetText(best and ("★"..i.breedName) or i.breedName)
     b.Breed:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
-end
-
--- 扫描所有可见按钮
-local function scanAll()
-    if not RematchFrame or not RematchFrame:IsShown() then return end
-    local function s(p,d)
-        if d>6 then return end
-        for _,c in ipairs({p:GetChildren()}) do
-            if c.petID and c:IsVisible() then label(c) end;s(c,d+1)
-        end
-    end
-    s(RematchFrame,0)
 end
 
 -- 右键菜单
@@ -77,14 +64,23 @@ end
 function addonTable.InitJournalUI()
     LOG("初始化")
 
-    -- OnUpdate 扫描（0.3s 节流，不依赖 Fill Hook）
-    local sf=CreateFrame("Frame");sf._t=0
-    sf:SetScript("OnUpdate",function(self,elapsed)
-        self._t=self._t+elapsed;if self._t<0.3 then return end;self._t=0
-        scanAll()
-    end)
+    -- Hook Mixin Fill（在 Rematch 加载后，按钮通过 mixin 获得 Fill 方法时自动注入）
+    local function hookMixin()
+        if RematchNormalPetListButtonMixin and not RematchNormalPetListButtonMixin._gHooked then
+            RematchNormalPetListButtonMixin._gHooked=true
+            hooksecurefunc(RematchNormalPetListButtonMixin,"Fill",function(b) label(b) end)
+            LOG("已 Hook Normal Mixin Fill")
+        end
+        if RematchCompactPetListButtonMixin and not RematchCompactPetListButtonMixin._gHooked then
+            RematchCompactPetListButtonMixin._gHooked=true
+            hooksecurefunc(RematchCompactPetListButtonMixin,"Fill",function(b) label(b) end)
+            LOG("已 Hook Compact Mixin Fill")
+        end
+        -- 强制刷新当前列表
+        if Rematch.petsPanel and Rematch.petsPanel.Update then Rematch.petsPanel:Update() end
+    end
 
-    -- 菜单注入（延迟重试）
+    -- 菜单注入
     local menuTries=0
     local function tryMenu()
         menuTries=menuTries+1
@@ -99,11 +95,12 @@ function addonTable.InitJournalUI()
             C_Timer.After(1,tryMenu)
         end
     end
-    C_Timer.After(1,tryMenu)
 
-    -- 保存/取消后立即刷新
-    Rematch._genedexRefresh = function()
-        if Rematch.petsPanel then Rematch.petsPanel:Update() end
-        C_Timer.After(0.3,scanAll)
+    if C_AddOns.IsAddOnLoaded("Rematch") then
+        hookMixin()
+    else
+        local f=CreateFrame("Frame");f:RegisterEvent("ADDON_LOADED")
+        f:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then hookMixin();f:UnregisterEvent("ADDON_LOADED") end end)
     end
+    C_Timer.After(1,tryMenu)
 end

@@ -214,6 +214,7 @@ end
 --- @param petIndex number 敌方宠物索引 (1-3)
 local function ShowAlertForPet(petIndex)
     if not GeneDexDB.Options.AlertInBattle then
+        print("|cffff8800[GenDexBD]|r AlertInBattle 已关闭，跳过提示")
         return
     end
 
@@ -223,6 +224,9 @@ local function ShowAlertForPet(petIndex)
     local power    = C_PetBattles.GetPower(2, petIndex)
     local speed    = C_PetBattles.GetSpeed(2, petIndex)
     local name     = C_PetBattles.GetName(2, petIndex)
+
+    print(string.format("|cffff8800[GenDexBD]|r 战斗检查: idx=%d speciesID=%s hp=%s pw=%s sp=%s name=%s",
+        petIndex, tostring(speciesID), tostring(health), tostring(power), tostring(speed), tostring(name)))
 
     if not speciesID or not health or not power or not speed then
         return
@@ -239,14 +243,27 @@ local function ShowAlertForPet(petIndex)
         return
     end
 
-    -- 比例估算品种
-    local breedID = GuessBreedByRatio(health, power, speed)
-    if not breedID then return end
-
-    local bestInfo = bestBreeds[breedID]
-    if not bestInfo or type(bestInfo) ~= "table" then
+    -- 战斗中无法精确推算品种（没有 baseStats），直接按物种匹配最优列表
+    -- BestBreeds[speciesID] = { [breedID] = ... }，只要该物种在列表中就算目标
+    local hasMarked = false
+    for bid, bdata in pairs(bestBreeds) do
+        if type(bdata) == "table" then hasMarked = true; break end
+    end
+    if not hasMarked then
         return
     end
+
+    -- 尝试推算具体品种（失败也继续，按物种提示）
+    local breedID = GuessBreedByRatio(health, power, speed)
+    local bestInfo = breedID and bestBreeds[breedID]
+    if type(bestInfo) ~= "table" then
+        -- 推算不出具体品种，用第一个标记的
+        for bid, bdata in pairs(bestBreeds) do
+            if type(bdata) == "table" then bestInfo = bdata; breedID = bid; break end
+        end
+    end
+
+    print(string.format("|cffff8800[GenDexBD]|r 目标匹配！speciesID=%d breedID=%s", speciesID, tostring(breedID)))
 
     -- 标记已提示
     battleAlertCache[speciesID] = true
