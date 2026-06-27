@@ -1,0 +1,19 @@
+## Interface: 120007
+## Title: GenDexBD
+## Title-zhCN: 基因宝典
+## Notes: Pet battle breed identification and best breed tracker.
+## Notes-zhCN: 宠物对战品种识别与最优属性追踪。
+## Version: 1.0.0
+## Author: davidchangok
+## SavedVariables: GeneDexDB
+## X-Category: Pet Battles
+## X-Category-zhCN: 宠物对战
+## X-Localizations: enUS, zhCN
+
+Locales.lua
+BreedData.lua
+BreedMath.lua
+Core.lua
+Tooltip.lua
+JournalUI.lua
+ConfigPanel.lua
