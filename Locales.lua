@@ -67,6 +67,13 @@ local strings = {
     OPTION_SHOW_NOTE      = { zhCN = "提示中显示最优备注",       enUS = "Show best breed note in tooltip" },
     OPTION_ALERT_DURATION = { zhCN = "目标提示显示时间",          enUS = "Alert display duration" },
     SECONDS              = { zhCN = "秒",                      enUS = "sec" },
+    EXPORT_BUTTON        = { zhCN = "导出配置",                 enUS = "Export Config" },
+    IMPORT_BUTTON        = { zhCN = "导入配置",                 enUS = "Import Config" },
+    EXPORT_TITLE         = { zhCN = "导出最优品种数据",           enUS = "Export Best Breed Data" },
+    IMPORT_TITLE         = { zhCN = "导入最优品种数据",           enUS = "Import Best Breed Data" },
+    EXPORT_HINT          = { zhCN = "Ctrl+C 复制全部文本",       enUS = "Ctrl+C to copy all text" },
+    IMPORT_HINT          = { zhCN = "Ctrl+V 粘贴数据后点击导入",   enUS = "Ctrl+V to paste then click Import" },
+    IMPORT_DONE          = { zhCN = "导入完成：%d 条记录",        enUS = "Import done: %d records" },
 
     -- 战斗提示
     ALERT_PVP             = { zhCN = "PvP 目标发现！",    enUS = "PvP Target Found!" },
