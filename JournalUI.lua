@@ -49,7 +49,7 @@ local function Decorate(button)
         if not button._gStar then
             local star=button:CreateTexture(nil,"OVERLAY")
             star:SetAtlas("PetJournal-FavoritesIcon");star:SetSize(16,16)
-            star:SetPoint("TOPRIGHT",-2,-2);button._gStar=star
+            star:SetPoint("RIGHT",button.Breed,"LEFT",-80,0);button._gStar=star
         end;button._gStar:Show()
     else
         if button._gStar then button._gStar:Hide() end
