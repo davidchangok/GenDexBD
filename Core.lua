@@ -35,7 +35,7 @@ SlashCmdList["GENEDEXBDOPEN"] = function()
         addonTable.ToggleConfigPanel()
     end
 end
-_G["SLASH_GENEDEXBDOPEN1"] = "/gb"
+_G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
 
 -- 数据库默认值
 local DB_DEFAULTS = {
@@ -374,7 +374,7 @@ local function OnPlayerLogin()
             print("|cffff0000[GenDexBD]|r 配置模块未加载，请输入 /reload")
         end
     end
-    _G["SLASH_GENEDEXBDOPEN1"] = "/gb"
+    _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
 
     -- 注册战斗事件
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START")
