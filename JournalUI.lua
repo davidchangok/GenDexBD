@@ -33,18 +33,21 @@ end
 local badgeRegistered=false
 local function RegisterStarBadge()
     if badgeRegistered then return end
-    if not Rematch or not Rematch.badges or not Rematch.badges.RegisterBadge then return end
+    if not Rematch or not Rematch.badges or not Rematch.badges.RegisterBadge then
+        LOG("⚠ Rematch.badges 不可用，延迟注册")
+        return
+    end
     badgeRegistered=true
     Rematch.badges:RegisterBadge("pets","genedex_best",
-        "PetJournal-FavoritesIcon",  -- 暴雪内置金色五星 atlAs
-        nil,  -- atlAs 不需要 texcoords
+        "PetJournal-FavoritesIcon", nil,
         function(button,petID)
-            if not Rematch or not Rematch.petInfo then return false end
+            if not petID then return false end
+            if not Rematch.petInfo then return false end
             local info=Rematch.petInfo:Fetch(petID)
             if not info or not info.hasBreed or not info.breedID or info.breedID==0 then return false end
             return addonTable.IsBestBreed(info.speciesID,info.breedID)
         end)
-    LOG("金色五星 Badge 已注册")
+    LOG("金色五星 Badge 已注册到 pets 列表")
 end
 
 -- ========== Fill Hook：Breed 文本着色 ==========
