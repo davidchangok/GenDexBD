@@ -188,7 +188,6 @@ function addonTable.GuessBreedByRatio(health, power, speed)
     end
 
     -- 三围比例归一化：将原始属性映射到与品种系数相同的尺度
-    -- 品种系数总和约 3.0（如平衡型 1.0+1.0+1.0=3.0, P/P 0.4+1.8+0.8=3.0）
     local total = health + power + speed
     if total <= 0 then
         return nil
@@ -199,8 +198,19 @@ function addonTable.GuessBreedByRatio(health, power, speed)
     local obsP = power  * scale
     local obsS = speed  * scale
 
+    print(string.format("|cffff8800[GenDexBD:BreedMath]|r ratio-guess: raw=(%.0f,%.0f,%.0f) total=%.0f scale=%.4f norm=(%.4f,%.4f,%.4f)",
+        health, power, speed, total, scale, obsH, obsP, obsS))
+
     -- 用宽松容差匹配
     local breedID = FindBestMatch(obsH, obsP, obsS, RATIO_TOLERANCE)
+
+    if breedID then
+        local code = addonTable.GetBreedCode(breedID) or "?"
+        print(string.format("|cffff8800[GenDexBD:BreedMath]|r ratio-guess 结果: breedID=%d (%s)", breedID, code))
+    else
+        print("|cffff8800[GenDexBD:BreedMath]|r ratio-guess 失败: 超出容差")
+    end
+
     return breedID
 end
 
