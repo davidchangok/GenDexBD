@@ -216,7 +216,7 @@ function addonTable.InitJournalUI()
         if a=="Blizzard_Collections" then InstallBlizzHook();bcf:UnregisterEvent("ADDON_LOADED") end
     end)
 
-    -- 面板切换通知（每秒检测一次，只在模式变化时输出）
+    -- 面板切换通知 + 原生面板强制刷新
     local prevMode="";local sw=CreateFrame("Frame");sw._t=0
     sw:SetScript("OnUpdate",function(self,elapsed)
         self._t=self._t+elapsed;if self._t<1 then return end;self._t=0
@@ -227,7 +227,12 @@ function addonTable.InitJournalUI()
         if mode~=prevMode then
             prevMode=mode
             if mode=="Rematch" then LOG("当前面板: Rematch (标注 ✓  右键菜单 ✓)")
-            elseif mode=="原生" then LOG("当前面板: 暴雪原生 (标注 ✓)")
+            elseif mode=="原生" then
+                LOG("当前面板: 暴雪原生 (标注 ✓)")
+                -- 切到原生面板时强制刷新列表，触发 PetJournal_InitPetButton hook
+                if PetJournal_InitPetButton and PetJournal and PetJournal:IsShown() then
+                    PetJournal_ListUpdate()
+                end
             end
         end
     end)
