@@ -59,8 +59,11 @@ end
 -- ========== 改写单个按钮的 Breed ==========
 local function Decorate(button)
     if not button or not button.petID or not button.Breed then return end
-    local _,sid,_,_,_,_,_,_,_,_,_,lv,q,hp,pw,sp=C_PetJournal.GetPetInfoByPetID(button.petID)
-    if not sid or not hp then return end
+    local _,sid,_,_,_,_,_,_,_,_,_,lv,q = C_PetJournal.GetPetInfoByPetID(button.petID)
+    if not sid then return end
+    -- Rematch 也推荐用 GetPetStats 拿属性
+    local hp,pw,sp = C_PetJournal.GetPetStats(button.petID)
+    if not hp or hp<=0 then return end
     local bid=CalcBreed(sid,lv,q,hp,pw,sp);if not bid then return end
     local code=GetBreedCode(bid);local best=addonTable.IsBestBreed(sid,bid)
     button.Breed:SetText(best and ("★"..code) or code)
@@ -130,11 +133,7 @@ end
 
 -- ========== 暴雪原生面板：PET_JOURNAL_LIST_UPDATE 扫描 ==========
 local function ScanBlizzard()
-    local show = PetJournal and PetJournal:IsShown()
-    if not show then
-        -- 静默，等下次事件
-        return
-    end
+    if not PetJournal or not PetJournal:IsShown() then return end
 
     local total, hasPetID, noStats, labeled = 0, 0, 0, 0
     local function scan(p,d)
@@ -143,8 +142,10 @@ local function ScanBlizzard()
             total=total+1
             if c.petID and c:IsVisible() and not c.Breed then
                 hasPetID=hasPetID+1
-                local _,sid,_,_,_,_,_,_,_,_,_,lv,q,hp,pw,sp=C_PetJournal.GetPetInfoByPetID(c.petID)
-                if sid and hp then
+                local _,sid,_,_,_,_,_,_,_,_,_,lv,q = C_PetJournal.GetPetInfoByPetID(c.petID)
+                -- 原生面板需要用 GetPetStats（不是 GetPetInfoByPetID）拿属性
+                local hp,pw,sp = C_PetJournal.GetPetStats(c.petID)
+                if sid and hp and hp>0 then
                     local bid=CalcBreed(sid,lv,q,hp,pw,sp)
                     if bid then
                         local code=GetBreedCode(bid);local best=addonTable.IsBestBreed(sid,bid)
