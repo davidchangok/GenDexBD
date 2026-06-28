@@ -70,55 +70,49 @@ function addonTable.MigrateBestBreeds(db)
     if migrated then print("|cffffd700[GenDexBD]|r " .. GetLocaleString("MIGRATION_COMPLETE")) end
 end
 
--- ========== 战斗目标提示（GlowBoxTemplate）==========
+-- ========== 敌方头像金色 ★ ==========
+-- 参照 PetTracker 方案：hook PetBattleUnitFrame_UpdateDisplay，在敌方 UnitFrame 上创建纹理
 
-local alertGlowBox = nil
-local battleAlertCache = {}
-local enemyStarIcons = {}  -- petIndex → FontString ★
+local bangIcons = {}  -- [frame] → Texture
 
-local function GetEnemyStarIcon(petIndex)
-    if enemyStarIcons[petIndex] then
-        return enemyStarIcons[petIndex]
+local function GetOrCreateBangIcon(frame)
+    if bangIcons[frame] then
+        return bangIcons[frame]
     end
-    -- 查找敌方 UnitFrame
-    local enemyFrame
-    if petIndex == 1 then
-        -- PetBattleFrame.Enemy1 到 Enemy3
-        enemyFrame = _G["PetBattleFrameEnemy" .. petIndex]
-    end
-    -- 兜底：直接找 PetBattleFrame 下的数字命名子帧
-    if not enemyFrame then
-        for _, child in ipairs({PetBattleFrame:GetChildren()}) do
-            if child:GetName() and child:GetName():find("Enemy"..petIndex) then
-                enemyFrame = child; break
-            end
-        end
-    end
-
-    local icon = CreateFrame("Frame", nil, PetBattleFrame)
-    icon:SetSize(20, 20)
-    icon:SetFrameStrata("HIGH")
-    local star = icon:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
-    star:SetText("★")
-    star:SetTextColor(1.0, 0.84, 0.0)  -- 金色
-    star:SetAllPoints(icon)
-    icon.Star = star
-
-    -- 定位到 ActiveEnemy.Icon 左下角
-    icon:SetPoint("TOPLEFT", PetBattleFrame.ActiveEnemy.Icon, "TOPLEFT", -2, 2)
-    icon:Hide()
-    enemyStarIcons[petIndex] = icon
-    return icon
+    local size = math.max(frame.Icon:GetHeight() / 2.5, 18)
+    local tex = frame:CreateTexture(nil, 'OVERLAY')
+    -- 使用金色星形图标 — Interface/GLUES/CharacterSelect/CharacterCreateLogo 的金色资源不可用，
+    -- 改用内置 AvailableQuestIcon（金色叹号），类似 PetTracker 的手段
+    tex:SetTexture('Interface/GossipFrame/AvailableQuestIcon')
+    tex:SetVertexColor(1.0, 0.84, 0.0)  -- 金色滤镜
+    tex:SetPoint('TOP', frame.Icon, 'TOPRIGHT', -2, -2)
+    tex:SetSize(size, size)
+    tex:Hide()
+    bangIcons[frame] = tex
+    return tex
 end
 
-local function ShowStarOnEnemy()
-    local star = GetEnemyStarIcon(1)  -- 当前活跃敌方
-    star:Show()
+local function IsFrameEnemy(frame)
+    return frame and frame.petOwner == 2
 end
 
-local function HideStars()
-    for _, icon in pairs(enemyStarIcons) do
-        if icon then icon:Hide() end
+local function HasBestBreed(frame)
+    if not frame or not frame.petIndex then return false end
+    local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
+    if not speciesID then return false end
+    local bestBreeds = GeneDexDB.BestBreeds[speciesID]
+    return bestBreeds and type(bestBreeds) == "table" and next(bestBreeds) ~= nil
+end
+
+local function UpdateEnemyStarIcon(frame)
+    if not IsFrameEnemy(frame) then return end
+    local icon = GetOrCreateBangIcon(frame)
+    icon:SetShown(HasBestBreed(frame))
+end
+
+local function ClearAllStars()
+    for frame, tex in pairs(bangIcons) do
+        tex:Hide()
     end
 end
 
@@ -200,9 +194,6 @@ local function ShowAlertForPet(petIndex)
 
     battleAlertCache[speciesID] = true
 
-    -- 金色五星
-    ShowStarOnEnemy()
-
     local petName = C_PetBattles.GetName(2, petIndex) or "?"
     local breedCode = GetBreedCode(breedID) or "?"
     local displayText = petName .. " " .. breedCode .. " " .. GetLocaleString("ALERT_TARGET")
@@ -226,7 +217,7 @@ local function CheckActiveEnemyPet()
     local idx = C_PetBattles.GetActivePet(2);if idx and idx>=1 and idx<=3 then ShowAlertForPet(idx) end
 end
 local function ClearBattleCache()
-    battleAlertCache = {};HideAlertBox();HideStars()
+    battleAlertCache = {};HideAlertBox();ClearAllStars()
 end
 
 -- ========== 事件处理 ==========
@@ -251,6 +242,8 @@ local function OnPlayerLogin()
     end
     _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START");eventFrame:RegisterEvent("PET_BATTLE_PET_CHANGED");eventFrame:RegisterEvent("PET_BATTLE_CLOSE")
+    -- 注册敌方头像金色 ★ 更新 Hook（参照 PetTracker units.lua:14）
+    hooksecurefunc('PetBattleUnitFrame_UpdateDisplay', UpdateEnemyStarIcon)
 end
 
 local function OnEvent(_, event, ...)
