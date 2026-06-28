@@ -1,10 +1,9 @@
 -- GenDexBD JournalUI.lua - Mixin Fill Hook + 右键菜单（已拥有+未拥有统一）
 
 local addonName, addonTable = ...
-local time=time;local next=next;local pairs=pairs;local ipairs=ipairs
+local time=time;local next=next;local ipairs=ipairs
 local GetLocaleString = addonTable.GetLocaleString
 local GetBreedCode = addonTable.GetBreedCode
-local CalculateBreedFromStats = addonTable.CalculateBreedFromStats
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 function addonTable.SetBestBreed(s,b,c,n)
@@ -66,73 +65,12 @@ function RematchSetBestNoPet(speciesID,breedID)
     if Rematch.petsPanel then Rematch.petsPanel:Update() end
 end
 
--- ========== 已拥有品种检索 ==========
-
-local baseStatFields = nil  -- {healthKey, powerKey, speedKey}
-
-local function DetectBaseStatFields()
-    if baseStatFields then return baseStatFields[1], baseStatFields[2], baseStatFields[3] end
-    local sample = C_PetJournal.GetPetInfoBySpeciesID(39) or C_PetJournal.GetPetInfoBySpeciesID(1)
-    if not sample then return nil, nil, nil end
-
-    local allKeys = {}
-    for k in pairs(sample) do allKeys[#allKeys+1] = k end
-
-    local function findKey(patterns)
-        for _, key in ipairs(allKeys) do
-            local lowerKey = string.lower(key)
-            for _, pat in ipairs(patterns) do
-                if string.find(lowerKey, pat, 1, true) then return key end
-            end
-        end
-        return nil
-    end
-
-    local hk = findKey({"health", "hp"})
-    local pk = findKey({"power", "attack", "atk"})
-    local sk = findKey({"speed", "spd"})
-    baseStatFields = {hk, pk, sk}
-    return hk, pk, sk
-end
-
-local function GetBaseStats(speciesID)
-    local hk, pk, sk = DetectBaseStatFields()
-    if not hk or not pk or not sk then return nil, nil, nil end
-    local petInfo = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
-    if not petInfo then return nil, nil, nil end
-    return petInfo[hk], petInfo[pk], petInfo[sk]
-end
-
--- 获取某物种已拥有的所有 breedID（用于菜单过滤）
-local function GetOwnedBreedIDs(speciesID)
-    local owned = {}
-    if not speciesID then return owned end
-    -- 获取基准属性
-    local baseH, baseP, baseS = GetBaseStats(speciesID)
-    if not baseH or not baseP or not baseS then return owned end
-    -- 遍历已拥有宠物
-    local numPets = C_PetJournal.GetNumPets()
-    for i = 1, numPets do
-        local petGUID, sid, _, _, level, _, _, _, _, _, _, _, _, _, _, _, _, _ = C_PetJournal.GetPetInfoByIndex(i)
-        if sid == speciesID and petGUID then
-            local _, maxHealth, power, speed, rarity = C_PetJournal.GetPetStats(petGUID)
-            if maxHealth and power and speed and level and rarity then
-                local breedID = CalculateBreedFromStats(maxHealth, power, speed, baseH, baseP, baseS, level, rarity)
-                if breedID then
-                    owned[breedID] = true
-                end
-            end
-        end
-    end
-    return owned
-end
-
 -- ========== 菜单注入 ==========
 
 local menuRetryCount = 0
 local MAX_MENU_RETRY = 5
 
--- 动态子菜单构建函数（每次鼠标悬停时由 Rematch 调用 subMenuFunc(self, subject)）
+-- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
 local function BuildSetBestSubMenu(_, petID)
     if not Rematch or not Rematch.petInfo then return end
     local info = Rematch.petInfo:Fetch(petID)
@@ -142,31 +80,23 @@ local function BuildSetBestSubMenu(_, petID)
     local currentBreedID = (info.hasBreed and info.breedID and info.breedID > 0) and info.breedID or nil
     local isBest = currentBreedID and addonTable.IsBestBreed(speciesID, currentBreedID)
 
-    -- 收集已拥有品种
-    local ownedBreeds = GetOwnedBreedIDs(speciesID)
-
     -- 构建一级子菜单
     local items = {}
 
-    -- 1.1 当前宠物品种项（有品种且非最优 → 设为最优；已是最优 → 取消）
+    -- 1.1 当前宠物品种操作项
     if currentBreedID then
         local code = GetBreedCode(currentBreedID) or "?"
         if isBest then
             items[#items+1] = {text=code.." ★ "..GetLocaleString("REMOVE_BEST_BREED"), func=function() RematchRemoveBest(petID) end}
         else
-            items[#items+1] = {text=code.." "..GetLocaleString("SET_THIS_BREED"), func=function() RematchSetBest(petID) end}
+            items[#items+1] = {text=code.." "..GetLocaleString("SET_BEST_BREED"), func=function() RematchSetBest(petID) end}
         end
     end
 
-    -- 1.2 设为其他品种（过滤掉已拥有的）
+    -- 1.2 "设为其他属性" → 全部12品种子菜单
     local otherItems = {}
     for _, br in ipairs(ALL_BREEDS) do
-        if not ownedBreeds[br[1]] then
-            otherItems[#otherItems+1] = {text=br[2], func=function() RematchSetBestNoPet(speciesID, br[1]) end}
-        end
-    end
-    if #otherItems == 0 then
-        otherItems[#otherItems+1] = {text="("..GetLocaleString("ALL_OWNED")..")", disable=true}
+        otherItems[#otherItems+1] = {text=br[2], func=function() RematchSetBestNoPet(speciesID, br[1]) end}
     end
     otherItems[#otherItems+1] = {text=CANCEL}
     Rematch.menus:Register("GenDexOtherBreedsMenu", otherItems)
@@ -182,7 +112,7 @@ local function injectRematchMenus()
         return
     end
 
-    -- 预注册占位菜单（subMenuFunc 依赖 allMenus[name] 存在才能触发）
+    -- 预注册占位菜单（subMenuFunc 需要 allMenus[name] 存在才触发）
     Rematch.menus:Register("GenDexSetBestMenu", {{text="..."}})
     Rematch.menus:Register("GenDexOtherBreedsMenu", {{text="..."}})
 
@@ -227,7 +157,6 @@ function addonTable.InitJournalUI()
             hooksecurefunc(RematchCompactPetListButtonMixin,"Fill",function(b) label(b) end)
             LOG("已 Hook Compact Mixin Fill")
         end
-        -- Rematch 已加载，立即注入菜单
         injectRematchMenus()
     end
 
