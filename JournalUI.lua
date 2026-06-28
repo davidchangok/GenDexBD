@@ -27,8 +27,21 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
--- 品种列表（与 BreedData.lua 同步维护）
-local ALL_BREEDS = {{3,"B/B"},{4,"P/P"},{5,"S/S"},{6,"H/H"},{7,"H/P"},{8,"P/S"},{9,"H/S"},{10,"P/B"},{11,"S/B"},{12,"H/B"},{13,"P/H"},{14,"H/S"}}
+-- 品种列表（从 BreedData 表动态生成）
+local ALL_BREEDS = {}
+do
+    local breeds = addonTable.BREEDS
+    if breeds then
+        for breedID = 3, 14 do
+            if breeds[breedID] then
+                local code = GetBreedCode(breedID)
+                if code then
+                    ALL_BREEDS[#ALL_BREEDS + 1] = { breedID, code }
+                end
+            end
+        end
+    end
+end
 
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
@@ -36,8 +49,9 @@ local function label(b)
     local i=Rematch.petInfo:Fetch(b.petID)
     if not i or not i.hasBreed or not i.breedID or i.breedID==0 then return end
     local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
-    b.Breed:SetText(best and ("★"..i.breedName) or i.breedName)
-    b.Breed:SetTextColor(best and 1 or 0.6,best and 0.84 or 0.6,0.6)
+    local sc = addonTable.BEST_BREED_COLOR or {1.0, 0.84, 0.0}
+    b.Breed:SetText(best and (addonTable.BEST_BREED_STAR..i.breedName) or i.breedName)
+    b.Breed:SetTextColor(best and sc[1] or 0.6, best and sc[2] or 0.6, 0.6)
 end
 
 function RematchSetBest(petID)

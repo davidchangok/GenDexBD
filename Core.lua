@@ -13,6 +13,10 @@ local C_Timer_After_Cancel = C_Timer_After_Cancel
 local ADDON_NAME = "GenDexBD"
 local CURRENT_DB_VERSION = 2
 
+-- 最优品种标记常量（统一引用，避免散落各文件）
+addonTable.BEST_BREED_STAR = "★"
+addonTable.BEST_BREED_COLOR = {1.0, 0.84, 0.0}
+
 SlashCmdList["GENEDEXBDOPEN"] = function()
     if addonTable.ToggleConfigPanel then addonTable.ToggleConfigPanel() end
 end
@@ -89,29 +93,21 @@ local function GetEnemyBreed(petIndex)
 end
 
 -- ========================================================================
--- 步骤 b：查询该物种是否已设置最优品种
--- ========================================================================
-
-local function IsBestBreedMatch(speciesID, breedID)
-    if not speciesID or not breedID then return false end
-    local breeds = GeneDexDB.BestBreeds[speciesID]
-    return breeds and type(breeds) == "table" and breeds[breedID] ~= nil
-end
-
--- ========================================================================
 -- 步骤 c：金色 ★ 标记（PetTracker 方案：hook PetBattleUnitFrame_UpdateDisplay）
 -- ========================================================================
 
+local starColor = addonTable.BEST_BREED_COLOR
 local showStarsFor = {}
 local starIcons = {}
 
 local function GetOrCreateStar(frame)
-    if not frame or not frame.Icon then return nil end
+    -- 仅对敌方 frame（有 Icon 且 petOwner==2）创建，避免非敌方 frame 泄漏
+    if not frame or not frame.Icon or frame.petOwner ~= 2 then return nil end
     if starIcons[frame] then return starIcons[frame] end
     local star = frame:CreateFontString(nil, 'OVERLAY')
     star:SetFont('Fonts\\FRIZQT__.TTF', 26, 'OUTLINE')
-    star:SetText('\226\152\133')  -- ★
-    star:SetTextColor(1.0, 0.84, 0.0)
+    star:SetText(addonTable.BEST_BREED_STAR)
+    star:SetTextColor(starColor[1], starColor[2], starColor[3])
     star:SetDrawLayer('OVERLAY', 7)
     star:SetPoint('TOPLEFT', frame.Icon, 'TOPLEFT', -2, 2)
     star:Hide()
@@ -120,11 +116,7 @@ local function GetOrCreateStar(frame)
 end
 
 local function UpdateStarOnFrame(frame)
-    if not frame or frame.petOwner ~= 2 or not frame.petIndex then
-        local star = GetOrCreateStar(frame)
-        if star then star:Hide() end
-        return
-    end
+    if not frame or frame.petOwner ~= 2 or not frame.petIndex then return end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
     local show = speciesID and showStarsFor[speciesID] or false
     local star = GetOrCreateStar(frame)
@@ -191,49 +183,27 @@ local function ShowAlert(speciesID, breedID, petIndex)
 end
 
 -- ========================================================================
--- 步骤 d：遇敌计数（野外战斗结束后存入 EncounterStats）
+-- 统计数据（encounterCache 以 speciesID→breedID 聚合，防止同物种多槽位覆盖）
 -- ========================================================================
 
-local encounterCache = {}
-local alertedSpecies = {}
+local encounterCache = {}     -- {[speciesID] = {[breedID]=true, ...}}
+local alertedSpecies = {}    -- {[speciesID]=true}
+local ownedCache = {}         -- {[speciesID]=count}      同场战斗缓存
 local isWildBattle = false
+local scanTimer = nil         -- 延迟扫描 timer，用于 CLOSE 时取消
 
-local function RecordEncounters()
-    if not isWildBattle then return end
-    if not GeneDexDB.Options.TrackEncounters then return end
-    if not GeneDexDB.EncounterStats then GeneDexDB.EncounterStats = {} end
-    for speciesID, breedID in pairs(encounterCache) do
-        if type(speciesID) == "number" and type(breedID) == "number" then
-            if not GeneDexDB.EncounterStats[speciesID] then
-                GeneDexDB.EncounterStats[speciesID] = {}
-            end
-            local count = GeneDexDB.EncounterStats[speciesID][breedID] or 0
-            GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
-        end
-    end
-    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
-    isWildBattle = false
-end
-
--- ========================================================================
--- 统计已拥有同物种宠物数量（用 Rematch petInfo，任何品质/品种都计入）
--- ========================================================================
-
+-- 同场战斗内只查一次 Rematch（pcall 保护）
 local function CountOwnedSpecies(speciesID)
     if not speciesID then return 0 end
     if Rematch and Rematch.petInfo then
-        local info = Rematch.petInfo:Fetch(speciesID)
-        local count = (info and info.count) or 0
-        return count
+        local ok, info = pcall(Rematch.petInfo.Fetch, Rematch.petInfo, speciesID)
+        if ok and info and info.count then
+            return info.count
+        end
     end
-    return 0
+    -- Rematch 不可用：返回大数（保守策略：跳过提示而非错误提示）
+    return 999
 end
-
--- ========================================================================
--- 主流程：遍历敌方三宠物，检查品种匹配 → 提示 + ★
--- ========================================================================
-
-local ownedCache = {}
 
 local function GetOwnedCount(speciesID)
     if ownedCache[speciesID] == nil then
@@ -250,8 +220,13 @@ local function ProcessAllEnemyPets()
             local speciesID = C_PetBattles.GetPetSpeciesID(2, i)
             if speciesID then
                 local breedID = GetEnemyBreed(i)
-                if breedID and IsBestBreedMatch(speciesID, breedID) then
-                    encounterCache[speciesID] = breedID
+                -- 使用全局 addonTable.IsBestBreed 代替局部重复实现
+                if breedID and addonTable.IsBestBreed(speciesID, breedID) then
+                    -- 聚合记录：speciesID → {breedID = true}
+                    if not encounterCache[speciesID] then
+                        encounterCache[speciesID] = {}
+                    end
+                    encounterCache[speciesID][breedID] = true
                     local owned = GetOwnedCount(speciesID)
                     if owned < 3 then
                         showStarsFor[speciesID] = true
@@ -266,13 +241,45 @@ local function ProcessAllEnemyPets()
             for j = 1, 3 do
                 local msid = C_PetBattles.GetPetSpeciesID(2, j)
                 if msid == sid then
-                    ShowAlert(sid, encounterCache[sid], j)
+                    -- 取该物种第一个品种用于展示
+                    local bid = next(encounterCache[sid])
+                    if bid then ShowAlert(sid, bid, j) end
                     break
                 end
             end
         end
     end
     UpdateStarOnFrame(PetBattleFrame.ActiveEnemy)
+end
+
+-- ========================================================================
+-- 步骤 d：遇敌计数
+-- ========================================================================
+
+local function RecordEncounters()
+    if not isWildBattle then return end
+    if not GeneDexDB.Options.TrackEncounters then return end
+    if not GeneDexDB.EncounterStats then GeneDexDB.EncounterStats = {} end
+    for speciesID, breeds in pairs(encounterCache) do
+        if type(speciesID) == "number" and type(breeds) == "table" then
+            for breedID in pairs(breeds) do
+                if type(breedID) == "number" then
+                    if not GeneDexDB.EncounterStats[speciesID] then
+                        GeneDexDB.EncounterStats[speciesID] = {}
+                    end
+                    local count = GeneDexDB.EncounterStats[speciesID][breedID] or 0
+                    GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
+                end
+            end
+        end
+    end
+    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
+    isWildBattle = false
+end
+
+local function ResetBattleSession()
+    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
+    if scanTimer then C_Timer_After_Cancel(scanTimer); scanTimer = nil end
 end
 
 -- ========================================================================
@@ -307,14 +314,18 @@ local function OnEvent(_, event, ...)
     elseif event == "PLAYER_LOGIN" then OnPlayerLogin()
     elseif event == "PET_BATTLE_OPENING_START" then
         isWildBattle = C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() or false
-        encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
-        C_Timer_After(0.5, ProcessAllEnemyPets)
+        ResetBattleSession()
+        scanTimer = C_Timer_After(0.5, function()
+            scanTimer = nil
+            ProcessAllEnemyPets()
+        end)
     elseif event == "PET_BATTLE_PET_CHANGED" then
         ProcessAllEnemyPets()
     elseif event == "PET_BATTLE_CLOSE" then
         RecordEncounters()
         HideAlertBox()
         HideAllStars()
+        if scanTimer then C_Timer_After_Cancel(scanTimer); scanTimer = nil end
     end
 end
 

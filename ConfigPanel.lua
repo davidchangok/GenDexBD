@@ -108,8 +108,10 @@ local function DoImport(text)
             if sid and bid and sid>0 and IsValidBreedID(bid) then
                 if not GeneDexDB then GeneDexDB = {} end
                 if not GeneDexDB.BestBreeds or type(GeneDexDB.BestBreeds)~="table" then GeneDexDB.BestBreeds={} end
-                -- 同物种只保留一个最优（与 SetBestBreed 一致）
-                GeneDexDB.BestBreeds[sid]={}
+                -- 同物种首次导入时清空已有数据（后续行直接写入，避免多行互相覆盖）
+                if count == 0 or not GeneDexDB.BestBreeds[sid] then
+                    GeneDexDB.BestBreeds[sid] = {}
+                end
                 GeneDexDB.BestBreeds[sid][bid]={category=cat or "custom",note=note or "",addedAt=time()}
                 count = count + 1
             end
