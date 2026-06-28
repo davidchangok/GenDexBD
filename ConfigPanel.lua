@@ -155,6 +155,46 @@ local function ShowImportDialog()
     cancelBtn:SetScript("OnClick",function() dlg:Hide() end)
 end
 
+-- ========== 遇敌统计弹窗 ==========
+local function ShowEncounterStatsDialog()
+    local dlg = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
+    dlg:SetSize(420, 360);dlg:SetPoint("CENTER");dlg:SetFrameStrata("DIALOG")
+    dlg:SetToplevel(true)
+    dlg.TitleBg:SetHeight(26)
+    local title = dlg:CreateFontString(nil,"OVERLAY","GameFontNormal")
+    title:SetPoint("TOP",0,-12);title:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
+
+    local sf = CreateFrame("ScrollFrame", nil, dlg, "UIPanelScrollFrameTemplate")
+    sf:SetPoint("TOPLEFT",12,-40);sf:SetPoint("BOTTOMRIGHT",-32,40)
+    local eb = CreateFrame("EditBox", nil, sf)
+    eb:SetMultiLine(true);eb:SetFontObject("GameFontHighlight");eb:SetAutoFocus(false)
+    eb:SetScript("OnEscapePressed",function() dlg:Hide() end)
+    sf:SetScrollChild(eb);eb:SetWidth(380)
+
+    local lines = {}
+    if GeneDexDB and GeneDexDB.EncounterStats and next(GeneDexDB.EncounterStats) then
+        for sid, breeds in pairs(GeneDexDB.EncounterStats) do
+            local speciesName = sid
+            if Rematch and Rematch.petInfo then
+                local info = Rematch.petInfo:Fetch(sid)
+                if info and info.speciesName then speciesName = info.speciesName end
+            end
+            lines[#lines+1] = speciesName .. " (ID:" .. tostring(sid) .. ")"
+            for bid, count in pairs(breeds) do
+                local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or tostring(bid)
+                lines[#lines+1] = "    " .. code .. " — " .. tostring(count) .. " 次"
+            end
+        end
+    else
+        lines[#lines+1] = GetLocaleString("ENCOUNTER_NO_DATA")
+    end
+    eb:SetText(table.concat(lines,"\n"))
+
+    local closeBtn = CreateFrame("Button",nil,dlg,"UIPanelButtonTemplate")
+    closeBtn:SetPoint("BOTTOMRIGHT",-16,16);closeBtn:SetText(CLOSE);closeBtn:SetSize(80,24)
+    closeBtn:SetScript("OnClick",function() dlg:Hide() end)
+end
+
 -- ========== 面板创建 ==========
 function addonTable.InitConfig()
     if panel then return end
@@ -203,6 +243,11 @@ function addonTable.InitConfig()
     importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0);importBtn:SetSize(120,24)
     importBtn:SetText(GetLocaleString("IMPORT_BUTTON"))
     importBtn:SetScript("OnClick", ShowImportDialog)
+
+    local encounterBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    encounterBtn:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -4);encounterBtn:SetSize(180,24)
+    encounterBtn:SetText(GetLocaleString("ENCOUNTER_STATS_BTN"))
+    encounterBtn:SetScript("OnClick", ShowEncounterStatsDialog)
 
     local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
     categoryID = category:GetID();Settings.RegisterAddOnCategory(category)
