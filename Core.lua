@@ -232,30 +232,16 @@ end
 -- 检查玩家是否已拥有 ≥3 只同品种同物种宠物（满了就不再提示）
 -- ========================================================================
 
--- 统计已拥有同物种宠物数量（任何品质、任何品种，≥3则不再提示）
+-- 统计已拥有同物种宠物数量（用 Rematch roster 精确数据）
 local function CountOwnedSpecies(speciesID)
     if not speciesID then return 0 end
-    local count = 0
-    -- 遍历所有已拥有宠物，遇到连续 nil 停止
-    local nilStreak = 0
-    for i = 1, 3000 do
-        local ok, guid, sid = pcall(C_PetJournal.GetPetInfoByIndex, i)
-        if ok and sid then
-            if sid == speciesID then
-                count = count + 1
-                if count >= 3 then
-                    LOG_DBG("CountOwned: sid=%d → %d (≥3 skip)", speciesID, count)
-                    return count
-                end
-            end
-            nilStreak = 0
-        else
-            nilStreak = nilStreak + 1
-            if nilStreak >= 20 then break end  -- 连续20个nil → 到达尾部
-        end
+    if Rematch and Rematch.roster and Rematch.roster.speciesPetIDs then
+        local petIDs = Rematch.roster.speciesPetIDs[speciesID]
+        local count = (petIDs and #petIDs) or 0
+        LOG_DBG("CountOwned(Rematch): sid=%d → %d owned", speciesID, count)
+        return count
     end
-    LOG_DBG("CountOwned: sid=%d → %d owned", speciesID, count)
-    return count
+    return 0
 end
 
 -- ========================================================================
