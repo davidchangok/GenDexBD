@@ -236,20 +236,25 @@ end
 local function CountOwnedSpecies(speciesID)
     if not speciesID then return 0 end
     local count = 0
-    local numOwned, numTotal = C_PetJournal.GetNumPets()
-    local maxIndex = numOwned or numTotal or 0
-    LOG_DBG("CountOwnedSpecies: sid=%d numOwned=%s numTotal=%s", speciesID, tostring(numOwned), tostring(numTotal))
-    for i = 1, maxIndex do
-        local _, sid = C_PetJournal.GetPetInfoByIndex(i)
-        if sid == speciesID then
-            count = count + 1
-            if count >= 3 then
-                LOG_DBG("→ ≥3 owned, skip alert")
-                return count
+    -- 遍历所有已拥有宠物，遇到连续 nil 停止
+    local nilStreak = 0
+    for i = 1, 3000 do
+        local ok, guid, sid = pcall(C_PetJournal.GetPetInfoByIndex, i)
+        if ok and sid then
+            if sid == speciesID then
+                count = count + 1
+                if count >= 3 then
+                    LOG_DBG("CountOwned: sid=%d → %d (≥3 skip)", speciesID, count)
+                    return count
+                end
             end
+            nilStreak = 0
+        else
+            nilStreak = nilStreak + 1
+            if nilStreak >= 20 then break end  -- 连续20个nil → 到达尾部
         end
     end
-    LOG_DBG("CountOwnedSpecies result: %d", count)
+    LOG_DBG("CountOwned: sid=%d → %d owned", speciesID, count)
     return count
 end
 
