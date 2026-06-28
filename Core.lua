@@ -115,7 +115,8 @@ local starIcons = {}  -- [frame] → FontString
 local function GetOrCreateStar(frame)
     if not frame or not frame.Icon then return nil end
     if starIcons[frame] then return starIcons[frame] end
-    local star = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormalHuge')
+    local star = frame:CreateFontString(nil, 'OVERLAY')
+    star:SetFont('Fonts\\FRIZQT__.TTF', 26, 'OUTLINE')
     star:SetText('★')
     star:SetTextColor(1.0, 0.84, 0.0)  -- 金色
     star:SetDrawLayer('OVERLAY', 7)
