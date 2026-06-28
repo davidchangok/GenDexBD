@@ -79,7 +79,7 @@ local function GetOrCreateBangIcon(frame)
     if bangIcons[frame] then
         return bangIcons[frame]
     end
-    local size = math.max(frame.Icon:GetHeight() / 2.5, 18)
+
     local tex = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormalHuge')
     tex:SetText('★')
     tex:SetTextColor(1.0, 0.84, 0.0)   -- 金色
