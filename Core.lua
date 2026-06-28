@@ -224,7 +224,7 @@ local function RecordEncounters()
             GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
         end
     end
-    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}
+    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
     isWildBattle = false
 end
 
@@ -233,12 +233,6 @@ end
 -- ========================================================================
 
 -- 统计已拥有同物种宠物数量（用 Rematch petInfo，任何品质/品种都计入）
-local function CountOwnedSpecies(speciesID)
-    if not speciesID then return 0 end
-    if Rematch and Rematch.petInfo then
-        local info = Rematch.petInfo:Fetch(speciesID)
-        local count = (info and info.count) or 0
-        LOG_DBG("CountOwned(Rematch): sid=%d → %d owned", speciesID, count)
         return count
     end
     return 0
@@ -248,6 +242,14 @@ end
 -- 主流程：遍历敌方三宠物，检查品种匹配 → 提示 + ★
 -- ========================================================================
 
+
+local ownedCache = {}  -- 同一场战斗内缓存，换宠时不重复查询；战斗结束清空
+local function GetOwnedCount(speciesID)
+    if ownedCache[speciesID] == nil then
+        ownedCache[speciesID] = CountOwnedSpecies(speciesID)
+    end
+    return ownedCache[speciesID]
+end
 local function ProcessAllEnemyPets()
     LOG_DBG("=== ProcessAllEnemyPets START ===")
     showStarsFor = {}
@@ -262,7 +264,7 @@ local function ProcessAllEnemyPets()
                     tostring(IsBestBreedMatch(speciesID, breedID)))
                 if breedID and IsBestBreedMatch(speciesID, breedID) then
                     encounterCache[speciesID] = breedID
-                    local owned = CountOwnedSpecies(speciesID)
+                    local owned = GetOwnedCount(speciesID)
                     LOG_DBG("  OwnedSpecies=%d → showStar=%s", owned, tostring(owned < 3))
                     if owned < 3 then
                         showStarsFor[speciesID] = true
@@ -323,7 +325,7 @@ local function OnEvent(_, event, ...)
     elseif event == "PLAYER_LOGIN" then OnPlayerLogin()
     elseif event == "PET_BATTLE_OPENING_START" then
         isWildBattle = C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() or false
-        encounterCache = {}; showStarsFor = {}; alertedSpecies = {}
+        encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
         -- 延迟等 Rematch/BPBID 完成缓存后再扫描
         C_Timer_After(0.5, ProcessAllEnemyPets)
     elseif event == "PET_BATTLE_PET_CHANGED" then
