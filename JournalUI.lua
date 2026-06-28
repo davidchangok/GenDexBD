@@ -3,7 +3,6 @@
 local addonName, addonTable = ...
 local time=time;local next=next
 local GetLocaleString = addonTable.GetLocaleString
-local GetBreedCode = addonTable.GetBreedCode
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 function addonTable.SetBestBreed(s,b,c,n)
@@ -27,24 +26,9 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
--- 动态构建品种列表（从 BreedData 表生成，消除数据重复）
-local function BuildAllBreedsList()
-    local list = {}
-    local breeds = addonTable.BREEDS
-    if breeds then
-        for breedID = 3, 14 do
-            if breeds[breedID] then
-                local code = GetBreedCode(breedID)
-                if code then
-                    list[#list + 1] = { breedID, code }
-                end
-            end
-        end
-    end
-    return list
-end
-
-local ALL_BREEDS = BuildAllBreedsList()
+-- 品种列表（与 BreedData.lua 同步维护）
+-- 注意：WoW Lua 模块加载时 GetBreedCode 闭包可能未就绪，使用硬编码确保可靠性
+local ALL_BREEDS = {{3,"B/B"},{4,"P/P"},{5,"S/S"},{6,"H/H"},{7,"H/P"},{8,"P/S"},{9,"H/S"},{10,"P/B"},{11,"S/B"},{12,"H/B"},{13,"P/H"},{14,"H/S"}}
 
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
