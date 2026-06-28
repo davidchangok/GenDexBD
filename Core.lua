@@ -232,33 +232,29 @@ end
 local function CountOwnedBreedMatches(speciesID, targetBreedID)
     if not speciesID or not targetBreedID then return 0 end
     local count = 0
-    -- 优先用 Rematch 的 petInfo 高效计数（避免 12.0 API 返回格式变动）
-    if Rematch and Rematch.petInfo and Rematch.petInfo.rawData then
-        for _, i in pairs(Rematch.petInfo.rawData) do
-            if type(i) == "table" and i.speciesID == speciesID
-                and i.hasBreed and i.breedID and i.breedID > 0
-                and i.breedID == targetBreedID then
-                count = count + 1
-                if count >= 3 then return count end
-            end
-        end
-    else
-        -- 回退：C_PetJournal API（12.0 返回 numOwned,numTotal）
-        local numOwned, _ = C_PetJournal.GetNumPets()
-        for i = 1, (numOwned or 0) do
-            local petGUID, sid = C_PetJournal.GetPetInfoByIndex(i)
-            if sid == speciesID and petGUID then
-                local _, maxHealth, power, speed = C_PetJournal.GetPetStats(petGUID)
-                if maxHealth and power and speed and maxHealth > 0 then
-                    local breedID = GuessBreedByRatio(maxHealth, power, speed)
-                    if breedID == targetBreedID then
-                        count = count + 1
-                        if count >= 3 then return count end
-                    end
+    -- 12.0: GetNumPets() → numOwned, numTotal (两个返回值)
+    local numOwned, numTotal = C_PetJournal.GetNumPets()
+    local maxIndex = numOwned or numTotal or 0
+    LOG_DBG("CountOwned: sid=%d target=%d numOwned=%s numTotal=%s → max=%d",
+        speciesID, targetBreedID, tostring(numOwned), tostring(numTotal), maxIndex)
+    for i = 1, maxIndex do
+        local petGUID, sid = C_PetJournal.GetPetInfoByIndex(i)
+        if sid == speciesID and petGUID then
+            local _, maxHealth, power, speed = C_PetJournal.GetPetStats(petGUID)
+            if maxHealth and power and speed and maxHealth > 0 then
+                local breedID = GuessBreedByRatio(maxHealth, power, speed)
+                LOG_DBG("  pet[%d] guid=%s HP=%s P=%s S=%s b=%s",
+                    i, tostring(petGUID), tostring(maxHealth), tostring(power),
+                    tostring(speed), tostring(breedID))
+                if breedID == targetBreedID then
+                    count = count + 1
+                    LOG_DBG("  → MATCH count=%d", count)
+                    if count >= 3 then return count end
                 end
             end
         end
     end
+    LOG_DBG("CountOwned result: %d", count)
     return count
 end
 
