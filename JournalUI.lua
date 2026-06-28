@@ -105,12 +105,13 @@ local function injectRematchMenus()
         Rematch.menus:AddToMenu("PetMenu",{
             text=GetLocaleString("SET_BEST_BREED"),subMenu=sub,
             hidden=function(_,p)
-                if not p then return true end
-                if not Rematch or not Rematch.petInfo then return true end
+                if not p then LOG("hidden:p=nil");return true end
+                if not Rematch or not Rematch.petInfo then LOG("hidden:no Rematch");return true end
                 local info = Rematch.petInfo:Fetch(p)
-                if not info then return true end
+                if not info then LOG("hidden:p=%s info=nil",tostring(p));return true end
+                LOG("hidden:p=%s hasBreed=%s speciesID=%s",tostring(p),tostring(info.hasBreed),tostring(info.speciesID))
                 if info.hasBreed then return true end
-                return not info.speciesID
+                return false
             end,
         },"Find Teams")
     end)
