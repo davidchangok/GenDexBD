@@ -4,6 +4,7 @@ local addonName, addonTable = ...
 
 local GetLocaleString = addonTable.GetLocaleString
 local CalculateBreedFromStats = addonTable.CalculateBreedFromStats
+local GuessBreedByRatio = addonTable.GuessBreedByRatio
 local GetBreedCode = addonTable.GetBreedCode
 local GetBreedDisplayName = addonTable.GetBreedDisplayName
 local time = time;local type = type;local pairs = pairs
@@ -120,6 +121,17 @@ local function ShowAlertForPet(petIndex)
         if type(bdata)=="table" then breedID=bid;bestInfo=bdata;break end
     end
     if not bestInfo then return end
+
+    -- 校验敌方实际品种是否匹配保存的最优品种
+    local hp = C_PetBattles.GetMaxHealth(2, petIndex)
+    local pw = C_PetBattles.GetPower(2, petIndex)
+    local sp = C_PetBattles.GetSpeed(2, petIndex)
+    if hp and pw and sp and hp > 0 and pw > 0 and sp > 0 then
+        local actualBreed = GuessBreedByRatio(hp, pw, sp)
+        if actualBreed and actualBreed ~= breedID then
+            return  -- 敌方实际品种不匹配，不提示
+        end
+    end
 
     battleAlertCache[speciesID] = true
 
