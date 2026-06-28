@@ -10,7 +10,6 @@ local next = next;local print = print
 local C_Timer_After = C_Timer.After
 local C_Timer_After_Cancel = C_Timer_After_Cancel
 
-
 local ADDON_NAME = "GenDexBD"
 local CURRENT_DB_VERSION = 2
 
@@ -71,19 +70,16 @@ function addonTable.MigrateBestBreeds(db)
 end
 
 -- ========================================================================
--- 步骤 a：获取敌方宠物的品种
--- 优先通过 Rematch 缓存（BPBID 可区分 P/S vs P/B），否则用比例推算
+-- 步骤 a：获取敌方宠物的品种（优先 Rematch 缓存，回退比例推算）
 -- ========================================================================
 
 local function GetEnemyBreed(petIndex)
-    -- 优先：Rematch battle 缓存（若 BPBID 已安装则能精确区分 8/10 歧义品种）
     if Rematch and Rematch.petInfo then
         local ok, info = pcall(Rematch.petInfo.Fetch, Rematch.petInfo, "battle:2:" .. petIndex)
         if ok and info and info.hasBreed and info.breedID and info.breedID > 0 then
             return info.breedID
         end
     end
-    -- 回退：比例推算
     local hp = C_PetBattles.GetMaxHealth(2, petIndex)
     local pw = C_PetBattles.GetPower(2, petIndex)
     local sp = C_PetBattles.GetSpeed(2, petIndex)
@@ -106,26 +102,22 @@ end
 -- 步骤 c：金色 ★ 标记（PetTracker 方案：hook PetBattleUnitFrame_UpdateDisplay）
 -- ========================================================================
 
--- 由 ProcessAllEnemyPets 控制，UpdateStarOnFrame 只读取
 local showStarsFor = {}
-
-local starIcons = {}  -- [frame] → FontString
+local starIcons = {}
 
 local function GetOrCreateStar(frame)
     if not frame or not frame.Icon then return nil end
     if starIcons[frame] then return starIcons[frame] end
     local star = frame:CreateFontString(nil, 'OVERLAY')
     star:SetFont('Fonts\\FRIZQT__.TTF', 26, 'OUTLINE')
-    star:SetText('★')
-    star:SetTextColor(1.0, 0.84, 0.0)  -- 金色
+    star:SetText('\226\152\133')  -- ★
+    star:SetTextColor(1.0, 0.84, 0.0)
     star:SetDrawLayer('OVERLAY', 7)
     star:SetPoint('TOPLEFT', frame.Icon, 'TOPLEFT', -2, 2)
     star:Hide()
     starIcons[frame] = star
     return star
 end
-
-
 
 local function UpdateStarOnFrame(frame)
     if not frame or frame.petOwner ~= 2 or not frame.petIndex then
@@ -135,8 +127,6 @@ local function UpdateStarOnFrame(frame)
     end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
     local show = speciesID and showStarsFor[speciesID] or false
-        tostring(frame.petOwner), tostring(frame.petIndex),
-        tostring(speciesID), tostring(show))
     local star = GetOrCreateStar(frame)
     if star then star:SetShown(show) end
 end
@@ -201,13 +191,12 @@ local function ShowAlert(speciesID, breedID, petIndex)
 end
 
 -- ========================================================================
--- 步骤 d：野外战斗结束后计数
+-- 步骤 d：遇敌计数（野外战斗结束后存入 EncounterStats）
 -- ========================================================================
 
-local encounterCache = {}   -- {[speciesID] = breedID} 本场遇最佳匹配（用于计数）
-local alertedSpecies = {}   -- {[speciesID]=true} 已提示过的物种
+local encounterCache = {}
+local alertedSpecies = {}
 local isWildBattle = false
-
 
 local function RecordEncounters()
     if not isWildBattle then return end
@@ -227,10 +216,14 @@ local function RecordEncounters()
 end
 
 -- ========================================================================
--- 检查玩家是否已拥有 ≥3 只同品种同物种宠物（满了就不再提示）
+-- 统计已拥有同物种宠物数量（用 Rematch petInfo，任何品质/品种都计入）
 -- ========================================================================
 
--- 统计已拥有同物种宠物数量（用 Rematch petInfo，任何品质/品种都计入）
+local function CountOwnedSpecies(speciesID)
+    if not speciesID then return 0 end
+    if Rematch and Rematch.petInfo then
+        local info = Rematch.petInfo:Fetch(speciesID)
+        local count = (info and info.count) or 0
         return count
     end
     return 0
@@ -240,14 +233,15 @@ end
 -- 主流程：遍历敌方三宠物，检查品种匹配 → 提示 + ★
 -- ========================================================================
 
+local ownedCache = {}
 
-local ownedCache = {}  -- 同一场战斗内缓存，换宠时不重复查询；战斗结束清空
 local function GetOwnedCount(speciesID)
     if ownedCache[speciesID] == nil then
         ownedCache[speciesID] = CountOwnedSpecies(speciesID)
     end
     return ownedCache[speciesID]
 end
+
 local function ProcessAllEnemyPets()
     showStarsFor = {}
     for i = 1, 3 do
@@ -256,7 +250,6 @@ local function ProcessAllEnemyPets()
             local speciesID = C_PetBattles.GetPetSpeciesID(2, i)
             if speciesID then
                 local breedID = GetEnemyBreed(i)
-                    tostring(IsBestBreedMatch(speciesID, breedID)))
                 if breedID and IsBestBreedMatch(speciesID, breedID) then
                     encounterCache[speciesID] = breedID
                     local owned = GetOwnedCount(speciesID)
@@ -267,7 +260,6 @@ local function ProcessAllEnemyPets()
             end
         end
     end
-        tostring(next(showStarsFor) ~= nil), tostring(next(alertedSpecies) ~= nil))
     for sid in pairs(showStarsFor) do
         if not alertedSpecies[sid] then
             alertedSpecies[sid] = true
@@ -307,7 +299,6 @@ local function OnPlayerLogin()
     end
     _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START");eventFrame:RegisterEvent("PET_BATTLE_PET_CHANGED");eventFrame:RegisterEvent("PET_BATTLE_CLOSE")
-    -- PetTracker 方案：每次敌方头像刷新时更新金色 ★
     hooksecurefunc('PetBattleUnitFrame_UpdateDisplay', UpdateStarOnFrame)
 end
 
@@ -317,7 +308,6 @@ local function OnEvent(_, event, ...)
     elseif event == "PET_BATTLE_OPENING_START" then
         isWildBattle = C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() or false
         encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
-        -- 延迟等 Rematch/BPBID 完成缓存后再扫描
         C_Timer_After(0.5, ProcessAllEnemyPets)
     elseif event == "PET_BATTLE_PET_CHANGED" then
         ProcessAllEnemyPets()
