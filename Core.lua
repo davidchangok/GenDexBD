@@ -10,7 +10,6 @@ local next = next;local print = print
 local C_Timer_After = C_Timer.After
 local C_Timer_After_Cancel = C_Timer_After_Cancel
 
-local function LOG_DBG(...) print("|cff88ccff[GenDexBD-DBG]|r "..string.format(...)) end
 
 local ADDON_NAME = "GenDexBD"
 local CURRENT_DB_VERSION = 2
@@ -136,7 +135,6 @@ local function UpdateStarOnFrame(frame)
     end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
     local show = speciesID and showStarsFor[speciesID] or false
-    LOG_DBG("★ UpdateStar: owner=%s idx=%s sid=%s show=%s",
         tostring(frame.petOwner), tostring(frame.petIndex),
         tostring(speciesID), tostring(show))
     local star = GetOrCreateStar(frame)
@@ -251,21 +249,17 @@ local function GetOwnedCount(speciesID)
     return ownedCache[speciesID]
 end
 local function ProcessAllEnemyPets()
-    LOG_DBG("=== ProcessAllEnemyPets START ===")
     showStarsFor = {}
     for i = 1, 3 do
         local hp = C_PetBattles.GetHealth(2, i)
         if hp and hp > 0 then
             local speciesID = C_PetBattles.GetPetSpeciesID(2, i)
-            LOG_DBG("Enemy[%d]: hp=%d speciesID=%s", i, hp, tostring(speciesID))
             if speciesID then
                 local breedID = GetEnemyBreed(i)
-                LOG_DBG("  breedID=%s bestMatch=%s", tostring(breedID),
                     tostring(IsBestBreedMatch(speciesID, breedID)))
                 if breedID and IsBestBreedMatch(speciesID, breedID) then
                     encounterCache[speciesID] = breedID
                     local owned = GetOwnedCount(speciesID)
-                    LOG_DBG("  OwnedSpecies=%d → showStar=%s", owned, tostring(owned < 3))
                     if owned < 3 then
                         showStarsFor[speciesID] = true
                     end
@@ -273,12 +267,10 @@ local function ProcessAllEnemyPets()
             end
         end
     end
-    LOG_DBG("showStarsFor has=%s alerted=%s",
         tostring(next(showStarsFor) ~= nil), tostring(next(alertedSpecies) ~= nil))
     for sid in pairs(showStarsFor) do
         if not alertedSpecies[sid] then
             alertedSpecies[sid] = true
-            LOG_DBG("→ ShowAlert speciesID=%d breedID=%s", sid, tostring(encounterCache[sid]))
             for j = 1, 3 do
                 local msid = C_PetBattles.GetPetSpeciesID(2, j)
                 if msid == sid then
@@ -289,7 +281,6 @@ local function ProcessAllEnemyPets()
         end
     end
     UpdateStarOnFrame(PetBattleFrame.ActiveEnemy)
-    LOG_DBG("=== ProcessAllEnemyPets END ===")
 end
 
 -- ========================================================================
