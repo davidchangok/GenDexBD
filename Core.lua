@@ -232,12 +232,12 @@ end
 -- 检查玩家是否已拥有 ≥3 只同品种同物种宠物（满了就不再提示）
 -- ========================================================================
 
--- 统计已拥有同物种宠物数量（用 Rematch roster 精确数据）
+-- 统计已拥有同物种宠物数量（用 Rematch petInfo，任何品质/品种都计入）
 local function CountOwnedSpecies(speciesID)
     if not speciesID then return 0 end
-    if Rematch and Rematch.roster and Rematch.roster.speciesPetIDs then
-        local petIDs = Rematch.roster.speciesPetIDs[speciesID]
-        local count = (petIDs and #petIDs) or 0
+    if Rematch and Rematch.petInfo then
+        local info = Rematch.petInfo:Fetch(speciesID)
+        local count = (info and info.count) or 0
         LOG_DBG("CountOwned(Rematch): sid=%d → %d owned", speciesID, count)
         return count
     end
