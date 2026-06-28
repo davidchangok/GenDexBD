@@ -80,14 +80,11 @@ local function GetOrCreateBangIcon(frame)
         return bangIcons[frame]
     end
     local size = math.max(frame.Icon:GetHeight() / 2.5, 18)
-    local tex = frame:CreateTexture(nil, 'OVERLAY')
-    -- 使用金色星形图标 — Interface/GLUES/CharacterSelect/CharacterCreateLogo 的金色资源不可用，
-    -- 改用内置 AvailableQuestIcon（金色叹号），类似 PetTracker 的手段
-    tex:SetTexture('Interface/GossipFrame/AvailableQuestIcon')
-    tex:SetVertexColor(1.0, 0.84, 0.0)  -- 金色滤镜
+    local tex = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormalHuge')
+    tex:SetText('★')
+    tex:SetTextColor(1.0, 0.84, 0.0)   -- 金色
     tex:SetDrawLayer('OVERLAY', 7)
     tex:SetPoint('CENTER', frame.Icon, 'CENTER', 0, 0)
-    tex:SetSize(size * 1.5, size * 1.5)
     tex:Hide()
     bangIcons[frame] = tex
     return tex
