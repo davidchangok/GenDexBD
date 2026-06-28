@@ -232,32 +232,24 @@ end
 -- 检查玩家是否已拥有 ≥3 只同品种同物种宠物（满了就不再提示）
 -- ========================================================================
 
-local function CountOwnedBreedMatches(speciesID, targetBreedID)
-    if not speciesID or not targetBreedID then return 0 end
+-- 统计已拥有同物种宠物数量（任何品质、任何品种，≥3则不再提示）
+local function CountOwnedSpecies(speciesID)
+    if not speciesID then return 0 end
     local count = 0
-    -- 12.0: GetNumPets() → numOwned, numTotal (两个返回值)
     local numOwned, numTotal = C_PetJournal.GetNumPets()
     local maxIndex = numOwned or numTotal or 0
-    LOG_DBG("CountOwned: sid=%d target=%d numOwned=%s numTotal=%s → max=%d",
-        speciesID, targetBreedID, tostring(numOwned), tostring(numTotal), maxIndex)
+    LOG_DBG("CountOwnedSpecies: sid=%d numOwned=%s numTotal=%s", speciesID, tostring(numOwned), tostring(numTotal))
     for i = 1, maxIndex do
-        local petGUID, sid = C_PetJournal.GetPetInfoByIndex(i)
-        if sid == speciesID and petGUID then
-            local _, maxHealth, power, speed = C_PetJournal.GetPetStats(petGUID)
-            if maxHealth and power and speed and maxHealth > 0 then
-                local breedID = GuessBreedByRatio(maxHealth, power, speed)
-                LOG_DBG("  pet[%d] guid=%s HP=%s P=%s S=%s b=%s",
-                    i, tostring(petGUID), tostring(maxHealth), tostring(power),
-                    tostring(speed), tostring(breedID))
-                if breedID == targetBreedID then
-                    count = count + 1
-                    LOG_DBG("  → MATCH count=%d", count)
-                    if count >= 3 then return count end
-                end
+        local _, sid = C_PetJournal.GetPetInfoByIndex(i)
+        if sid == speciesID then
+            count = count + 1
+            if count >= 3 then
+                LOG_DBG("→ ≥3 owned, skip alert")
+                return count
             end
         end
     end
-    LOG_DBG("CountOwned result: %d", count)
+    LOG_DBG("CountOwnedSpecies result: %d", count)
     return count
 end
 
@@ -279,8 +271,8 @@ local function ProcessAllEnemyPets()
                     tostring(IsBestBreedMatch(speciesID, breedID)))
                 if breedID and IsBestBreedMatch(speciesID, breedID) then
                     encounterCache[speciesID] = breedID
-                    local owned = CountOwnedBreedMatches(speciesID, breedID)
-                    LOG_DBG("  CountOwned=%d → showStar=%s", owned, tostring(owned < 3))
+                    local owned = CountOwnedSpecies(speciesID)
+                    LOG_DBG("  OwnedSpecies=%d → showStar=%s", owned, tostring(owned < 3))
                     if owned < 3 then
                         showStarsFor[speciesID] = true
                     end
