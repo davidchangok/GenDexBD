@@ -119,13 +119,13 @@ local function GetOrCreateStar(frame)
     return star
 end
 
+
 local function UpdateStarOnFrame(frame)
-    if not frame or frame.petOwner ~= 2 or not frame.petIndex then return end
+    if not frame or frame.petOwner ~= 2 or not frame.petIndex then
+        GetOrCreateStar(frame):Hide();return
+    end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
-    if not speciesID then GetOrCreateStar(frame):Hide();return end
-    if ownedFullCache[speciesID] then GetOrCreateStar(frame):Hide();return end
-    local breedID = GetEnemyBreed(frame.petIndex)
-    local show = IsBestBreedMatch(speciesID, breedID)
+    local show = speciesID and showStarsFor[speciesID] or false
     GetOrCreateStar(frame):SetShown(show)
 end
 
@@ -193,7 +193,7 @@ end
 -- ========================================================================
 
 local encounterCache = {}   -- {[speciesID] = breedID} 本场遇最佳匹配（用于计数）
-local ownedFullCache = {}   -- {[speciesID] = true}    已满3只，不提示不标★
+local showStarsFor = {}      -- {[speciesID] = true}    由ProcessAllEnemyPets唯一决定★
 local isWildBattle = false
 
 local function RecordEncounters()
@@ -207,7 +207,7 @@ local function RecordEncounters()
         local count = GeneDexDB.EncounterStats[speciesID][breedID] or 0
         GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
     end
-    encounterCache = {}; ownedFullCache = {}
+    encounterCache = {}; showStarsFor = {}
     isWildBattle = false
 end
 
@@ -240,6 +240,7 @@ end
 -- ========================================================================
 
 local function ProcessAllEnemyPets()
+    showStarsFor = {}
     for i = 1, 3 do
         local hp = C_PetBattles.GetHealth(2, i)
         if hp and hp > 0 then
@@ -247,17 +248,19 @@ local function ProcessAllEnemyPets()
             if speciesID then
                 local breedID = GetEnemyBreed(i)
                 if breedID and IsBestBreedMatch(speciesID, breedID) then
-                    -- 已拥有 ≥3 只同品种？不再提示
-                    if CountOwnedBreedMatches(speciesID, breedID) >= 3 then
-                        ownedFullCache[speciesID] = true
-                        -- 跳过提示，但仍要挂 encounterCache 方便后续统计
-                        encounterCache[speciesID] = breedID
-                    elseif not encounterCache[speciesID] then
-                        encounterCache[speciesID] = breedID
-                        ShowAlert(speciesID, breedID, i)
+                    encounterCache[speciesID] = breedID
+                    if CountOwnedBreedMatches(speciesID, breedID) < 3 then
+                        showStarsFor[speciesID] = true
                     end
                 end
             end
+        end
+    end
+    if next(showStarsFor) and not encounterCache._alerted then
+        encounterCache._alerted = true
+        local sid = next(showStarsFor)
+        if sid then
+            ShowAlert(sid, encounterCache[sid], C_PetBattles.GetActivePet(2) or 1)
         end
     end
     UpdateStarOnFrame(PetBattleFrame.ActiveEnemy)
@@ -296,7 +299,7 @@ local function OnEvent(_, event, ...)
     elseif event == "PLAYER_LOGIN" then OnPlayerLogin()
     elseif event == "PET_BATTLE_OPENING_START" then
         isWildBattle = C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() or false
-        encounterCache = {}; ownedFullCache = {}
+        encounterCache = {}; showStarsFor = {}
         -- 延迟等 Rematch/BPBID 完成缓存后再扫描
         C_Timer_After(0.5, ProcessAllEnemyPets)
     elseif event == "PET_BATTLE_PET_CHANGED" then
