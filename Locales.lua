@@ -78,6 +78,7 @@ local strings = {
     IMPORT_DONE          = { zhCN = "导入完成：%d 条记录",        enUS = "Import done: %d records" },
 
     -- 战斗提示
+    ALERT_TARGET          = { zhCN = "最优属性目标",        enUS = "Best Breed Target" },
     ALERT_PVP             = { zhCN = "PvP 目标发现！",    enUS = "PvP Target Found!" },
     ALERT_PVE             = { zhCN = "PvE 目标发现！",    enUS = "PvE Target Found!" },
     ALERT_COLLECTION      = { zhCN = "收藏目标发现！",     enUS = "Collection Target Found!" },
