@@ -50,8 +50,10 @@ local strings = {
 
     -- 最优属性管理 UI
     BEST_BREED_SECTION    = { zhCN = "★ 最优属性管理",        enUS = "★ Best Breed Management" },
-    SET_BEST_BREED        = { zhCN = "设为最优品种",          enUS = "Set as Best Breed" },
-    REMOVE_BEST_BREED     = { zhCN = "取消最优品种",          enUS = "Remove Best Breed" },
+    SET_BEST_BREED        = { zhCN = "设为最优属性",          enUS = "Set as Best Breed" },
+    SET_OTHER_BREED       = { zhCN = "设为其他属性",          enUS = "Set Other Breed" },
+    REMOVE_BEST_BREED     = { zhCN = "取消最优属性",          enUS = "Remove Best Breed" },
+    ALL_OWNED             = { zhCN = "已全部拥有",            enUS = "All Owned" },
     UPDATE_BEST_BREED     = { zhCN = "更新分类/备注",         enUS = "Update Category/Note" },
     CATEGORY_LABEL        = { zhCN = "使用场景",              enUS = "Category" },
     NOTE_LABEL_UI         = { zhCN = "备注信息",              enUS = "Note" },
