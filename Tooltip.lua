@@ -124,12 +124,12 @@ local function BuildBreedLine(breedID, isTarget, bestInfo)
     if not isTarget or not bestInfo then
         -- 普通品种：品种: P/P 攻击型
         local fmt = GetLocaleString("BREED_FORMAT")
-        return fmt:format(breedCode, breedName)
+        return fmt:format(breedName)
     else
         -- 目标品种：品种: P/P 攻击型 🎯 PvP 对战
         local categoryName = GetBestBreedCategoryName(bestInfo.category or "custom")
         local fmt = GetLocaleString("BREED_TARGET_FORMAT")
-        return fmt:format(breedCode, breedName, categoryName)
+        return fmt:format(breedName, categoryName)
     end
 end
 

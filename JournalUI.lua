@@ -2,6 +2,8 @@
 
 local addonName, addonTable = ...
 local time=time;local next=next
+local GetLocaleString = addonTable.GetLocaleString
+local GetBreedCode = addonTable.GetBreedCode
 local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 function addonTable.SetBestBreed(s,b,c,n)
@@ -25,7 +27,24 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
-local ALL_BREEDS={{3,"B/B"},{4,"P/P"},{5,"S/S"},{6,"H/H"},{7,"H/P"},{8,"P/S"},{9,"H/S"},{10,"P/B"},{11,"S/B"},{12,"H/B"},{13,"P/H"},{14,"H/S"}}
+-- 动态构建品种列表（从 BreedData 表生成，消除数据重复）
+local function BuildAllBreedsList()
+    local list = {}
+    local breeds = addonTable.BREEDS
+    if breeds then
+        for breedID = 3, 14 do
+            if breeds[breedID] then
+                local code = GetBreedCode(breedID)
+                if code then
+                    list[#list + 1] = { breedID, code }
+                end
+            end
+        end
+    end
+    return list
+end
+
+local ALL_BREEDS = BuildAllBreedsList()
 
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
@@ -64,6 +83,40 @@ function RematchSetBestNoPet(speciesID,breedID)
     if Rematch.petsPanel then Rematch.petsPanel:Update() end
 end
 
+-- 菜单注入逻辑（与 Fill Hook 使用统一的事件驱动初始化，避免 C_Timer.After 竞态）
+local menuHooked = false
+local function injectRematchMenus()
+    if menuHooked then return end
+    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
+    menuHooked = true
+
+    -- 已拥有：切换项
+    Rematch.menus:AddToMenu("PetMenu",{
+        text=function(_,p) return RematchHasBest(p) and GetLocaleString("REMOVE_BEST_BREED") or GetLocaleString("SET_BEST_BREED") end,
+        hidden=function(_,p) return not p or not Rematch.petInfo or not Rematch.petInfo:Fetch(p).hasBreed end,
+        func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
+    },"Find Teams")
+    -- 未拥有：12品种子菜单
+    local sub={}
+    for _,br in ipairs(ALL_BREEDS) do
+        sub[#sub+1]={text=br[2],func=function(_,p)
+            local _,sid=C_PetJournal.GetPetInfoByPetID(p)
+            if sid then RematchSetBestNoPet(sid,br[1]) end
+        end}
+    end
+    sub[#sub+1]={text=CANCEL}
+    Rematch.menus:AddToMenu("PetMenu",{
+        text=GetLocaleString("SET_BEST_BREED"),subMenu=sub,
+        hidden=function(_,p)
+            if not p then return true end
+            if not Rematch or not Rematch.petInfo then return true end
+            if Rematch.petInfo:Fetch(p).hasBreed then return true end
+            local _,sid=C_PetJournal.GetPetInfoByPetID(p);return not sid
+        end,
+    },"Find Teams")
+    LOG("Rematch 菜单已注入")
+end
+
 function addonTable.InitJournalUI()
     LOG("初始化")
 
@@ -78,40 +131,13 @@ function addonTable.InitJournalUI()
             hooksecurefunc(RematchCompactPetListButtonMixin,"Fill",function(b) label(b) end)
             LOG("已 Hook Compact Mixin Fill")
         end
+        -- Rematch 已加载，同时注入菜单
+        injectRematchMenus()
     end
+
     if C_AddOns.IsAddOnLoaded("Rematch") then hookFill()
     else
         local f=CreateFrame("Frame");f:RegisterEvent("ADDON_LOADED")
         f:SetScript("OnEvent",function(_,_,a) if a=="Rematch" then hookFill();f:UnregisterEvent("ADDON_LOADED") end end)
     end
-
-    C_Timer.After(1,function()
-        if Rematch and Rematch.menus and Rematch.menus.AddToMenu then
-            -- 已拥有：切换项
-            Rematch.menus:AddToMenu("PetMenu",{
-                text=function(_,p) return RematchHasBest(p) and "取消最优品种" or "设为最优品种" end,
-                hidden=function(_,p) return not p or not Rematch.petInfo or not Rematch.petInfo:Fetch(p).hasBreed end,
-                func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
-            },"Find Teams")
-            -- 未拥有：12品种子菜单
-            local sub={}
-            for _,br in ipairs(ALL_BREEDS) do
-                sub[#sub+1]={text=br[2],func=function(_,p)
-                    local _,sid=C_PetJournal.GetPetInfoByPetID(p)
-                    if sid then RematchSetBestNoPet(sid,br[1]) end
-                end}
-            end
-            sub[#sub+1]={text=CANCEL}
-            Rematch.menus:AddToMenu("PetMenu",{
-                text="设为最优品种",subMenu=sub,
-                hidden=function(_,p)
-                    if not p then return true end
-                    if not Rematch or not Rematch.petInfo then return true end
-                    if Rematch.petInfo:Fetch(p).hasBreed then return true end
-                    local _,sid=C_PetJournal.GetPetInfoByPetID(p);return not sid
-                end,
-            },"Find Teams")
-            LOG("Rematch 菜单已注入")
-        end
-    end)
 end

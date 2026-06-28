@@ -20,7 +20,6 @@ local BREED_AMBIGUITY = addonTable.BREED_AMBIGUITY
 local ipairs = ipairs
 local pairs = pairs
 local type = type
-local math_sqrt = math.sqrt
 local math_abs = math.abs
 
 -- ============================================================================
@@ -94,18 +93,17 @@ local function FindBestMatch(obsH, obsP, obsS, tolerance)
             bestBreedID = breedID
         elseif dist == bestDist then
             -- 系数完全相同时的歧义处理
-            -- 检查歧义表，优先使用指定的品种
+            -- 检查歧义表，优先使用非歧义品种
             local preferred = BREED_AMBIGUITY[bestBreedID]
             local otherPreferred = BREED_AMBIGUITY[breedID]
             if otherPreferred then
-                -- breedID 是歧义品种，使用 preferred 替换
+                -- 当前 breedID 是歧义品种，使用 preferred 替换
                 bestBreedID = otherPreferred
-                -- 实际距离相同，不需要更新 bestDist
             elseif preferred then
-                -- 当前最佳是歧义品种，保持不变（BREED_AMBIGUITY[10] = 8 意味着最佳应该留在 8）
-                -- 不做改变
+                -- 当前最佳是歧义品种，用 preferred（非歧义值）替换
+                bestBreedID = preferred
             end
-            -- 如果没有歧义声明，保持第一个匹配的（即 bestBreedID 不变）
+            -- 如果都没有歧义声明，保持第一个匹配的
         end
     end
 

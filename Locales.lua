@@ -17,13 +17,13 @@ local breedNames = {
     [4]  = { zhCN = "攻击型",   enUS = "Power" },
     [5]  = { zhCN = "速度型",   enUS = "Speed" },
     [6]  = { zhCN = "生命型",   enUS = "Health" },
-    [7]  = { zhCN = "攻血型",   enUS = "Power/Health" },
+    [7]  = { zhCN = "攻血型",   enUS = "H/P Power/Health" },
     [8]  = { zhCN = "攻速型",   enUS = "Power/Speed" },
     [9]  = { zhCN = "血速型",   enUS = "Health/Speed" },
     [10] = { zhCN = "攻平型",   enUS = "Power/Balanced" },
     [11] = { zhCN = "速平型",   enUS = "Speed/Balanced" },
     [12] = { zhCN = "血平型",   enUS = "Health/Balanced" },
-    [13] = { zhCN = "攻生型",   enUS = "Power/Health" },
+    [13] = { zhCN = "攻生型",   enUS = "P/H Power/Health" },
     [14] = { zhCN = "血速型",   enUS = "Health/Speed" },
 }
 
@@ -36,8 +36,8 @@ local strings = {
 
     -- 品种显示
     BREED_UNKNOWN         = { zhCN = "未知品种",   enUS = "Unknown Breed" },
-    BREED_FORMAT          = { zhCN = "品种: %s %s", enUS = "Breed: %s %s" },
-    BREED_TARGET_FORMAT   = { zhCN = "品种: %s %s 🎯 %s", enUS = "Breed: %s %s 🎯 %s" },
+    BREED_FORMAT          = { zhCN = "品种: %s", enUS = "Breed: %s" },
+    BREED_TARGET_FORMAT   = { zhCN = "品种: %s 🎯 %s", enUS = "Breed: %s 🎯 %s" },
 
     -- 备注显示
     NOTE_LABEL            = { zhCN = "备注: %s",   enUS = "Note: %s" },
@@ -56,12 +56,12 @@ local strings = {
     CATEGORY_LABEL        = { zhCN = "使用场景",              enUS = "Category" },
     NOTE_LABEL_UI         = { zhCN = "备注信息",              enUS = "Note" },
     NOTE_PLACEHOLDER      = { zhCN = "选填（如：PVE输出最高）", enUS = "Optional (e.g.: Best for PvE)" },
-    ALREADY_MARKED        = { zhCN = "该物种已标记: %s",       enUS = "Species already marked: %s" },
+    
 
     -- 配置面板
     CONFIG_TITLE          = { zhCN = "GenDexBD 设置",         enUS = "GenDexBD Settings" },
     OPTION_SHOW_TOOLTIP   = { zhCN = "鼠标提示显示品种",        enUS = "Show breed in tooltip" },
-    OPTION_SHOW_JOURNAL   = { zhCN = "宠物手册显示品种",        enUS = "Show breed in journal" },
+    
     OPTION_ALERT_BATTLE   = { zhCN = "战斗目标提示",           enUS = "Alert in battle" },
     OPTION_ASSUME_RARE    = { zhCN = "默认按精良品质推算",       enUS = "Assume Rare quality" },
     OPTION_SHOW_NOTE      = { zhCN = "提示中显示最优备注",       enUS = "Show best breed note in tooltip" },

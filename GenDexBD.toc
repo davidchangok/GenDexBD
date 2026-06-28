@@ -9,6 +9,7 @@
 ## X-Category: Pet Battles
 ## X-Category-zhCN: 宠物对战
 ## X-Localizations: enUS, zhCN
+## Dependencies: Rematch
 
 Locales.lua
 BreedData.lua

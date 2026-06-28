@@ -6,7 +6,6 @@ local strmatch = string.match;local strformat = string.format;local time = time
 
 local OPTIONS = {
     { "ShowInTooltip",      "OPTION_SHOW_TOOLTIP",  "check" },
-    { "ShowInJournal",      "OPTION_SHOW_JOURNAL",  "check" },
     { "AlertInBattle",      "OPTION_ALERT_BATTLE",  "check" },
     { "AssumeRareQuality",  "OPTION_ASSUME_RARE",   "check" },
     { "ShowBestBreedNote",  "OPTION_SHOW_NOTE",     "check" },
@@ -15,15 +14,44 @@ local OPTIONS = {
 
 local panel = nil;local categoryID = nil
 
+-- ========== 导入导出工具函数 ==========
+
+-- 转义导出字段中的特殊字符（用 \| 代替 |, \n 代替换行）
+local function EscapeField(s)
+    if not s then return "" end
+    s = s:gsub("\\","\\\\"):gsub("\n","\\n"):gsub("|","\\|")
+    return s
+end
+
+-- 反转义
+local function UnescapeField(s)
+    if not s then return "" end
+    -- 注意顺序：先还原 \| 再还原 \\（避免 double-unescape）
+    s = s:gsub("\\|","|"):gsub("\\n","\n"):gsub("\\\\","\\")
+    return s
+end
+
+-- 检查 breedID 是否有效（从 BreedData 表动态获取范围）
+local function IsValidBreedID(bid)
+    return bid and addonTable.BREEDS and addonTable.BREEDS[bid] ~= nil
+end
+
 -- ========== 导入导出弹窗 ==========
 local function ShowExportDialog()
-    -- 序列化 BestBreeds: 一行一个 speciesID=breedID
+    -- 序列化 BestBreeds: speciesID=breedID|category|note（元数据完整保留）
     local lines = {}
     if GeneDexDB and GeneDexDB.BestBreeds then
         for sid, breeds in pairs(GeneDexDB.BestBreeds) do
             if type(breeds)=="table" then
-                for bid in pairs(breeds) do
-                    lines[#lines+1] = strformat("%d=%d", sid, bid)
+                for bid, binfo in pairs(breeds) do
+                    if type(binfo)=="table" then
+                        local cat = EscapeField(binfo.category or "custom")
+                        local note = EscapeField(binfo.note or "")
+                        lines[#lines+1] = strformat("%d=%d|%s|%s", sid, bid, cat, note)
+                    else
+                        -- 旧格式兼容：无元数据
+                        lines[#lines+1] = strformat("%d=%d", sid, bid)
+                    end
                 end
             end
         end
@@ -32,7 +60,7 @@ local function ShowExportDialog()
 
     -- 创建导出弹窗
     local dlg = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
-    dlg:SetSize(380, 320);dlg:SetPoint("CENTER");dlg:SetFrameStrata("DIALOG")
+    dlg:SetSize(420, 320);dlg:SetPoint("CENTER");dlg:SetFrameStrata("DIALOG")
     dlg:SetToplevel(true)
     dlg.TitleBg:SetHeight(26)
     local title = dlg:CreateFontString(nil,"OVERLAY","GameFontNormal")
@@ -44,7 +72,7 @@ local function ShowExportDialog()
     local eb = CreateFrame("EditBox", nil, sf)
     eb:SetMultiLine(true);eb:SetFontObject("GameFontHighlight");eb:SetAutoFocus(false)
     eb:SetScript("OnEscapePressed",function() dlg:Hide() end)
-    sf:SetScrollChild(eb);eb:SetWidth(340)
+    sf:SetScrollChild(eb);eb:SetWidth(390)
     eb:SetText(text);eb:HighlightText()
 
     -- 提示文字
@@ -59,16 +87,29 @@ end
 
 local function DoImport(text)
     local count = 0
-    for line in (text.."\n"):gmatch("(.-)\n") do
-        local sid,bid = strmatch(line,"^(%d+)=(%d+)$")
-        if sid and bid then
-            sid,bid = tonumber(sid),tonumber(bid)
-            if sid and bid and sid>0 and bid>=3 and bid<=14 then
+    -- 兼容 CRLF (\r\n) 和 LF (\n) 行尾
+    for line in (text.."\n"):gmatch("([^\r\n]*)\r?\n") do
+        if line ~= "" then
+            -- 新格式: speciesID=breedID|category|note
+            local sid, bid, cat, note = strmatch(line, "^(%d+)=(%d+)|([^|]*)|(.*)$")
+            if sid and bid then
+                sid, bid = tonumber(sid), tonumber(bid)
+                cat = UnescapeField(cat)
+                note = UnescapeField(note)
+            else
+                -- 旧格式兼容: speciesID=breedID
+                sid, bid = strmatch(line, "^(%d+)=(%d+)$")
+                if sid and bid then
+                    sid, bid = tonumber(sid), tonumber(bid)
+                    cat, note = "custom", ""
+                end
+            end
+            if sid and bid and sid>0 and IsValidBreedID(bid) then
                 if not GeneDexDB then GeneDexDB = {} end
                 if not GeneDexDB.BestBreeds or type(GeneDexDB.BestBreeds)~="table" then GeneDexDB.BestBreeds={} end
                 -- 同物种只保留一个最优（与 SetBestBreed 一致）
                 GeneDexDB.BestBreeds[sid]={}
-                GeneDexDB.BestBreeds[sid][bid]={category="custom",note="",addedAt=time()}
+                GeneDexDB.BestBreeds[sid][bid]={category=cat or "custom",note=note or "",addedAt=time()}
                 count = count + 1
             end
         end

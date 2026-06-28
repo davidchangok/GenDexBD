@@ -6,9 +6,10 @@ local GetLocaleString = addonTable.GetLocaleString
 local CalculateBreedFromStats = addonTable.CalculateBreedFromStats
 local GetBreedCode = addonTable.GetBreedCode
 local GetBreedDisplayName = addonTable.GetBreedDisplayName
-local time = time;local type = type;local pairs = pairs;local ipairs = ipairs
+local time = time;local type = type;local pairs = pairs
 local next = next;local tostring = tostring;local print = print
 local C_Timer_After = C_Timer.After
+local C_Timer_After_Cancel = C_Timer_After_Cancel
 
 local ADDON_NAME = "GenDexBD"
 local CURRENT_DB_VERSION = 2
@@ -21,7 +22,7 @@ _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
 local DB_DEFAULTS = {
     BestBreeds = {},
     Options = {
-        ShowInTooltip = true, ShowInJournal = true, AlertInBattle = true,
+        ShowInTooltip = true, AlertInBattle = true,
         AssumeRareQuality = true, ShowBestBreedNote = true, AlertDuration = 5,
     },
     DBVersion = CURRENT_DB_VERSION,
@@ -32,10 +33,16 @@ local function DeepMergeDefaults(target, defaults)
         if target[key] == nil then
             target[key] = defaultVal
         elseif type(defaultVal) == "table" and type(target[key]) == "table" then
-            if type(next(defaultVal)) == "nil" then else
-                local isArray = false
-                for k in pairs(defaultVal) do if type(k) == "number" then isArray = true end break end
-                if not isArray then DeepMergeDefaults(target[key], defaultVal) end
+            -- 空表跳过
+            if type(next(defaultVal)) == "nil" then
+            else
+                -- 检查是否为 BestBreeds 映射表（所有键都是数字的品种ID映射）
+                -- 若全部数字键则跳过深层合并，避免覆盖用户数据
+                local isBreedMap = true
+                for k in pairs(defaultVal) do
+                    if type(k) ~= "number" then isBreedMap = false; break end
+                end
+                if not isBreedMap then DeepMergeDefaults(target[key], defaultVal) end
             end
         end
     end
@@ -70,7 +77,7 @@ local battleAlertCache = {}
 
 local function GetAlertGlowBox()
     if alertGlowBox then
-        if alertGlowBox._hideTimer then C_Timer.After_Cancel(alertGlowBox._hideTimer);alertGlowBox._hideTimer=nil end
+        if alertGlowBox._hideTimer then C_Timer_After_Cancel(alertGlowBox._hideTimer);alertGlowBox._hideTimer=nil end
         return alertGlowBox
     end
     alertGlowBox = CreateFrame("Frame", nil, PetBattleFrame, "GlowBoxTemplate")
@@ -95,7 +102,7 @@ end
 
 local function HideAlertBox()
     if alertGlowBox then
-        if alertGlowBox._hideTimer then C_Timer.After_Cancel(alertGlowBox._hideTimer);alertGlowBox._hideTimer=nil end
+        if alertGlowBox._hideTimer then C_Timer_After_Cancel(alertGlowBox._hideTimer);alertGlowBox._hideTimer=nil end
         alertGlowBox:Hide()
     end
 end
@@ -129,7 +136,7 @@ local function ShowAlertForPet(petIndex)
 
     -- 自动消失定时器
     local duration = GeneDexDB.Options.AlertDuration or 5
-    if box._hideTimer then C_Timer.After_Cancel(box._hideTimer) end
+    if box._hideTimer then C_Timer_After_Cancel(box._hideTimer) end
     box._hideTimer = C_Timer_After(duration, function() box:Hide();box._hideTimer=nil end)
 end
 
