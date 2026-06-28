@@ -182,6 +182,10 @@ local function injectRematchMenus()
         return
     end
 
+    -- 预注册占位菜单（subMenuFunc 依赖 allMenus[name] 存在才能触发）
+    Rematch.menus:Register("GenDexSetBestMenu", {{text="..."}})
+    Rematch.menus:Register("GenDexOtherBreedsMenu", {{text="..."}})
+
     local ok, err = pcall(function()
         Rematch.menus:AddToMenu("PetMenu",{
             text=GetLocaleString("SET_BEST_BREED"),
