@@ -85,8 +85,9 @@ local function GetOrCreateBangIcon(frame)
     -- 改用内置 AvailableQuestIcon（金色叹号），类似 PetTracker 的手段
     tex:SetTexture('Interface/GossipFrame/AvailableQuestIcon')
     tex:SetVertexColor(1.0, 0.84, 0.0)  -- 金色滤镜
-    tex:SetPoint('TOP', frame.Icon, 'TOPRIGHT', -2, -2)
-    tex:SetSize(size, size)
+    tex:SetDrawLayer('OVERLAY', 7)
+    tex:SetPoint('CENTER', frame.Icon, 'CENTER', 0, 0)
+    tex:SetSize(size * 1.5, size * 1.5)
     tex:Hide()
     bangIcons[frame] = tex
     return tex
@@ -216,6 +217,12 @@ end
 local function CheckActiveEnemyPet()
     local idx = C_PetBattles.GetActivePet(2);if idx and idx>=1 and idx<=3 then ShowAlertForPet(idx) end
 end
+local function UpdateAllEnemyStars()
+    if not PetBattleFrame.ActiveEnemy or not PetBattleFrame.ActiveEnemy.Icon then return end
+    -- 强制刷新当前活跃敌方的 Icon 纹理标记
+    UpdateEnemyStarIcon(PetBattleFrame.ActiveEnemy)
+end
+
 local function ClearBattleCache()
     battleAlertCache = {};HideAlertBox();ClearAllStars()
 end
@@ -256,7 +263,8 @@ local function OnEvent(_, event, ...)
             GeneDexDB.Options.TrackEncounters = true
         end
         C_Timer_After(0.5, CheckEnemyTeam)
-    elseif event == "PET_BATTLE_PET_CHANGED" then CheckActiveEnemyPet()
+        C_Timer_After(0.6, UpdateAllEnemyStars)
+    elseif event == "PET_BATTLE_PET_CHANGED" then CheckActiveEnemyPet();C_Timer_After(0.1, UpdateAllEnemyStars)
     elseif event == "PET_BATTLE_CLOSE" then
         ClearBattleCache()
         -- 恢复野外战斗前的 TrackEncounters 设置
