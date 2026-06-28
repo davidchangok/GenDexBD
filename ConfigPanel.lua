@@ -5,11 +5,12 @@ local GetLocaleString = addonTable.GetLocaleString;local ipairs = ipairs;local p
 local strmatch = string.match;local strformat = string.format;local time = time
 
 local OPTIONS = {
-    { "ShowInTooltip",      "OPTION_SHOW_TOOLTIP",  "check" },
-    { "AlertInBattle",      "OPTION_ALERT_BATTLE",  "check" },
-    { "AssumeRareQuality",  "OPTION_ASSUME_RARE",   "check" },
-    { "ShowBestBreedNote",  "OPTION_SHOW_NOTE",     "check" },
-    { "AlertDuration",      "OPTION_ALERT_DURATION","slider" },
+    { "ShowInTooltip",      "OPTION_SHOW_TOOLTIP",      "check" },
+    { "AlertInBattle",      "OPTION_ALERT_BATTLE",      "check" },
+    { "AssumeRareQuality",  "OPTION_ASSUME_RARE",       "check" },
+    { "ShowBestBreedNote",  "OPTION_SHOW_NOTE",         "check" },
+    { "TrackEncounters",    "OPTION_TRACK_ENCOUNTERS",  "check" },
+    { "AlertDuration",      "OPTION_ALERT_DURATION",    "slider" },
 }
 
 local panel = nil;local categoryID = nil

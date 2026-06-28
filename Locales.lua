@@ -67,6 +67,7 @@ local strings = {
     OPTION_ALERT_BATTLE   = { zhCN = "战斗目标提示",           enUS = "Alert in battle" },
     OPTION_ASSUME_RARE    = { zhCN = "默认按精良品质推算",       enUS = "Assume Rare quality" },
     OPTION_SHOW_NOTE      = { zhCN = "提示中显示最优备注",       enUS = "Show best breed note in tooltip" },
+    OPTION_TRACK_ENCOUNTERS = { zhCN = "遇敌属性计数",           enUS = "Track Pet Encounters" },
     OPTION_ALERT_DURATION = { zhCN = "目标提示显示时间",          enUS = "Alert display duration" },
     SECONDS              = { zhCN = "秒",                      enUS = "sec" },
     EXPORT_BUTTON        = { zhCN = "导出配置",                 enUS = "Export Config" },

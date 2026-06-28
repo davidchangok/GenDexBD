@@ -5,6 +5,7 @@ local addonName, addonTable = ...
 local GetLocaleString = addonTable.GetLocaleString
 local GetBreedCode = addonTable.GetBreedCode
 local GetBreedDisplayName = addonTable.GetBreedDisplayName
+local GuessBreedByRatio = addonTable.GuessBreedByRatio
 local time = time;local type = type;local pairs = pairs
 local next = next;local tostring = tostring;local print = print
 local C_Timer_After = C_Timer.After
@@ -20,9 +21,11 @@ _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
 
 local DB_DEFAULTS = {
     BestBreeds = {},
+    EncounterStats = {},
     Options = {
         ShowInTooltip = true, AlertInBattle = true,
         AssumeRareQuality = true, ShowBestBreedNote = true, AlertDuration = 5,
+        TrackEncounters = true,
     },
     DBVersion = CURRENT_DB_VERSION,
 }
@@ -32,11 +35,8 @@ local function DeepMergeDefaults(target, defaults)
         if target[key] == nil then
             target[key] = defaultVal
         elseif type(defaultVal) == "table" and type(target[key]) == "table" then
-            -- 空表跳过
             if type(next(defaultVal)) == "nil" then
             else
-                -- 检查是否为 BestBreeds 映射表（所有键都是数字的品种ID映射）
-                -- 若全部数字键则跳过深层合并，避免覆盖用户数据
                 local isBreedMap = true
                 for k in pairs(defaultVal) do
                     if type(k) ~= "number" then isBreedMap = false; break end
@@ -50,6 +50,7 @@ end
 local function InitDatabase()
     if GeneDexDB == nil then GeneDexDB = {} end
     if type(GeneDexDB.BestBreeds) ~= "table" then GeneDexDB.BestBreeds = {} end
+    if type(GeneDexDB.EncounterStats) ~= "table" then GeneDexDB.EncounterStats = {} end
     DeepMergeDefaults(GeneDexDB, DB_DEFAULTS)
     GeneDexDB.DBVersion = CURRENT_DB_VERSION
 end
@@ -73,6 +74,78 @@ end
 
 local alertGlowBox = nil
 local battleAlertCache = {}
+local enemyStarIcons = {}  -- petIndex → FontString ★
+
+local function GetEnemyStarIcon(petIndex)
+    if enemyStarIcons[petIndex] then
+        return enemyStarIcons[petIndex]
+    end
+    -- 查找敌方 UnitFrame
+    local enemyFrame
+    if petIndex == 1 then
+        -- PetBattleFrame.Enemy1 到 Enemy3
+        enemyFrame = _G["PetBattleFrameEnemy" .. petIndex]
+    end
+    -- 兜底：直接找 PetBattleFrame 下的数字命名子帧
+    if not enemyFrame then
+        for _, child in ipairs({PetBattleFrame:GetChildren()}) do
+            if child:GetName() and child:GetName():find("Enemy"..petIndex) then
+                enemyFrame = child; break
+            end
+        end
+    end
+
+    local icon = CreateFrame("Frame", nil, PetBattleFrame)
+    icon:SetSize(20, 20)
+    icon:SetFrameStrata("HIGH")
+    local star = icon:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+    star:SetText("★")
+    star:SetTextColor(1.0, 0.84, 0.0)  -- 金色
+    star:SetAllPoints(icon)
+    icon.Star = star
+
+    -- 定位到 ActiveEnemy.Icon 左下角
+    icon:SetPoint("BOTTOMLEFT", PetBattleFrame.ActiveEnemy.Icon, "BOTTOMLEFT", -2, -2)
+    icon:Hide()
+    enemyStarIcons[petIndex] = icon
+    return icon
+end
+
+local function ShowStarOnEnemy()
+    local star = GetEnemyStarIcon(1)  -- 当前活跃敌方
+    star:Show()
+end
+
+local function HideStars()
+    for _, icon in pairs(enemyStarIcons) do
+        if icon then icon:Hide() end
+    end
+end
+
+-- ========== 遇敌计数 ==========
+
+local wildAutoTrackRestore = nil  -- 野外战斗前用户的 TrackEncounters 原值
+
+local function RecordEncounter(speciesID, petIndex)
+    if not GeneDexDB.Options.TrackEncounters then return end
+    if not GeneDexDB.EncounterStats then GeneDexDB.EncounterStats = {} end
+
+    local hp = C_PetBattles.GetMaxHealth(2, petIndex)
+    local pw = C_PetBattles.GetPower(2, petIndex)
+    local sp = C_PetBattles.GetSpeed(2, petIndex)
+    if not hp or not pw or not sp or hp == 0 or pw == 0 or sp == 0 then return end
+
+    local breedID = GuessBreedByRatio(hp, pw, sp)
+    if not breedID then return end
+
+    if not GeneDexDB.EncounterStats[speciesID] then
+        GeneDexDB.EncounterStats[speciesID] = {}
+    end
+    local count = GeneDexDB.EncounterStats[speciesID][breedID] or 0
+    GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
+end
+
+-- ========== 战斗提示主逻辑 ==========
 
 local function GetAlertGlowBox()
     if alertGlowBox then
@@ -110,6 +183,11 @@ local function ShowAlertForPet(petIndex)
     if not GeneDexDB.Options.AlertInBattle then return end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, petIndex)
     if not speciesID then return end
+
+    -- 遇敌计数（所有宠物，无论是否最佳品种）
+    RecordEncounter(speciesID, petIndex)
+
+    -- 最佳品种提示
     if battleAlertCache[speciesID] then return end
     local bestBreeds = GeneDexDB.BestBreeds[speciesID]
     if not bestBreeds or type(bestBreeds)~="table" or not next(bestBreeds) then return end
@@ -122,6 +200,9 @@ local function ShowAlertForPet(petIndex)
 
     battleAlertCache[speciesID] = true
 
+    -- 金色五星
+    ShowStarOnEnemy()
+
     local petName = C_PetBattles.GetName(2, petIndex) or "?"
     local breedCode = GetBreedCode(breedID) or "?"
     local displayText = petName .. " " .. breedCode .. " " .. GetLocaleString("ALERT_TARGET")
@@ -133,7 +214,6 @@ local function ShowAlertForPet(petIndex)
     box:ClearAllPoints();box:SetPoint("TOP", enemyIcon, "BOTTOM", 0, -20)
     box:Show()
 
-    -- 自动消失定时器
     local duration = GeneDexDB.Options.AlertDuration or 5
     if box._hideTimer then C_Timer_After_Cancel(box._hideTimer) end
     box._hideTimer = C_Timer_After(duration, function() box:Hide();box._hideTimer=nil end)
@@ -146,7 +226,7 @@ local function CheckActiveEnemyPet()
     local idx = C_PetBattles.GetActivePet(2);if idx and idx>=1 and idx<=3 then ShowAlertForPet(idx) end
 end
 local function ClearBattleCache()
-    battleAlertCache = {};HideAlertBox()
+    battleAlertCache = {};HideAlertBox();HideStars()
 end
 
 -- ========== 事件处理 ==========
@@ -176,9 +256,21 @@ end
 local function OnEvent(_, event, ...)
     if event == "ADDON_LOADED" then OnAddonLoaded(...)
     elseif event == "PLAYER_LOGIN" then OnPlayerLogin()
-    elseif event == "PET_BATTLE_OPENING_START" then C_Timer_After(0.5, CheckEnemyTeam)
+    elseif event == "PET_BATTLE_OPENING_START" then
+        -- 野外战斗自动开启遇敌计数
+        if C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() then
+            wildAutoTrackRestore = GeneDexDB.Options.TrackEncounters
+            GeneDexDB.Options.TrackEncounters = true
+        end
+        C_Timer_After(0.5, CheckEnemyTeam)
     elseif event == "PET_BATTLE_PET_CHANGED" then CheckActiveEnemyPet()
-    elseif event == "PET_BATTLE_CLOSE" then ClearBattleCache()
+    elseif event == "PET_BATTLE_CLOSE" then
+        ClearBattleCache()
+        -- 恢复野外战斗前的 TrackEncounters 设置
+        if wildAutoTrackRestore ~= nil then
+            GeneDexDB.Options.TrackEncounters = wildAutoTrackRestore
+            wildAutoTrackRestore = nil
+        end
     end
 end
 
