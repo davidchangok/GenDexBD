@@ -99,7 +99,19 @@ local function HasBestBreed(frame)
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
     if not speciesID then return false end
     local bestBreeds = GeneDexDB.BestBreeds[speciesID]
-    return bestBreeds and type(bestBreeds) == "table" and next(bestBreeds) ~= nil
+    if not bestBreeds or type(bestBreeds) ~= "table" or not next(bestBreeds) then return false end
+
+    -- 检查敌方实际品种是否匹配保存的最优品种
+    local hp = C_PetBattles.GetMaxHealth(2, frame.petIndex)
+    local pw = C_PetBattles.GetPower(2, frame.petIndex)
+    local sp = C_PetBattles.GetSpeed(2, frame.petIndex)
+    if hp and pw and sp and hp > 0 and pw > 0 and sp > 0 then
+        local actualBreed = GuessBreedByRatio(hp, pw, sp)
+        if actualBreed then
+            return bestBreeds[actualBreed] ~= nil
+        end
+    end
+    return false
 end
 
 local function UpdateEnemyStarIcon(frame)
