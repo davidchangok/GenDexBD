@@ -104,8 +104,9 @@ local function injectRematchMenus()
         local sub={}
         for _,br in ipairs(ALL_BREEDS) do
             sub[#sub+1]={text=br[2],func=function(_,p)
-                local _,sid=C_PetJournal.GetPetInfoByPetID(p)
-                if sid then RematchSetBestNoPet(sid,br[1]) end
+                -- 12.0: GetPetInfoByPetID 改为 GUID 参数，改用 Rematch.petInfo:Fetch 获取 speciesID
+                local info = Rematch.petInfo:Fetch(p)
+                if info and info.speciesID then RematchSetBestNoPet(info.speciesID, br[1]) end
             end}
         end
         sub[#sub+1]={text=CANCEL}
@@ -114,8 +115,10 @@ local function injectRematchMenus()
             hidden=function(_,p)
                 if not p then return true end
                 if not Rematch or not Rematch.petInfo then return true end
-                if Rematch.petInfo:Fetch(p).hasBreed then return true end
-                local _,sid=C_PetJournal.GetPetInfoByPetID(p);return not sid
+                local info = Rematch.petInfo:Fetch(p)
+                if not info then return true end
+                if info.hasBreed then return true end
+                return not info.speciesID
             end,
         },"Find Teams")
     end)
