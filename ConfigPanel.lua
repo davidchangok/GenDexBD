@@ -1,4 +1,4 @@
--- GenDexBD ConfigPanel.lua - 设置面板 + 导入导出 + 遇敌统计
+-- GenDexBD ConfigPanel.lua - 设置面板 + 导入导出
 
 local addonName, addonTable = ...
 local GetLocaleString = addonTable.GetLocaleString;local ipairs = ipairs;local pairs = pairs
@@ -17,24 +17,29 @@ local panel = nil;local categoryID = nil
 
 -- ========== 导入导出工具函数 ==========
 
+-- 转义导出字段中的特殊字符（用 \| 代替 |, \n 代替换行）
 local function EscapeField(s)
     if not s then return "" end
     s = s:gsub("\\","\\\\"):gsub("\n","\\n"):gsub("|","\\|")
     return s
 end
 
+-- 反转义
 local function UnescapeField(s)
     if not s then return "" end
+    -- 注意顺序：先还原 \| 再还原 \\（避免 double-unescape）
     s = s:gsub("\\|","|"):gsub("\\n","\n"):gsub("\\\\","\\")
     return s
 end
 
+-- 检查 breedID 是否有效（从 BreedData 表动态获取范围）
 local function IsValidBreedID(bid)
     return bid and addonTable.BREEDS and addonTable.BREEDS[bid] ~= nil
 end
 
 -- ========== 导入导出弹窗 ==========
 local function ShowExportDialog()
+    -- 序列化 BestBreeds: speciesID=breedID|category|note（元数据完整保留）
     local lines = {}
     if GeneDexDB and GeneDexDB.BestBreeds then
         for sid, breeds in pairs(GeneDexDB.BestBreeds) do
@@ -45,6 +50,7 @@ local function ShowExportDialog()
                         local note = EscapeField(binfo.note or "")
                         lines[#lines+1] = strformat("%d=%d|%s|%s", sid, bid, cat, note)
                     else
+                        -- 旧格式兼容：无元数据
                         lines[#lines+1] = strformat("%d=%d", sid, bid)
                     end
                 end
@@ -53,6 +59,7 @@ local function ShowExportDialog()
     end
     local text = #lines>0 and table.concat(lines,"\n") or ""
 
+    -- 创建导出弹窗
     local dlg = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
     dlg:SetSize(420, 320);dlg:SetPoint("CENTER");dlg:SetFrameStrata("DIALOG")
     dlg:SetToplevel(true)
@@ -60,6 +67,7 @@ local function ShowExportDialog()
     local title = dlg:CreateFontString(nil,"OVERLAY","GameFontNormal")
     title:SetPoint("TOP",0,-12);title:SetText(GetLocaleString("EXPORT_TITLE"))
 
+    -- 滚动编辑框
     local sf = CreateFrame("ScrollFrame", nil, dlg, "UIPanelScrollFrameTemplate")
     sf:SetPoint("TOPLEFT",12,-40);sf:SetPoint("BOTTOMRIGHT",-32,40)
     local eb = CreateFrame("EditBox", nil, sf)
@@ -68,9 +76,11 @@ local function ShowExportDialog()
     sf:SetScrollChild(eb);eb:SetWidth(390)
     eb:SetText(text);eb:HighlightText()
 
+    -- 提示文字
     local hint = dlg:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
     hint:SetPoint("BOTTOMLEFT",16,16);hint:SetText(GetLocaleString("EXPORT_HINT"))
 
+    -- 关闭按钮
     local closeBtn = CreateFrame("Button",nil,dlg,"UIPanelButtonTemplate")
     closeBtn:SetPoint("BOTTOMRIGHT",-16,16);closeBtn:SetText(CLOSE);closeBtn:SetSize(80,24)
     closeBtn:SetScript("OnClick",function() dlg:Hide() end)
@@ -78,14 +88,17 @@ end
 
 local function DoImport(text)
     local count = 0
+    -- 兼容 CRLF (\r\n) 和 LF (\n) 行尾
     for line in (text.."\n"):gmatch("([^\r\n]*)\r?\n") do
         if line ~= "" then
+            -- 新格式: speciesID=breedID|category|note
             local sid, bid, cat, note = strmatch(line, "^(%d+)=(%d+)|([^|]*)|(.*)$")
             if sid and bid then
                 sid, bid = tonumber(sid), tonumber(bid)
                 cat = UnescapeField(cat)
                 note = UnescapeField(note)
             else
+                -- 旧格式兼容: speciesID=breedID
                 sid, bid = strmatch(line, "^(%d+)=(%d+)$")
                 if sid and bid then
                     sid, bid = tonumber(sid), tonumber(bid)
@@ -95,6 +108,7 @@ local function DoImport(text)
             if sid and bid and sid>0 and IsValidBreedID(bid) then
                 if not GeneDexDB then GeneDexDB = {} end
                 if not GeneDexDB.BestBreeds or type(GeneDexDB.BestBreeds)~="table" then GeneDexDB.BestBreeds={} end
+                -- 同物种首次导入时清空已有数据（后续行直接写入，避免多行互相覆盖）
                 if count == 0 or not GeneDexDB.BestBreeds[sid] then
                     GeneDexDB.BestBreeds[sid] = {}
                 end
@@ -114,6 +128,7 @@ local function ShowImportDialog()
     local title = dlg:CreateFontString(nil,"OVERLAY","GameFontNormal")
     title:SetPoint("TOP",0,-12);title:SetText(GetLocaleString("IMPORT_TITLE"))
 
+    -- 滚动编辑框
     local sf = CreateFrame("ScrollFrame", nil, dlg, "UIPanelScrollFrameTemplate")
     sf:SetPoint("TOPLEFT",12,-40);sf:SetPoint("BOTTOMRIGHT",-32,40)
     local eb = CreateFrame("EditBox", nil, sf)
@@ -121,9 +136,11 @@ local function ShowImportDialog()
     eb:SetScript("OnEscapePressed",function() dlg:Hide() end)
     sf:SetScrollChild(eb);eb:SetWidth(340);eb:SetText("")
 
+    -- 提示
     local hint = dlg:CreateFontString(nil,"OVERLAY","GameFontHighlightSmall")
     hint:SetPoint("BOTTOMLEFT",16,16);hint:SetText(GetLocaleString("IMPORT_HINT"))
 
+    -- 导入按钮
     local importBtn = CreateFrame("Button",nil,dlg,"UIPanelButtonTemplate")
     importBtn:SetPoint("BOTTOMRIGHT",-100,16);importBtn:SetText(GetLocaleString("IMPORT_BUTTON"));importBtn:SetSize(80,24)
     importBtn:SetScript("OnClick",function()
@@ -132,6 +149,7 @@ local function ShowImportDialog()
         dlg:Hide()
     end)
 
+    -- 取消按钮
     local cancelBtn = CreateFrame("Button",nil,dlg,"UIPanelButtonTemplate")
     cancelBtn:SetPoint("LEFT",importBtn,"RIGHT",8,0);cancelBtn:SetText(CANCEL);cancelBtn:SetSize(80,24)
     cancelBtn:SetScript("OnClick",function() dlg:Hide() end)
@@ -139,9 +157,10 @@ end
 
 -- ========== 遇敌统计内嵌表格 ==========
 
-local encounterRowPool = {}
+local encounterRowPool = {}  -- FontString 对象池
 
-local function BuildEncounterStats(contentFrame)
+local function BuildEncounterStats(panel)
+    -- 清除旧行
     for _, fs in ipairs(encounterRowPool) do fs:SetText("") end
     local rowIndex = 0
 
@@ -149,44 +168,45 @@ local function BuildEncounterStats(contentFrame)
         rowIndex = rowIndex + 1
         local fs = encounterRowPool[rowIndex]
         if not fs then
-            fs = contentFrame:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-            fs:SetWidth(310)
+            fs = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            fs:SetWidth(360)
             fs:SetJustifyH("LEFT")
             encounterRowPool[rowIndex] = fs
         end
-        fs:SetHeight(15)
+        fs:SetHeight(16)
         return fs
     end
 
     -- 表头
     local header = getRow()
     header:SetFontObject("GameFontHighlight")
-    header:SetText("|cffffcc00宠物名称          品种      次数|r")
-    header:SetPoint("TOPLEFT", 4, 0)
+    header:SetText(string.format("%-30s %-10s %s", "宠物名称", "品种", "次数"))
+    header:SetPoint("TOPLEFT", 20, 0)
 
     local prevRow = header
-    local yOff = -16
+    local yOff = -18
 
     if GeneDexDB and GeneDexDB.EncounterStats and next(GeneDexDB.EncounterStats) then
         for sid, breeds in pairs(GeneDexDB.EncounterStats) do
-            local speciesName = tostring(sid)
+            local speciesName = sid
             if Rematch and Rematch.petInfo then
                 local info = Rematch.petInfo:Fetch(sid)
                 if info and info.speciesName then speciesName = info.speciesName end
             end
+            -- 物种名（金色）
             local nameRow = getRow()
             nameRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, yOff)
-            nameRow:SetText("|cffffcc00" .. speciesName .. "|r")
-            prevRow = nameRow; yOff = 0
+            nameRow:SetText(string.format("|cffffcc00%s|r", speciesName))
+            prevRow = nameRow; yOff = -2
 
+            -- 品种行
             for bid, count in pairs(breeds) do
                 local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or tostring(bid)
                 local breedRow = getRow()
                 breedRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, yOff)
-                breedRow:SetText(string.format("    %-20s %-10s %d", code, "", count))
-                prevRow = breedRow; yOff = 0
+                breedRow:SetText(string.format("    %-26s %-10s %d", code, "", count))
+                prevRow = breedRow; yOff = -2
             end
-            yOff = -2
         end
     else
         local emptyRow = getRow()
@@ -194,7 +214,9 @@ local function BuildEncounterStats(contentFrame)
         emptyRow:SetText(GetLocaleString("ENCOUNTER_NO_DATA"))
     end
 
-    contentFrame:SetHeight(math.max(60, rowIndex * 16 + 4))
+    -- 更新内容区域高度
+    local content = panel.encounterContent
+    content:SetHeight(math.max(100, rowIndex * 16))
     for i = rowIndex + 1, #encounterRowPool do
         encounterRowPool[i]:SetText("")
     end
@@ -204,10 +226,7 @@ end
 -- ========== 面板创建 ==========
 function addonTable.InitConfig()
     if panel then return end
-    panel = CreateFrame("Frame", nil, UIParent)
-    panel.name = "GenDexBD"
-    -- 加大面板高度容纳 group
-    panel:SetSize(500, 520)
+    panel = CreateFrame("Frame", nil, UIParent);panel.name = "GenDexBD"
 
     local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
     title:SetPoint("TOPLEFT", 16, -16);title:SetText(GetLocaleString("CONFIG_TITLE"))
@@ -253,34 +272,34 @@ function addonTable.InitConfig()
     importBtn:SetText(GetLocaleString("IMPORT_BUTTON"))
     importBtn:SetScript("OnClick", ShowImportDialog)
 
-    -- 遇敌统计独立 Group 框
-    local group = CreateFrame("Frame", nil, panel, "InterfaceOptionsGroupTemplate")
-    group:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -16)
-    group:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, 8)
-    group.heading:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
+    -- 遇敌统计标题 + 刷新按钮
+    local statsTitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    statsTitle:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -12)
+    statsTitle:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
 
-    -- 刷新按钮（group 右上角）
-    local refreshBtn = CreateFrame("Button", nil, group, "UIPanelButtonTemplate")
-    refreshBtn:SetPoint("TOPRIGHT", group, "TOPRIGHT", -12, -12);refreshBtn:SetSize(60,20)
+    local refreshBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    refreshBtn:SetPoint("LEFT", statsTitle, "RIGHT", 8, 2);refreshBtn:SetSize(60, 20)
     refreshBtn:SetText("刷新")
     refreshBtn:SetScript("OnClick", function()
+        local content = panel.encounterContent
         for _, fs in ipairs(encounterRowPool) do fs:Hide() end
         encounterRowPool = {}
-        local totalRows = BuildEncounterStats(panel.encounterContent)
-        panel.encounterContent:SetHeight(math.max(60, totalRows * 16 + 4))
+        local totalRows = BuildEncounterStats(panel)
+        content:SetHeight(math.max(60, totalRows * 16 + 4))
     end)
 
-    -- 纵向滚动表格（group 内部，带 UIPanelScrollFrameTemplate 自带纵向滚动条）
-    local scrollFrame = CreateFrame("ScrollFrame", nil, group, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", 14, -34)
-    scrollFrame:SetPoint("BOTTOMRIGHT", -34, 14)
+    -- 滚动区域
+    local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", 0, -6)
+    scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -24, 8)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetSize(320, 60)
+    content:SetSize(380, 60)
     scrollFrame:SetScrollChild(content)
     panel.encounterContent = content
 
-    local totalRows = BuildEncounterStats(panel.encounterContent)
+    -- 首次填充
+    local totalRows = BuildEncounterStats(panel)
     content:SetHeight(math.max(60, totalRows * 16 + 4))
 
     local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
