@@ -88,7 +88,7 @@ local function injectRematchMenus()
         LOG("已拥有菜单注册失败: %s", tostring(err1))
     end
 
-    -- 未拥有宠物菜单（12品种子菜单）
+    -- 未拥有宠物菜单（12品种子菜单 — 先注册命名字菜单，再通过 subMenu 字符串引用）
     local ok2,err3
     ok2,err3 = pcall(function()
         local sub={}
@@ -101,15 +101,16 @@ local function injectRematchMenus()
             end}
         end
         sub[#sub+1]={text=CANCEL}
-        LOG("子菜单构建完成: %d 项", #sub)
+        -- 关键：Rematch 的 subMenu 必须是已注册菜单名字符串，不能是内联 table
+        Rematch.menus:Register("GenDexUncollectedMenu", sub)
+        LOG("子菜单注册完成: %d 项", #sub)
         Rematch.menus:AddToMenu("PetMenu",{
-            text=GetLocaleString("SET_BEST_BREED"),subMenu=sub,
+            text=GetLocaleString("SET_BEST_BREED"),subMenu="GenDexUncollectedMenu",
             hidden=function(_,p)
-                if not p then LOG("hidden:p=nil");return true end
-                if not Rematch or not Rematch.petInfo then LOG("hidden:no Rematch");return true end
+                if not p then return true end
+                if not Rematch or not Rematch.petInfo then return true end
                 local info = Rematch.petInfo:Fetch(p)
-                if not info then LOG("hidden:p=%s info=nil",tostring(p));return true end
-                LOG("hidden:p=%s hasBreed=%s speciesID=%s",tostring(p),tostring(info.hasBreed),tostring(info.speciesID))
+                if not info then return true end
                 if info.hasBreed then return true end
                 return false
             end,
