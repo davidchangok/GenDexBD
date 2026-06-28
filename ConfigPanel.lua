@@ -168,8 +168,8 @@ local function BuildEncounterStats(panel)
         rowIndex = rowIndex + 1
         local fs = encounterRowPool[rowIndex]
         if not fs then
-            fs = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-            fs:SetWidth(360)
+            fs = panel.encounterContent:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            fs:SetWidth(320)
             fs:SetJustifyH("LEFT")
             encounterRowPool[rowIndex] = fs
         end
@@ -272,33 +272,32 @@ function addonTable.InitConfig()
     importBtn:SetText(GetLocaleString("IMPORT_BUTTON"))
     importBtn:SetScript("OnClick", ShowImportDialog)
 
-    -- 遇敌统计标题 + 刷新按钮
-    local statsTitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-    statsTitle:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -12)
-    statsTitle:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
+    -- 遇敌统计 Group 框（独立区域，group 为父级）
+    local group = CreateFrame("Frame", nil, panel, "InterfaceOptionsGroupTemplate")
+    group:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -16)
+    group:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -8, 8)
+    group.heading:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
 
-    local refreshBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    refreshBtn:SetPoint("LEFT", statsTitle, "RIGHT", 8, 2);refreshBtn:SetSize(60, 20)
+    local refreshBtn = CreateFrame("Button", nil, group, "UIPanelButtonTemplate")
+    refreshBtn:SetPoint("TOPRIGHT", group, "TOPRIGHT", -12, -14);refreshBtn:SetSize(60, 20)
     refreshBtn:SetText("刷新")
     refreshBtn:SetScript("OnClick", function()
-        local content = panel.encounterContent
         for _, fs in ipairs(encounterRowPool) do fs:Hide() end
         encounterRowPool = {}
         local totalRows = BuildEncounterStats(panel)
-        content:SetHeight(math.max(60, totalRows * 16 + 4))
+        panel.encounterContent:SetHeight(math.max(60, totalRows * 16 + 4))
     end)
 
-    -- 滚动区域
-    local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", 0, -6)
-    scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -24, 8)
+    -- 纵向滚动表格（以 group 左上角为坐标系原点）
+    local scrollFrame = CreateFrame("ScrollFrame", nil, group, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", 16, -36)
+    scrollFrame:SetPoint("BOTTOMRIGHT", -36, 14)
 
     local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetSize(380, 60)
+    content:SetSize(340, 60)
     scrollFrame:SetScrollChild(content)
     panel.encounterContent = content
 
-    -- 首次填充
     local totalRows = BuildEncounterStats(panel)
     content:SetHeight(math.max(60, totalRows * 16 + 4))
 
