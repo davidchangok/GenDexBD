@@ -105,7 +105,7 @@ local function GetEnemyStarIcon(petIndex)
     icon.Star = star
 
     -- 定位到 ActiveEnemy.Icon 左下角
-    icon:SetPoint("BOTTOMLEFT", PetBattleFrame.ActiveEnemy.Icon, "BOTTOMLEFT", -2, -2)
+    icon:SetPoint("TOPLEFT", PetBattleFrame.ActiveEnemy.Icon, "TOPLEFT", -2, 2)
     icon:Hide()
     enemyStarIcons[petIndex] = icon
     return icon
