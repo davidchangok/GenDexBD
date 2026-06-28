@@ -123,6 +123,7 @@ local function UpdateStarOnFrame(frame)
     if not frame or frame.petOwner ~= 2 or not frame.petIndex then return end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
     if not speciesID then GetOrCreateStar(frame):Hide();return end
+    if ownedFullCache[speciesID] then GetOrCreateStar(frame):Hide();return end
     local breedID = GetEnemyBreed(frame.petIndex)
     local show = IsBestBreedMatch(speciesID, breedID)
     GetOrCreateStar(frame):SetShown(show)
@@ -170,9 +171,9 @@ local function HideAlertBox()
     end
 end
 
-local function ShowAlert(speciesID, breedID)
+local function ShowAlert(speciesID, breedID, petIndex)
     if not GeneDexDB.Options.AlertInBattle then return end
-    local petName = C_PetBattles.GetName(2, C_PetBattles.GetActivePet(2)) or "?"
+    local petName = C_PetBattles.GetName(2, petIndex) or "?"
     local breedCode = GetBreedCode(breedID) or "?"
     local displayText = petName .. " " .. breedCode .. " " .. GetLocaleString("ALERT_TARGET")
 
@@ -191,7 +192,8 @@ end
 -- 步骤 d：野外战斗结束后计数
 -- ========================================================================
 
-local encounterCache = {}  -- {[speciesID] = breedID} 本场遇到的最佳匹配
+local encounterCache = {}   -- {[speciesID] = breedID} 本场遇最佳匹配（用于计数）
+local ownedFullCache = {}   -- {[speciesID] = true}    已满3只，不提示不标★
 local isWildBattle = false
 
 local function RecordEncounters()
@@ -205,8 +207,32 @@ local function RecordEncounters()
         local count = GeneDexDB.EncounterStats[speciesID][breedID] or 0
         GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
     end
-    encounterCache = {}
+    encounterCache = {}; ownedFullCache = {}
     isWildBattle = false
+end
+
+-- ========================================================================
+-- 检查玩家是否已拥有 ≥3 只同品种同物种宠物（满了就不再提示）
+-- ========================================================================
+
+local function CountOwnedBreedMatches(speciesID, targetBreedID)
+    if not speciesID or not targetBreedID then return 0 end
+    local count = 0
+    local numPets = C_PetJournal.GetNumPets()
+    for i = 1, numPets do
+        local petGUID, sid = C_PetJournal.GetPetInfoByIndex(i)
+        if sid == speciesID and petGUID then
+            local _, maxHealth, power, speed = C_PetJournal.GetPetStats(petGUID)
+            if maxHealth and power and speed and maxHealth > 0 then
+                local breedID = GuessBreedByRatio(maxHealth, power, speed)
+                if breedID == targetBreedID then
+                    count = count + 1
+                    if count >= 3 then return count end
+                end
+            end
+        end
+    end
+    return count
 end
 
 -- ========================================================================
@@ -221,9 +247,14 @@ local function ProcessAllEnemyPets()
             if speciesID then
                 local breedID = GetEnemyBreed(i)
                 if breedID and IsBestBreedMatch(speciesID, breedID) then
-                    if not encounterCache[speciesID] then
+                    -- 已拥有 ≥3 只同品种？不再提示
+                    if CountOwnedBreedMatches(speciesID, breedID) >= 3 then
+                        ownedFullCache[speciesID] = true
+                        -- 跳过提示，但仍要挂 encounterCache 方便后续统计
                         encounterCache[speciesID] = breedID
-                        ShowAlert(speciesID, breedID)
+                    elseif not encounterCache[speciesID] then
+                        encounterCache[speciesID] = breedID
+                        ShowAlert(speciesID, breedID, i)
                     end
                 end
             end
@@ -265,7 +296,7 @@ local function OnEvent(_, event, ...)
     elseif event == "PLAYER_LOGIN" then OnPlayerLogin()
     elseif event == "PET_BATTLE_OPENING_START" then
         isWildBattle = C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() or false
-        encounterCache = {}
+        encounterCache = {}; ownedFullCache = {}
         -- 延迟等 Rematch/BPBID 完成缓存后再扫描
         C_Timer_After(0.5, ProcessAllEnemyPets)
     elseif event == "PET_BATTLE_PET_CHANGED" then
