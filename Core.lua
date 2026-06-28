@@ -107,6 +107,9 @@ end
 -- 步骤 c：金色 ★ 标记（PetTracker 方案：hook PetBattleUnitFrame_UpdateDisplay）
 -- ========================================================================
 
+-- 由 ProcessAllEnemyPets 控制，UpdateStarOnFrame 只读取
+local showStarsFor = {}
+
 local starIcons = {}  -- [frame] → FontString
 
 local function GetOrCreateStar(frame)
@@ -203,7 +206,6 @@ end
 -- ========================================================================
 
 local encounterCache = {}   -- {[speciesID] = breedID} 本场遇最佳匹配（用于计数）
-local showStarsFor = {}      -- {[speciesID] = true}    由ProcessAllEnemyPets唯一决定★
 local alertedSpecies = {}   -- {[speciesID]=true} 已提示过的物种
 local isWildBattle = false
 
