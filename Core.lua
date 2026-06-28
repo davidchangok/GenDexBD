@@ -108,6 +108,7 @@ end
 local starIcons = {}  -- [frame] → FontString
 
 local function GetOrCreateStar(frame)
+    if not frame or not frame.Icon then return nil end
     if starIcons[frame] then return starIcons[frame] end
     local star = frame:CreateFontString(nil, 'OVERLAY', 'GameFontNormalHuge')
     star:SetText('★')
@@ -120,13 +121,17 @@ local function GetOrCreateStar(frame)
 end
 
 
+
 local function UpdateStarOnFrame(frame)
     if not frame or frame.petOwner ~= 2 or not frame.petIndex then
-        GetOrCreateStar(frame):Hide();return
+        local star = GetOrCreateStar(frame)
+        if star then star:Hide() end
+        return
     end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
     local show = speciesID and showStarsFor[speciesID] or false
-    GetOrCreateStar(frame):SetShown(show)
+    local star = GetOrCreateStar(frame)
+    if star then star:SetShown(show) end
 end
 
 local function HideAllStars()
@@ -194,20 +199,24 @@ end
 
 local encounterCache = {}   -- {[speciesID] = breedID} 本场遇最佳匹配（用于计数）
 local showStarsFor = {}      -- {[speciesID] = true}    由ProcessAllEnemyPets唯一决定★
+local alertDone = false   -- 本场是否已弹过提示
 local isWildBattle = false
+
 
 local function RecordEncounters()
     if not isWildBattle then return end
     if not GeneDexDB.Options.TrackEncounters then return end
     if not GeneDexDB.EncounterStats then GeneDexDB.EncounterStats = {} end
     for speciesID, breedID in pairs(encounterCache) do
-        if not GeneDexDB.EncounterStats[speciesID] then
-            GeneDexDB.EncounterStats[speciesID] = {}
+        if type(speciesID) == "number" and type(breedID) == "number" then
+            if not GeneDexDB.EncounterStats[speciesID] then
+                GeneDexDB.EncounterStats[speciesID] = {}
+            end
+            local count = GeneDexDB.EncounterStats[speciesID][breedID] or 0
+            GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
         end
-        local count = GeneDexDB.EncounterStats[speciesID][breedID] or 0
-        GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
     end
-    encounterCache = {}; showStarsFor = {}
+    encounterCache = {}; showStarsFor = {}; alertDone = false
     isWildBattle = false
 end
 
@@ -256,11 +265,11 @@ local function ProcessAllEnemyPets()
             end
         end
     end
-    if next(showStarsFor) and not encounterCache._alerted then
-        encounterCache._alerted = true
+    if next(showStarsFor) and not alertDone then
+        alertDone = true
         local sid = next(showStarsFor)
         if sid then
-            ShowAlert(sid, encounterCache[sid], C_PetBattles.GetActivePet(2) or 1)
+            for j = 1, 3 do local msid = C_PetBattles.GetPetSpeciesID(2, j); if msid and showStarsFor[msid] then ShowAlert(msid, encounterCache[msid], j); break end end
         end
     end
     UpdateStarOnFrame(PetBattleFrame.ActiveEnemy)
@@ -299,7 +308,7 @@ local function OnEvent(_, event, ...)
     elseif event == "PLAYER_LOGIN" then OnPlayerLogin()
     elseif event == "PET_BATTLE_OPENING_START" then
         isWildBattle = C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() or false
-        encounterCache = {}; showStarsFor = {}
+        encounterCache = {}; showStarsFor = {}; alertDone = false
         -- 延迟等 Rematch/BPBID 完成缓存后再扫描
         C_Timer_After(0.5, ProcessAllEnemyPets)
     elseif event == "PET_BATTLE_PET_CHANGED" then
