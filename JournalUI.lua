@@ -27,7 +27,6 @@ function addonTable.GetAllBestBreeds(s)
 end
 
 -- 品种列表（与 BreedData.lua 同步维护）
--- 注意：WoW Lua 模块加载时 GetBreedCode 闭包可能未就绪，使用硬编码确保可靠性
 local ALL_BREEDS = {{3,"B/B"},{4,"P/P"},{5,"S/S"},{6,"H/H"},{7,"H/P"},{8,"P/S"},{9,"H/S"},{10,"P/B"},{11,"S/B"},{12,"H/B"},{13,"P/H"},{14,"H/S"}}
 
 local function label(b)
@@ -67,33 +66,42 @@ function RematchSetBestNoPet(speciesID,breedID)
     if Rematch.petsPanel then Rematch.petsPanel:Update() end
 end
 
--- 菜单注入逻辑
--- 注意：Rematch 的文件加载不等于菜单系统初始化完毕。
--- Fill hook 可以立即安装（hooksecurefunc 不依赖 Rematch 状态），
--- 但菜单注入必须等 Rematch PetMenu 注册完成。
--- 使用 pcall 防护 + 延迟重试，兼顾可靠性与健壮性。
-local menuHooked = false
-local function injectRematchMenus()
-    if menuHooked then return end
-    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
+-- ========== 菜单注入 ==========
+local menuRetryCount = 0
+local MAX_MENU_RETRY = 5
 
-    local ok = pcall(function()
-        -- 已拥有：切换项
+local function injectRematchMenus()
+    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then
+        LOG("菜单注入跳过: Rematch.menus 不可用")
+        return
+    end
+
+    -- 已拥有宠物菜单（切换项）
+    local ok1,err1 = pcall(function()
         Rematch.menus:AddToMenu("PetMenu",{
             text=function(_,p) return RematchHasBest(p) and GetLocaleString("REMOVE_BEST_BREED") or GetLocaleString("SET_BEST_BREED") end,
             hidden=function(_,p) return not p or not Rematch.petInfo or not Rematch.petInfo:Fetch(p).hasBreed end,
             func=function(_,p) if RematchHasBest(p) then RematchRemoveBest(p) else RematchSetBest(p) end end
         },"Find Teams")
-        -- 未拥有：12品种子菜单
+    end)
+    if not ok1 then
+        LOG("已拥有菜单注册失败: %s", tostring(err1))
+    end
+
+    -- 未拥有宠物菜单（12品种子菜单）
+    local ok2,err3
+    ok2,err3 = pcall(function()
         local sub={}
         for _,br in ipairs(ALL_BREEDS) do
             sub[#sub+1]={text=br[2],func=function(_,p)
-                -- 12.0: GetPetInfoByPetID 改为 GUID 参数，改用 Rematch.petInfo:Fetch 获取 speciesID
                 local info = Rematch.petInfo:Fetch(p)
-                if info and info.speciesID then RematchSetBestNoPet(info.speciesID, br[1]) end
+                if info and info.speciesID then
+                    RematchSetBestNoPet(info.speciesID, br[1])
+                end
             end}
         end
         sub[#sub+1]={text=CANCEL}
+        LOG("子菜单构建完成: %d 项", #sub)
         Rematch.menus:AddToMenu("PetMenu",{
             text=GetLocaleString("SET_BEST_BREED"),subMenu=sub,
             hidden=function(_,p)
@@ -106,18 +114,21 @@ local function injectRematchMenus()
             end,
         },"Find Teams")
     end)
-
-    if ok then
-        menuHooked = true
-        LOG("Rematch 菜单已注入")
+    if ok2 then
+        LOG("Rematch 菜单已全部注入成功")
     else
-        -- PetMenu 尚未注册，延迟 1 秒重试
-        C_Timer.After(1, injectRematchMenus)
+        menuRetryCount = menuRetryCount + 1
+        LOG("未拥有菜单注册失败(第%d次): %s", menuRetryCount, tostring(err3))
+        if menuRetryCount < MAX_MENU_RETRY then
+            C_Timer.After(1, injectRematchMenus)
+        else
+            LOG("菜单重试已达上限(%d次)，放弃", MAX_MENU_RETRY)
+        end
     end
 end
 
 function addonTable.InitJournalUI()
-    LOG("初始化")
+    LOG("初始化: ALL_BREEDS=%d项", #ALL_BREEDS)
 
     local function hookFill()
         if RematchNormalPetListButtonMixin and not RematchNormalPetListButtonMixin._gHooked then
@@ -130,7 +141,7 @@ function addonTable.InitJournalUI()
             hooksecurefunc(RematchCompactPetListButtonMixin,"Fill",function(b) label(b) end)
             LOG("已 Hook Compact Mixin Fill")
         end
-        -- Rematch 已加载，同时注入菜单
+        -- Rematch 已加载，立即注入菜单
         injectRematchMenus()
     end
 
