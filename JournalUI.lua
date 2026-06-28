@@ -4,7 +4,6 @@ local addonName, addonTable = ...
 local time=time;local next=next;local ipairs=ipairs
 local GetLocaleString = addonTable.GetLocaleString
 local GetBreedCode = addonTable.GetBreedCode
-local function LOG(...) print("|cff00ccff[GenDexBD]|r "..string.format(...)) end
 
 function addonTable.SetBestBreed(s,b,c,n)
     if not s or not b then return end;if not GeneDexDB then return end
@@ -58,14 +57,12 @@ function RematchSetBest(petID)
     if not Rematch or not Rematch.petInfo then return end
     local i=Rematch.petInfo:Fetch(petID);if not i or not i.hasBreed then return end
     addonTable.SetBestBreed(i.speciesID,i.breedID,"custom","")
-    LOG("已保存: speciesID=%d breedID=%d (%s)",i.speciesID,i.breedID,i.breedName or "?")
     if Rematch.petsPanel then Rematch.petsPanel:Update() end
 end
 function RematchRemoveBest(petID)
     if not Rematch or not Rematch.petInfo then return end
     local i=Rematch.petInfo:Fetch(petID);if not i or not i.hasBreed then return end
     addonTable.RemoveBestBreed(i.speciesID,i.breedID)
-    LOG("已移除: speciesID=%d breedID=%d",i.speciesID,i.breedID)
     if Rematch.petsPanel then Rematch.petsPanel:Update() end
 end
 function RematchHasBest(petID)
@@ -75,7 +72,6 @@ function RematchHasBest(petID)
 end
 function RematchSetBestNoPet(speciesID,breedID)
     addonTable.SetBestBreed(speciesID,breedID,"custom","")
-    LOG("已保存(未拥有): speciesID=%d breedID=%d",speciesID,breedID)
     if Rematch.petsPanel then Rematch.petsPanel:Update() end
 end
 
@@ -94,10 +90,8 @@ local function BuildSetBestSubMenu(_, petID)
     local currentBreedID = (info.hasBreed and info.breedID and info.breedID > 0) and info.breedID or nil
     local isBest = currentBreedID and addonTable.IsBestBreed(speciesID, currentBreedID)
 
-    -- 构建一级子菜单
     local items = {}
 
-    -- 1.1 当前宠物品种操作项
     if currentBreedID then
         local code = GetBreedCode(currentBreedID) or "?"
         if isBest then
@@ -107,7 +101,6 @@ local function BuildSetBestSubMenu(_, petID)
         end
     end
 
-    -- 1.2 "设为其他属性" → 全部12品种子菜单
     local otherItems = {}
     for _, br in ipairs(ALL_BREEDS) do
         otherItems[#otherItems+1] = {text=br[2], func=function() RematchSetBestNoPet(speciesID, br[1]) end}
@@ -121,16 +114,12 @@ local function BuildSetBestSubMenu(_, petID)
 end
 
 local function injectRematchMenus()
-    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then
-        LOG("菜单注入跳过: Rematch.menus 不可用")
-        return
-    end
+    if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
 
-    -- 预注册占位菜单（subMenuFunc 需要 allMenus[name] 存在才触发）
     Rematch.menus:Register("GenDexSetBestMenu", {{text="..."}})
     Rematch.menus:Register("GenDexOtherBreedsMenu", {{text="..."}})
 
-    local ok, err = pcall(function()
+    local ok = pcall(function()
         Rematch.menus:AddToMenu("PetMenu",{
             text=GetLocaleString("SET_BEST_BREED"),
             subMenu="GenDexSetBestMenu",
@@ -144,32 +133,23 @@ local function injectRematchMenus()
         },"Find Teams")
     end)
 
-    if ok then
-        LOG("菜单注入成功")
-    else
+    if not ok then
         menuRetryCount = menuRetryCount + 1
-        LOG("菜单注入失败(第%d次): %s", menuRetryCount, tostring(err))
         if menuRetryCount < MAX_MENU_RETRY then
             C_Timer.After(1, injectRematchMenus)
-        else
-            LOG("菜单重试已达上限(%d次)，放弃", MAX_MENU_RETRY)
         end
     end
 end
 
 function addonTable.InitJournalUI()
-    LOG("初始化")
-
     local function hookFill()
         if RematchNormalPetListButtonMixin and not RematchNormalPetListButtonMixin._gHooked then
             RematchNormalPetListButtonMixin._gHooked=true
             hooksecurefunc(RematchNormalPetListButtonMixin,"Fill",function(b) label(b) end)
-            LOG("已 Hook Normal Mixin Fill")
         end
         if RematchCompactPetListButtonMixin and not RematchCompactPetListButtonMixin._gHooked then
             RematchCompactPetListButtonMixin._gHooked=true
             hooksecurefunc(RematchCompactPetListButtonMixin,"Fill",function(b) label(b) end)
-            LOG("已 Hook Compact Mixin Fill")
         end
         injectRematchMenus()
     end

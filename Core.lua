@@ -296,13 +296,13 @@ end
 
 local function OnPlayerLogin()
     print("|cff00ff00[GenDexBD]|r " .. GetLocaleString("ADDON_LOADED"))
-    if addonTable.InitTooltip then addonTable.InitTooltip();print("|cff00ff00[GenDexBD]|r Tooltip 模块已启动") end
-    if addonTable.InitJournalUI then addonTable.InitJournalUI();print("|cff00ff00[GenDexBD]|r JournalUI 模块已启动") end
+    if addonTable.InitTooltip then addonTable.InitTooltip() end
+    if addonTable.InitJournalUI then addonTable.InitJournalUI() end
     if addonTable.InitConfig then addonTable.InitConfig() end
     SlashCmdList["GENEDEXBDOPEN"] = function()
         if addonTable.ToggleConfigPanel then
             addonTable.ToggleConfigPanel()
-        else print("|cffff0000[GenDexBD]|r 配置模块未加载，请输入 /reload") end
+        else end
     end
     _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START");eventFrame:RegisterEvent("PET_BATTLE_PET_CHANGED");eventFrame:RegisterEvent("PET_BATTLE_CLOSE")

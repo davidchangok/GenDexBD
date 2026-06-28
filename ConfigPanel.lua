@@ -206,10 +206,10 @@ function addonTable.InitConfig()
 
     local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
     categoryID = category:GetID();Settings.RegisterAddOnCategory(category)
-    print("|cff00ff00[GenDexBD]|r 配置已注册，categoryID=" .. tostring(categoryID))
+    -- 配置已注册
 end
 
 function addonTable.ToggleConfigPanel()
-    if not categoryID then print("|cffff0000[GenDexBD]|r 配置面板未注册，请输入 /reload");return end
+    if not categoryID then return end
     Settings.OpenToCategory(categoryID)
 end
