@@ -199,7 +199,7 @@ end
 
 local encounterCache = {}   -- {[speciesID] = breedID} 本场遇最佳匹配（用于计数）
 local showStarsFor = {}      -- {[speciesID] = true}    由ProcessAllEnemyPets唯一决定★
-local alertDone = false   -- 本场是否已弹过提示
+local alertedSpecies = {}   -- {[speciesID]=true} 已提示过的物种
 local isWildBattle = false
 
 
@@ -216,7 +216,7 @@ local function RecordEncounters()
             GeneDexDB.EncounterStats[speciesID][breedID] = count + 1
         end
     end
-    encounterCache = {}; showStarsFor = {}; alertDone = false
+    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}
     isWildBattle = false
 end
 
@@ -265,11 +265,16 @@ local function ProcessAllEnemyPets()
             end
         end
     end
-    if next(showStarsFor) and not alertDone then
-        alertDone = true
-        local sid = next(showStarsFor)
-        if sid then
-            for j = 1, 3 do local msid = C_PetBattles.GetPetSpeciesID(2, j); if msid and showStarsFor[msid] then ShowAlert(msid, encounterCache[msid], j); break end end
+    for sid in pairs(showStarsFor) do
+        if not alertedSpecies[sid] then
+            alertedSpecies[sid] = true
+            for j = 1, 3 do
+                local msid = C_PetBattles.GetPetSpeciesID(2, j)
+                if msid == sid then
+                    ShowAlert(sid, encounterCache[sid], j)
+                    break
+                end
+            end
         end
     end
     UpdateStarOnFrame(PetBattleFrame.ActiveEnemy)
@@ -308,7 +313,7 @@ local function OnEvent(_, event, ...)
     elseif event == "PLAYER_LOGIN" then OnPlayerLogin()
     elseif event == "PET_BATTLE_OPENING_START" then
         isWildBattle = C_PetBattles.IsWildBattle and C_PetBattles.IsWildBattle() or false
-        encounterCache = {}; showStarsFor = {}; alertDone = false
+        encounterCache = {}; showStarsFor = {}; alertedSpecies = {}
         -- 延迟等 Rematch/BPBID 完成缓存后再扫描
         C_Timer_After(0.5, ProcessAllEnemyPets)
     elseif event == "PET_BATTLE_PET_CHANGED" then
