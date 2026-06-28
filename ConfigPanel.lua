@@ -159,8 +159,7 @@ end
 
 local encounterRowPool = {}  -- FontString 对象池
 
-local function BuildEncounterStats(panel)
-    -- 清除旧行
+local function BuildEncounterStats(panel, anchor)
     for _, fs in ipairs(encounterRowPool) do fs:SetText("") end
     local rowIndex = 0
 
@@ -173,39 +172,32 @@ local function BuildEncounterStats(panel)
             fs:SetJustifyH("LEFT")
             encounterRowPool[rowIndex] = fs
         end
-        fs:SetHeight(16)
         return fs
     end
 
-    -- 表头
     local header = getRow()
     header:SetFontObject("GameFontHighlight")
     header:SetText(string.format("%-30s %-10s %s", "宠物名称", "品种", "次数"))
-    header:SetPoint("TOPLEFT", 20, 0)
+    header:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 2, -6)
 
     local prevRow = header
-    local yOff = -18
-
     if GeneDexDB and GeneDexDB.EncounterStats and next(GeneDexDB.EncounterStats) then
         for sid, breeds in pairs(GeneDexDB.EncounterStats) do
-            local speciesName = sid
+            local speciesName = tostring(sid)
             if Rematch and Rematch.petInfo then
                 local info = Rematch.petInfo:Fetch(sid)
                 if info and info.speciesName then speciesName = info.speciesName end
             end
-            -- 物种名（金色）
             local nameRow = getRow()
-            nameRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, yOff)
-            nameRow:SetText(string.format("|cffffcc00%s|r", speciesName))
-            prevRow = nameRow; yOff = -2
-
-            -- 品种行
+            nameRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, -2)
+            nameRow:SetText("|cffffcc00" .. speciesName .. "|r")
+            prevRow = nameRow
             for bid, count in pairs(breeds) do
                 local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or tostring(bid)
                 local breedRow = getRow()
-                breedRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, yOff)
-                breedRow:SetText(string.format("    %-26s %-10s %d", code, "", count))
-                prevRow = breedRow; yOff = -2
+                breedRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, 0)
+                breedRow:SetText(string.format("    %-20s %-10s %d", code, "", count))
+                prevRow = breedRow
             end
         end
     else
@@ -213,14 +205,6 @@ local function BuildEncounterStats(panel)
         emptyRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, -4)
         emptyRow:SetText(GetLocaleString("ENCOUNTER_NO_DATA"))
     end
-
-    -- 更新内容区域高度
-    local content = panel.encounterContent
-    content:SetHeight(math.max(100, rowIndex * 16))
-    for i = rowIndex + 1, #encounterRowPool do
-        encounterRowPool[i]:SetText("")
-    end
-    return rowIndex
 end
 
 -- ========== 面板创建 ==========
@@ -272,7 +256,7 @@ function addonTable.InitConfig()
     importBtn:SetText(GetLocaleString("IMPORT_BUTTON"))
     importBtn:SetScript("OnClick", ShowImportDialog)
 
-    -- 遇敌统计标题 + 刷新按钮
+    -- 遇敌统计（纯 FontString 追加，无额外 Frame，面板自带滚动）
     local statsTitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     statsTitle:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -12)
     statsTitle:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
@@ -281,26 +265,12 @@ function addonTable.InitConfig()
     refreshBtn:SetPoint("LEFT", statsTitle, "RIGHT", 8, 2);refreshBtn:SetSize(60, 20)
     refreshBtn:SetText("刷新")
     refreshBtn:SetScript("OnClick", function()
-        local content = panel.encounterContent
         for _, fs in ipairs(encounterRowPool) do fs:Hide() end
         encounterRowPool = {}
-        local totalRows = BuildEncounterStats(panel)
-        content:SetHeight(math.max(60, totalRows * 16 + 4))
+        BuildEncounterStats(panel, statsTitle)
     end)
 
-    -- 滚动区域
-    local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
-    scrollFrame:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", 0, -6)
-    scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -24, 8)
-
-    local content = CreateFrame("Frame", nil, scrollFrame)
-    content:SetSize(380, 60)
-    scrollFrame:SetScrollChild(content)
-    panel.encounterContent = content
-
-    -- 首次填充
-    local totalRows = BuildEncounterStats(panel)
-    content:SetHeight(math.max(60, totalRows * 16 + 4))
+    BuildEncounterStats(panel, statsTitle)
 
     local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
     categoryID = category:GetID();Settings.RegisterAddOnCategory(category)
