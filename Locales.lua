@@ -77,7 +77,6 @@ local strings = {
     EXPORT_HINT          = { zhCN = "Ctrl+C 复制全部文本",       enUS = "Ctrl+C to copy all text" },
     IMPORT_HINT          = { zhCN = "Ctrl+V 粘贴数据后点击导入",   enUS = "Ctrl+V to paste then click Import" },
     IMPORT_DONE          = { zhCN = "导入完成：%d 条记录",        enUS = "Import done: %d records" },
-    ENCOUNTER_STATS_BTN  = { zhCN = "查看遇敌统计",              enUS = "View Encounter Stats" },
     ENCOUNTER_STATS_TITLE = { zhCN = "遇敌属性统计",              enUS = "Encounter Stats" },
     ENCOUNTER_NO_DATA    = { zhCN = "暂无遇敌记录",               enUS = "No encounter data yet" },
 

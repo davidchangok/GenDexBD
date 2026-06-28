@@ -155,23 +155,37 @@ local function ShowImportDialog()
     cancelBtn:SetScript("OnClick",function() dlg:Hide() end)
 end
 
--- ========== 遇敌统计弹窗 ==========
-local function ShowEncounterStatsDialog()
-    local dlg = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
-    dlg:SetSize(420, 360);dlg:SetPoint("CENTER");dlg:SetFrameStrata("DIALOG")
-    dlg:SetToplevel(true)
-    dlg.TitleBg:SetHeight(26)
-    local title = dlg:CreateFontString(nil,"OVERLAY","GameFontNormal")
-    title:SetPoint("TOP",0,-12);title:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
+-- ========== 遇敌统计内嵌表格 ==========
 
-    local sf = CreateFrame("ScrollFrame", nil, dlg, "UIPanelScrollFrameTemplate")
-    sf:SetPoint("TOPLEFT",12,-40);sf:SetPoint("BOTTOMRIGHT",-32,40)
-    local eb = CreateFrame("EditBox", nil, sf)
-    eb:SetMultiLine(true);eb:SetFontObject("GameFontHighlight");eb:SetAutoFocus(false)
-    eb:SetScript("OnEscapePressed",function() dlg:Hide() end)
-    sf:SetScrollChild(eb);eb:SetWidth(380)
+local encounterRowPool = {}  -- FontString 对象池
 
-    local lines = {}
+local function BuildEncounterStats(panel)
+    -- 清除旧行
+    for _, fs in ipairs(encounterRowPool) do fs:SetText("") end
+    local rowIndex = 0
+
+    local function getRow()
+        rowIndex = rowIndex + 1
+        local fs = encounterRowPool[rowIndex]
+        if not fs then
+            fs = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+            fs:SetWidth(360)
+            fs:SetJustifyH("LEFT")
+            encounterRowPool[rowIndex] = fs
+        end
+        fs:SetHeight(16)
+        return fs
+    end
+
+    -- 表头
+    local header = getRow()
+    header:SetFontObject("GameFontHighlight")
+    header:SetText(string.format("%-30s %-10s %s", "宠物名称", "品种", "次数"))
+    header:SetPoint("TOPLEFT", 20, 0)
+
+    local prevRow = header
+    local yOff = -18
+
     if GeneDexDB and GeneDexDB.EncounterStats and next(GeneDexDB.EncounterStats) then
         for sid, breeds in pairs(GeneDexDB.EncounterStats) do
             local speciesName = sid
@@ -179,20 +193,34 @@ local function ShowEncounterStatsDialog()
                 local info = Rematch.petInfo:Fetch(sid)
                 if info and info.speciesName then speciesName = info.speciesName end
             end
-            lines[#lines+1] = speciesName .. " (ID:" .. tostring(sid) .. ")"
+            -- 物种名（金色）
+            local nameRow = getRow()
+            nameRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, yOff)
+            nameRow:SetText(string.format("|cffffcc00%s|r", speciesName))
+            prevRow = nameRow; yOff = -2
+
+            -- 品种行
             for bid, count in pairs(breeds) do
                 local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or tostring(bid)
-                lines[#lines+1] = "    " .. code .. " — " .. tostring(count) .. " 次"
+                local breedRow = getRow()
+                breedRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, yOff)
+                breedRow:SetText(string.format("    %-26s %-10s %d", code, "", count))
+                prevRow = breedRow; yOff = -2
             end
         end
     else
-        lines[#lines+1] = GetLocaleString("ENCOUNTER_NO_DATA")
+        local emptyRow = getRow()
+        emptyRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, -4)
+        emptyRow:SetText(GetLocaleString("ENCOUNTER_NO_DATA"))
     end
-    eb:SetText(table.concat(lines,"\n"))
 
-    local closeBtn = CreateFrame("Button",nil,dlg,"UIPanelButtonTemplate")
-    closeBtn:SetPoint("BOTTOMRIGHT",-16,16);closeBtn:SetText(CLOSE);closeBtn:SetSize(80,24)
-    closeBtn:SetScript("OnClick",function() dlg:Hide() end)
+    -- 更新内容区域高度
+    local content = panel.encounterContent
+    content:SetHeight(math.max(100, rowIndex * 16))
+    for i = rowIndex + 1, #encounterRowPool do
+        encounterRowPool[i]:SetText("")
+    end
+    return rowIndex
 end
 
 -- ========== 面板创建 ==========
@@ -244,14 +272,38 @@ function addonTable.InitConfig()
     importBtn:SetText(GetLocaleString("IMPORT_BUTTON"))
     importBtn:SetScript("OnClick", ShowImportDialog)
 
-    local encounterBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
-    encounterBtn:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -4);encounterBtn:SetSize(180,24)
-    encounterBtn:SetText(GetLocaleString("ENCOUNTER_STATS_BTN"))
-    encounterBtn:SetScript("OnClick", ShowEncounterStatsDialog)
+    -- 遇敌统计标题 + 刷新按钮
+    local statsTitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+    statsTitle:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -12)
+    statsTitle:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
+
+    local refreshBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
+    refreshBtn:SetPoint("LEFT", statsTitle, "RIGHT", 8, 2);refreshBtn:SetSize(60, 20)
+    refreshBtn:SetText("刷新")
+    refreshBtn:SetScript("OnClick", function()
+        local content = panel.encounterContent
+        for _, fs in ipairs(encounterRowPool) do fs:Hide() end
+        encounterRowPool = {}
+        local totalRows = BuildEncounterStats(panel)
+        content:SetHeight(math.max(60, totalRows * 16 + 4))
+    end)
+
+    -- 滚动区域
+    local scrollFrame = CreateFrame("ScrollFrame", nil, panel, "UIPanelScrollFrameTemplate")
+    scrollFrame:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", 0, -6)
+    scrollFrame:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -24, 8)
+
+    local content = CreateFrame("Frame", nil, scrollFrame)
+    content:SetSize(380, 60)
+    scrollFrame:SetScrollChild(content)
+    panel.encounterContent = content
+
+    -- 首次填充
+    local totalRows = BuildEncounterStats(panel)
+    content:SetHeight(math.max(60, totalRows * 16 + 4))
 
     local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
     categoryID = category:GetID();Settings.RegisterAddOnCategory(category)
-    -- 配置已注册
 end
 
 function addonTable.ToggleConfigPanel()
