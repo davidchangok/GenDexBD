@@ -79,6 +79,9 @@ local strings = {
     IMPORT_DONE          = { zhCN = "导入完成：%d 条记录",        enUS = "Import done: %d records" },
     ENCOUNTER_STATS_TITLE = { zhCN = "遇敌属性统计",              enUS = "Encounter Stats" },
     ENCOUNTER_NO_DATA    = { zhCN = "暂无遇敌记录",               enUS = "No encounter data yet" },
+	SPECIES_NAME_HEADER  = { zhCN = "宠物名称",                  enUS = "Pet Name" },
+	BREED_HEADER         = { zhCN = "品种",                      enUS = "Breed" },
+	COUNT_HEADER         = { zhCN = "遇敌次数",                  enUS = "Count" },
 
     -- 战斗提示
     ALERT_TARGET          = { zhCN = "最优属性目标",        enUS = "Best Breed Target" },

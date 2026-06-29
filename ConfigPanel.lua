@@ -155,56 +155,67 @@ local function ShowImportDialog()
     cancelBtn:SetScript("OnClick",function() dlg:Hide() end)
 end
 
--- ========== 遇敌统计内嵌表格 ==========
+-- ========== 遇敌统计 — Flipper 式 ScrollFrame 表格 ==========
 
-local encounterRowPool = {}  -- FontString 对象池
+-- 列布局常量（像素偏移，比例字体安全）
+local ENC_COL = {
+    ICON  = 5,                    -- 图标左边缘
+    NAME  = 28,                   -- 宠物名称左边缘
+    BREED = 240,                  -- 品种代码左边缘
+    COUNT = 310,                  -- 遇敌次数左边缘
+}
+local ENC_NAME_W  = 208           -- NAME 列像素宽度
+local ENC_BREED_W = 65            -- BREED 列像素宽度
+local ENC_COUNT_W = 50            -- COUNT 列像素宽度
+local ENC_ROW_HEIGHT = 22
+local ENC_SCROLL_HEIGHT = 220     -- ScrollFrame 固定高度
 
-local function BuildEncounterStats(panel, anchor)
-    for _, fs in ipairs(encounterRowPool) do fs:SetText("") end
-    local rowIndex = 0
-
-    local function getRow()
-        rowIndex = rowIndex + 1
-        local fs = encounterRowPool[rowIndex]
-        if not fs then
-            fs = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-            fs:SetWidth(360)
-            fs:SetJustifyH("LEFT")
-            encounterRowPool[rowIndex] = fs
-        end
-        return fs
-    end
-
-    local header = getRow()
-    header:SetFontObject("GameFontHighlight")
-    header:SetText(string.format("%-30s %-10s %s", "宠物名称", "品种", "次数"))
-    header:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 2, -6)
-
-    local prevRow = header
-    if GeneDexDB and GeneDexDB.EncounterStats and next(GeneDexDB.EncounterStats) then
-        for sid, breeds in pairs(GeneDexDB.EncounterStats) do
-            local speciesName = tostring(sid)
+-- ===========================================================================
+-- 数据展平 — 将嵌套 EncounterStats[speciesID][breedID]=count 转为排序数组
+-- ===========================================================================
+local function FlattenEncounterStats()
+    local flat = {}
+    if not GeneDexDB or not GeneDexDB.EncounterStats then return flat end
+    for speciesID, breeds in pairs(GeneDexDB.EncounterStats) do
+        if type(speciesID) == "number" and type(breeds) == "table" then
+            -- 解析物种名和图标（Rematch 优先）
+            local speciesName, speciesIcon
             if Rematch and Rematch.petInfo then
-                local info = Rematch.petInfo:Fetch(sid)
-                if info and info.speciesName then speciesName = info.speciesName end
+                local info = Rematch.petInfo:Fetch(speciesID)
+                if info then
+                    speciesName = info.speciesName
+                    speciesIcon = info.speciesIcon
+                end
             end
-            local nameRow = getRow()
-            nameRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, -2)
-            nameRow:SetText("|cffffcc00" .. speciesName .. "|r")
-            prevRow = nameRow
-            for bid, count in pairs(breeds) do
-                local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or tostring(bid)
-                local breedRow = getRow()
-                breedRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, 0)
-                breedRow:SetText(string.format("    %-20s %-10s %d", code, "", count))
-                prevRow = breedRow
+            if not speciesName then
+                speciesName, speciesIcon = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
+            end
+            if not speciesName then
+                speciesName = "ID:" .. tostring(speciesID)
+            end
+            for breedID, count in pairs(breeds) do
+                if type(breedID) == "number" and type(count) == "number" then
+                    local breedCode = addonTable.GetBreedCode and addonTable.GetBreedCode(breedID) or tostring(breedID)
+                    flat[#flat + 1] = {
+                        speciesID   = speciesID,
+                        speciesName = speciesName,
+                        icon        = speciesIcon,
+                        breedID     = breedID,
+                        breedCode   = breedCode,
+                        count       = count,
+                    }
+                end
             end
         end
-    else
-        local emptyRow = getRow()
-        emptyRow:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, -4)
-        emptyRow:SetText(GetLocaleString("ENCOUNTER_NO_DATA"))
     end
+    -- 按物种名排序，同物种按品种代码排序
+    table.sort(flat, function(a, b)
+        local na = (a.speciesName or ""):lower()
+        local nb = (b.speciesName or ""):lower()
+        if na ~= nb then return na < nb end
+        return (a.breedCode or "") < (b.breedCode or "")
+    end)
+    return flat
 end
 
 -- ========== 面板创建 ==========
@@ -256,7 +267,7 @@ function addonTable.InitConfig()
     importBtn:SetText(GetLocaleString("IMPORT_BUTTON"))
     importBtn:SetScript("OnClick", ShowImportDialog)
 
-    -- 遇敌统计（纯 FontString 追加，无额外 Frame，面板自带滚动）
+    -- 遇敌统计 — Flipper 式 ScrollFrame 表格
     local statsTitle = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
     statsTitle:SetPoint("TOPLEFT", exportBtn, "BOTTOMLEFT", 0, -12)
     statsTitle:SetText(GetLocaleString("ENCOUNTER_STATS_TITLE"))
@@ -264,13 +275,235 @@ function addonTable.InitConfig()
     local refreshBtn = CreateFrame("Button", nil, panel, "UIPanelButtonTemplate")
     refreshBtn:SetPoint("LEFT", statsTitle, "RIGHT", 8, 2);refreshBtn:SetSize(60, 20)
     refreshBtn:SetText("刷新")
+
+    -- ==================================================================
+    -- 表头 FontStrings — 固定于 ScrollFrame 上方，像素列偏移对齐数据列
+    -- ==================================================================
+    local HX, HY = 2, -28
+    local hdrName = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    hdrName:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", HX + ENC_COL.NAME, HY)
+    hdrName:SetText("|cffffcc00" .. GetLocaleString("SPECIES_NAME_HEADER") .. "|r")
+
+    local hdrBreed = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    hdrBreed:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", HX + ENC_COL.BREED, HY)
+    hdrBreed:SetText("|cffffcc00" .. GetLocaleString("BREED_HEADER") .. "|r")
+
+    local hdrCount = panel:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    hdrCount:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", HX + ENC_COL.COUNT, HY)
+    hdrCount:SetText("|cffffcc00" .. GetLocaleString("COUNT_HEADER") .. "|r")
+
+    -- ==================================================================
+    -- 条纹裁剪容器 — 先创建 = 更低 z-order，不遮挡行文字
+    -- ==================================================================
+    local stripeClip = CreateFrame("Frame", nil, panel)
+    stripeClip:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", -4, -48)
+    stripeClip:SetHeight(ENC_SCROLL_HEIGHT)
+    stripeClip:SetWidth(380)
+    stripeClip:SetClipsChildren(true)
+
+    -- ==================================================================
+    -- ScrollFrame — 后创建 = 更高 z-order，使用 Blizzard 模板
+    -- ==================================================================
+    local scroll = CreateFrame("ScrollFrame", "GenDexBDEncounterScroll", panel, "UIPanelScrollFrameTemplate")
+    scroll:SetPoint("TOPLEFT", statsTitle, "BOTTOMLEFT", -4, -48)
+    scroll:SetHeight(ENC_SCROLL_HEIGHT)
+    scroll:SetWidth(380)
+
+    local content = CreateFrame("Frame", nil, scroll)
+    content:SetSize(1, 1)
+    scroll:SetScrollChild(content)
+    content:SetPoint("TOPLEFT")
+    content:SetPoint("RIGHT", scroll)
+
+    -- 条纹容器对齐到 ScrollFrame（保持 z-order 不变）
+    stripeClip:SetPoint("TOPLEFT", scroll, "TOPLEFT")
+    stripeClip:SetPoint("BOTTOMRIGHT", scroll, "BOTTOMRIGHT")
+
+    -- ==================================================================
+    -- 对象池引用 — 挂载到 panel 上供方法使用
+    -- ==================================================================
+    panel.encounterScroll     = scroll
+    panel.encounterContent    = content
+    panel.encounterStripeClip = stripeClip
+    panel.encounterRows       = {}    -- Button 行对象池
+    panel.encounterStripes    = {}    -- 条纹帧对象池
+    panel.encounterRowY       = {}    -- 行 Y 偏移记录（条纹重定位用）
+
+    -- ==================================================================
+    -- 行对象池 — 延迟创建 Button 行，首次创建后跨刷新复用
+    -- ==================================================================
+    function panel:GetOrCreateEncounterRow(index)
+        local r = self.encounterRows[index]
+        if r then return r end
+
+        r = CreateFrame("Button", nil, self.encounterContent)
+        r:SetHeight(ENC_ROW_HEIGHT)
+        r:EnableMouse(true)
+
+        -- 物种图标（18x18）
+        r.icon = r:CreateTexture(nil, "ARTWORK")
+        r.icon:SetSize(18, 18)
+        r.icon:SetPoint("LEFT", ENC_COL.ICON, 0)
+
+        -- 宠物名称
+        r.name = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.name:SetPoint("LEFT", ENC_COL.NAME, 0)
+        r.name:SetWidth(ENC_NAME_W)
+        r.name:SetJustifyH("LEFT")
+
+        -- 品种代码
+        r.breed = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.breed:SetPoint("LEFT", ENC_COL.BREED, 0)
+        r.breed:SetWidth(ENC_BREED_W)
+        r.breed:SetJustifyH("LEFT")
+
+        -- 遇敌次数（右对齐数值列）
+        r.count = r:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        r.count:SetPoint("LEFT", ENC_COL.COUNT, 0)
+        r.count:SetWidth(ENC_COUNT_W)
+        r.count:SetJustifyH("RIGHT")
+
+        self.encounterRows[index] = r
+        return r
+    end
+
+    -- ==================================================================
+    -- 刷新数据行 — 展平→排序→填充 Button 行 + 更新条纹
+    -- ==================================================================
+    function panel:UpdateEncounterList()
+        -- 隐藏所有已有行
+        for _, r in pairs(self.encounterRows) do
+            r:Hide()
+        end
+        self.encounterRowY = {}
+
+        local flatData = FlattenEncounterStats()
+
+        if #flatData == 0 then
+            -- 空数据：显示单行提示
+            local r = self:GetOrCreateEncounterRow(1)
+            r:ClearAllPoints()
+            r:SetPoint("TOPLEFT", 0, 0)
+            r:SetPoint("RIGHT", 0, 0)
+            if r.icon then r.icon:Hide() end
+            r.name:SetText(GetLocaleString("ENCOUNTER_NO_DATA"))
+            r.name:SetTextColor(0.6, 0.6, 0.6)
+            r.breed:SetText("")
+            r.count:SetText("")
+            r:Show()
+            self.encounterContent:SetHeight(ENC_ROW_HEIGHT)
+            self.encounterRowY[1] = 0
+        else
+            local y = 0
+            for i, entry in ipairs(flatData) do
+                local r = self:GetOrCreateEncounterRow(i)
+
+                r:ClearAllPoints()
+                r:SetPoint("TOPLEFT", 0, -y)
+                r:SetPoint("RIGHT", 0, 0)
+
+                -- 图标
+                if entry.icon then
+                    r.icon:SetTexture(entry.icon)
+                    r.icon:Show()
+                else
+                    r.icon:Hide()
+                end
+
+                -- 列文本
+                r.name:SetText(entry.speciesName)
+                r.name:SetTextColor(1, 1, 1)
+                r.breed:SetText(entry.breedCode)
+                r.breed:SetTextColor(1, 1, 1)
+                r.count:SetText(tostring(entry.count))
+                r.count:SetTextColor(1, 1, 1)
+
+                -- 存储数据用于后续交互（如 tooltip）
+                r.speciesID = entry.speciesID
+                r.breedID   = entry.breedID
+
+                r:Show()
+                self.encounterRowY[i] = y
+                y = y + ENC_ROW_HEIGHT
+            end
+            self.encounterContent:SetHeight(math.max(y, 1))
+        end
+
+        -- 隐藏超出数据量的行
+        for i = #flatData + 1, #self.encounterRows do
+            self.encounterRows[i]:Hide()
+        end
+
+        -- 更新交替条纹背景
+        self:UpdateEncounterStripes()
+    end
+
+    -- ==================================================================
+    -- 交替条纹背景 — 遵循 Flipper 模式：Clip + 滚动钩子纯几何重定位
+    -- ==================================================================
+    function panel:UpdateEncounterStripes()
+        if not self.encounterStripes then self.encounterStripes = {} end
+        local encScroll = self.encounterScroll
+
+        local function repositionStripes(offset)
+            for i, stripe in ipairs(self.encounterStripes) do
+                if self.encounterRowY[i] then
+                    stripe:ClearAllPoints()
+                    local sy = self.encounterRowY[i] + (offset or 0)
+                    stripe:SetPoint("TOPLEFT", encScroll, "TOPLEFT", 0, -sy)
+                    stripe:SetPoint("TOPRIGHT", encScroll, "TOPRIGHT", -16, -sy)
+                    stripe:SetHeight(ENC_ROW_HEIGHT)
+                end
+            end
+        end
+
+        local numRows = #(self.encounterRowY or {})
+        for i = 1, numRows do
+            local stripe = self.encounterStripes[i]
+            if not stripe then
+                stripe = CreateFrame("Frame", nil, self.encounterStripeClip, "BackdropTemplate")
+                stripe:SetBackdrop({
+                    bgFile   = "Interface\\Buttons\\WHITE8X8",
+                    tile     = true,
+                    tileSize = 8,
+                })
+                self.encounterStripes[i] = stripe
+            end
+            -- 交替行底色
+            stripe:SetBackdropColor(
+                i % 2 == 0 and 0.22 or 0.10,
+                i % 2 == 0 and 0.22 or 0.10,
+                i % 2 == 0 and 0.28 or 0.14
+            )
+            stripe:Show()
+        end
+        for i = numRows + 1, #self.encounterStripes do
+            self.encounterStripes[i]:Hide()
+        end
+
+        repositionStripes(-(encScroll:GetVerticalScroll() or 0))
+
+        -- 首次注册滚动钩子（仅一次）
+        if not self._encStripesScrollHooked then
+            self._encStripesScrollHooked = true
+            local scrollBar = _G["GenDexBDEncounterScrollScrollBar"]
+            if scrollBar then
+                scrollBar:HookScript("OnValueChanged", function()
+                    if panel:IsShown() then
+                        repositionStripes(-(encScroll:GetVerticalScroll() or 0))
+                    end
+                end)
+            end
+        end
+    end
+
+    -- 刷新按钮回调
     refreshBtn:SetScript("OnClick", function()
-        for _, fs in ipairs(encounterRowPool) do fs:Hide() end
-        encounterRowPool = {}
-        BuildEncounterStats(panel, statsTitle)
+        panel:UpdateEncounterList()
     end)
 
-    BuildEncounterStats(panel, statsTitle)
+    -- 初始加载数据
+    panel:UpdateEncounterList()
 
     local category = Settings.RegisterCanvasLayoutCategory(panel, panel.name)
     categoryID = category:GetID();Settings.RegisterAddOnCategory(category)
