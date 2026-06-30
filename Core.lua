@@ -118,7 +118,14 @@ end
 local function UpdateStarOnFrame(frame)
     if not frame or frame.petOwner ~= 2 or not frame.petIndex then return end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
-    local show = speciesID and showStarsFor[speciesID] or false
+    if not speciesID or not showStarsFor[speciesID] then
+        local star = GetOrCreateStar(frame)
+        if star then star:Hide() end
+        return
+    end
+    -- 品种级检查：同物种不同品种仅最优品种显示 ★
+    local breedID = GetEnemyBreed(frame.petIndex)
+    local show = breedID and showStarsFor[speciesID][breedID] or false
     local star = GetOrCreateStar(frame)
     if star then star:SetShown(show) end
 end
@@ -229,7 +236,10 @@ local function ProcessAllEnemyPets()
                     encounterCache[speciesID][breedID] = true
                     local owned = GetOwnedCount(speciesID)
                     if owned < 3 then
-                        showStarsFor[speciesID] = true
+                        if not showStarsFor[speciesID] then
+                            showStarsFor[speciesID] = {}
+                        end
+                        showStarsFor[speciesID][breedID] = true
                     end
                 end
             end
@@ -249,11 +259,16 @@ local function ProcessAllEnemyPets()
             end
         end
     end
-    -- 更新所有敌方框体的星星（不止 ActiveEnemy，野外多只敌方同时在场的都要显示）
+    -- 更新所有敌方框体的星星（品种级检查：同物种仅最优品种显示 ★）
     for frame, star in pairs(starIcons) do
         if frame.petOwner == 2 and frame.petIndex then
             local sid = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
-            star:SetShown(sid and showStarsFor[sid] or false)
+            local show = false
+            if sid and showStarsFor[sid] then
+                local bid = GetEnemyBreed(frame.petIndex)
+                show = bid and showStarsFor[sid][bid] or false
+            end
+            star:SetShown(show)
         end
     end
 end
