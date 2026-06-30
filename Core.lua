@@ -249,7 +249,13 @@ local function ProcessAllEnemyPets()
             end
         end
     end
-    UpdateStarOnFrame(PetBattleFrame.ActiveEnemy)
+    -- 更新所有敌方框体的星星（不止 ActiveEnemy，野外多只敌方同时在场的都要显示）
+    for frame, star in pairs(starIcons) do
+        if frame.petOwner == 2 and frame.petIndex then
+            local sid = C_PetBattles.GetPetSpeciesID(2, frame.petIndex)
+            star:SetShown(sid and showStarsFor[sid] or false)
+        end
+    end
 end
 
 -- ========================================================================
