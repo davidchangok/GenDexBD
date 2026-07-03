@@ -337,6 +337,8 @@ local function OnPlayerLogin()
             if frame.petOwner ~= 2 or not frame.petIndex then return end
             local petID = "battle:2:" .. frame.petIndex
             if addonTable.BuildSetBestSubMenu then
+                -- 先关闭其他插件/系统可能弹出的右键菜单
+                CloseDropDownMenus()
                 addonTable.BuildSetBestSubMenu(nil, petID)
                 Rematch.menus:Show("GenDexSetBestMenu", frame, petID, "cursor")
             end
