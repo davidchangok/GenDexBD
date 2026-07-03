@@ -182,10 +182,10 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
         items[#items + 1] = { spacer = true }
         items[#items + 1] = { text = GetLocaleString("SHOW_IN_JOURNAL"), func = function()
             Rematch.menus:Hide()
-            rematch.layout:SummonView("pets")
-            rematch.filters:SetSearch(speciesName)
-            rematch.petsPanel.Top.SearchBox:SetText(speciesName)
-            rematch.petsPanel:Update()
+            Rematch.layout:SummonView("pets")
+            Rematch.filters:SetSearch(speciesName)
+            Rematch.petsPanel.Top.SearchBox:SetText(speciesName)
+            Rematch.petsPanel:Update()
         end }
     end
 
