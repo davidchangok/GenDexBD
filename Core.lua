@@ -340,7 +340,7 @@ local function OnPlayerLogin()
                         if not Rematch or not Rematch.menus then return end
                         local petID = "battle:2:" .. self.petIndex
                         if not addonTable.BuildSetBestSubMenu then return end
-                        addonTable.BuildSetBestSubMenu(nil, petID)
+                        addonTable.BuildSetBestSubMenu(nil, petID, true)
                         Rematch.menus:Show("GenDexSetBestMenu", self, petID, "cursor")
                     elseif origOnClick then
                         origOnClick(self, button, down)

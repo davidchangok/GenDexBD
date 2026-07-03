@@ -86,7 +86,8 @@ local GRAY = "|cff888888"
 
     -- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
 -- 同时暴露为 addonTable.BuildSetBestSubMenu 供战斗界面右击菜单调用
-local function BuildSetBestSubMenu(_, petID)
+-- isBattle: true=战斗界面调用, nil/false=宠物列表调用
+local function BuildSetBestSubMenu(_, petID, isBattle)
     if not Rematch or not Rematch.petInfo then return end
     local info = Rematch.petInfo:Fetch(petID)
     if not info or not info.speciesID then return end
@@ -176,8 +177,8 @@ local function BuildSetBestSubMenu(_, petID)
         items[#items + 1] = { text = GetLocaleString("SET_OTHER_BREED"), subMenu = "GenDexOtherBreedsMenu" }
     end
 
-    -- ===== 在手册中显示 =====
-    if speciesName then
+    -- ===== 在手册中显示（仅战斗界面） =====
+    if isBattle and speciesName then
         items[#items + 1] = { spacer = true }
         items[#items + 1] = { text = GetLocaleString("SHOW_IN_JOURNAL"), func = function()
             Rematch.menus:Hide()
