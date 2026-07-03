@@ -53,6 +53,7 @@ local strings = {
     SET_BEST_BREED        = { zhCN = "最优属性设置",          enUS = "Best Breed Setup" },
     SET_OTHER_BREED       = { zhCN = "设为其他属性",          enUS = "Set Other Breed" },
     REMOVE_BEST_BREED     = { zhCN = "取消最优属性",          enUS = "Remove Best Breed" },
+    SHOW_IN_JOURNAL       = { zhCN = "在手册中显示该宠物",     enUS = "Show in Journal" },
     NO_BEST_BREED_SET     = { zhCN = "尚未设置最佳品种",      enUS = "No best breed set" },
     ONLY_BREED_IS_BEST    = { zhCN = "唯一属性即为最佳",      enUS = "Only breed is best" },
     ALL_OWNED             = { zhCN = "已全部拥有",            enUS = "All Owned" },

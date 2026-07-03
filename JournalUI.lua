@@ -84,7 +84,7 @@ local MAX_MENU_RETRY = 5
 local GOLD = "|cffffd600"
 local GRAY = "|cff888888"
 
--- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
+    -- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
 -- 同时暴露为 addonTable.BuildSetBestSubMenu 供战斗界面右击菜单调用
 local function BuildSetBestSubMenu(_, petID)
     if not Rematch or not Rematch.petInfo then return end
@@ -92,6 +92,7 @@ local function BuildSetBestSubMenu(_, petID)
     if not info or not info.speciesID then return end
 
     local speciesID = info.speciesID
+    local speciesName = info.speciesName
     local currentBreedID = (info.hasBreed and info.breedID and info.breedID > 0) and info.breedID or nil
     local currentBreedName = currentBreedID and info.breedName and info.breedName ~= "" and info.breedName or nil
     -- numPossibleBreeds: 该物种有多少种可选品种（0=数据暂缺, 1=唯一属性, >=2=多品种）
@@ -173,6 +174,18 @@ local function BuildSetBestSubMenu(_, petID)
         Rematch.menus:Register("GenDexOtherBreedsMenu", otherItems)
 
         items[#items + 1] = { text = GetLocaleString("SET_OTHER_BREED"), subMenu = "GenDexOtherBreedsMenu" }
+    end
+
+    -- ===== 在手册中显示 =====
+    if speciesName then
+        items[#items + 1] = { spacer = true }
+        items[#items + 1] = { text = GetLocaleString("SHOW_IN_JOURNAL"), func = function()
+            Rematch.menus:Hide()
+            rematch.layout:SummonView("pets")
+            rematch.filters:SetSearch(speciesName)
+            rematch.petsPanel.Top.SearchBox:SetText(speciesName)
+            rematch.petsPanel:Update()
+        end }
     end
 
     Rematch.menus:Register("GenDexSetBestMenu", items)
