@@ -53,17 +53,19 @@ local strings = {
     SET_BEST_BREED        = { zhCN = "最优属性设置",          enUS = "Best Breed Setup" },
     SET_OTHER_BREED       = { zhCN = "设为其他属性",          enUS = "Set Other Breed" },
     REMOVE_BEST_BREED     = { zhCN = "取消最优属性",          enUS = "Remove Best Breed" },
+    NO_BEST_BREED_SET     = { zhCN = "尚未设置最佳品种",      enUS = "No best breed set" },
+    ONLY_BREED_IS_BEST    = { zhCN = "唯一属性即为最佳",      enUS = "Only breed is best" },
     ALL_OWNED             = { zhCN = "已全部拥有",            enUS = "All Owned" },
     UPDATE_BEST_BREED     = { zhCN = "更新分类/备注",         enUS = "Update Category/Note" },
     CATEGORY_LABEL        = { zhCN = "使用场景",              enUS = "Category" },
     NOTE_LABEL_UI         = { zhCN = "备注信息",              enUS = "Note" },
     NOTE_PLACEHOLDER      = { zhCN = "选填（如：PVE输出最高）", enUS = "Optional (e.g.: Best for PvE)" },
-    
+
 
     -- 配置面板
     CONFIG_TITLE          = { zhCN = "GenDexBD 设置",         enUS = "GenDexBD Settings" },
     OPTION_SHOW_TOOLTIP   = { zhCN = "鼠标提示显示品种",        enUS = "Show breed in tooltip" },
-    
+
     OPTION_ALERT_BATTLE   = { zhCN = "战斗目标提示",           enUS = "Alert in battle" },
     OPTION_ASSUME_RARE    = { zhCN = "默认按精良品质推算",       enUS = "Assume Rare quality" },
     OPTION_SHOW_NOTE      = { zhCN = "提示中显示最优备注",       enUS = "Show best breed note in tooltip" },
@@ -79,9 +81,18 @@ local strings = {
     IMPORT_DONE          = { zhCN = "导入完成：%d 条记录",        enUS = "Import done: %d records" },
     ENCOUNTER_STATS_TITLE = { zhCN = "遇敌属性统计",              enUS = "Encounter Stats" },
     ENCOUNTER_NO_DATA    = { zhCN = "暂无遇敌记录",               enUS = "No encounter data yet" },
-	SPECIES_NAME_HEADER  = { zhCN = "宠物名称",                  enUS = "Pet Name" },
-	BREED_HEADER         = { zhCN = "品种",                      enUS = "Breed" },
-	COUNT_HEADER         = { zhCN = "遇敌次数",                  enUS = "Count" },
+    SPECIES_NAME_HEADER  = { zhCN = "宠物名称",                  enUS = "Pet Name" },
+    BREED_HEADER         = { zhCN = "品种",                      enUS = "Breed" },
+    COUNT_HEADER         = { zhCN = "遇敌次数",                  enUS = "Count" },
+
+    -- Tab 标签页
+    TAB_GENERAL          = { zhCN = "常规设置",                  enUS = "General" },
+    TAB_BEST_BREEDS      = { zhCN = "最优品种",                  enUS = "Best Breeds" },
+
+    -- 最优品种列表
+    BEST_BREED_LIST_TITLE = { zhCN = "已保存的最优品种",           enUS = "Saved Best Breeds" },
+    BEST_BREED_NO_DATA    = { zhCN = "暂无保存记录",               enUS = "No saved breeds yet" },
+    CATEGORY_HEADER       = { zhCN = "分类",                      enUS = "Category" },
 
     -- 战斗提示
     ALERT_TARGET          = { zhCN = "最优属性目标",        enUS = "Best Breed Target" },

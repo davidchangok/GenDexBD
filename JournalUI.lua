@@ -1,7 +1,7 @@
 -- GenDexBD JournalUI.lua - Mixin Fill Hook + 右键菜单（已拥有+未拥有统一）
 
 local addonName, addonTable = ...
-local time=time;local next=next;local ipairs=ipairs
+local time=time;local next=next;local ipairs=ipairs;local pairs=pairs;local tsort=table.sort
 local GetLocaleString = addonTable.GetLocaleString
 local GetBreedCode = addonTable.GetBreedCode
 
@@ -80,6 +80,10 @@ end
 local menuRetryCount = 0
 local MAX_MENU_RETRY = 5
 
+-- 金色（与 BEST_BREED_COLOR 一致，用于菜单文字着色）
+local GOLD = "|cffffd600"
+local GRAY = "|cff888888"
+
 -- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
 local function BuildSetBestSubMenu(_, petID)
     if not Rematch or not Rematch.petInfo then return end
@@ -88,27 +92,87 @@ local function BuildSetBestSubMenu(_, petID)
 
     local speciesID = info.speciesID
     local currentBreedID = (info.hasBreed and info.breedID and info.breedID > 0) and info.breedID or nil
-    local isBest = currentBreedID and addonTable.IsBestBreed(speciesID, currentBreedID)
+    local currentBreedName = currentBreedID and info.breedName and info.breedName ~= "" and info.breedName or nil
+    -- numPossibleBreeds: 该物种有多少种可选品种（1 = 唯一属性）
+    local numBreeds = info.numPossibleBreeds or 0
 
     local items = {}
 
-    if currentBreedID then
-        local code = GetBreedCode(currentBreedID) or "?"
-        if isBest then
-            items[#items+1] = {text=code.." ★ "..GetLocaleString("REMOVE_BEST_BREED"), func=function() RematchRemoveBest(petID) end}
+    if numBreeds <= 1 then
+        -- ===== 唯一属性物种：仅提示，无需设置/取消/子菜单 =====
+        items[#items + 1] = { text = GOLD .. GetLocaleString("ONLY_BREED_IS_BEST") .. "|r", isDisabled = true }
+    else
+        -- ===== 多品种物种：展示所有已设最佳品种 =====
+        local allBest = addonTable.GetAllBestBreeds(speciesID)
+        local hasBestBreeds = next(allBest) ~= nil
+
+        if hasBestBreeds then
+            local sorted = {}
+            for bID in pairs(allBest) do
+                sorted[#sorted + 1] = bID
+            end
+            tsort(sorted)
+
+            for _, bID in ipairs(sorted) do
+                local code = GetBreedCode(bID) or "?"
+                local isCurrent = (currentBreedID == bID)
+
+                local text = GOLD .. code .. " ★|r"
+                if isCurrent then
+                    text = text .. " " .. GetLocaleString("REMOVE_BEST_BREED")
+                end
+
+                if isCurrent then
+                    items[#items + 1] = { text = text, func = function() RematchRemoveBest(petID) end }
+                else
+                    items[#items + 1] = { text = text, func = function()
+                        addonTable.RemoveBestBreed(speciesID, bID)
+                        if Rematch.petsPanel then Rematch.petsPanel:Update() end
+                    end }
+                end
+            end
         else
-            items[#items+1] = {text=code.." "..GetLocaleString("SET_BEST_BREED"), func=function() RematchSetBest(petID) end}
+            items[#items + 1] = { text = GRAY .. "(" .. GetLocaleString("NO_BEST_BREED_SET") .. ")|r", isDisabled = true }
         end
-    end
 
-    local otherItems = {}
-    for _, br in ipairs(ALL_BREEDS) do
-        otherItems[#otherItems+1] = {text=br[2], func=function() RematchSetBestNoPet(speciesID, br[1]) end}
-    end
-    otherItems[#otherItems+1] = {text=CANCEL}
-    Rematch.menus:Register("GenDexOtherBreedsMenu", otherItems)
+        -- 当前品种不在最佳列表中 → 提供设置入口
+        if currentBreedID and (not hasBestBreeds or not allBest[currentBreedID]) then
+            local code = currentBreedName or GetBreedCode(currentBreedID) or "?"
+            items[#items + 1] = { text = code .. " " .. GetLocaleString("SET_BEST_BREED"), func = function() RematchSetBest(petID) end }
+        end
 
-    items[#items+1] = {text=GetLocaleString("SET_OTHER_BREED"), subMenu="GenDexOtherBreedsMenu"}
+        -- 分隔线 + 设为其他品种（仅限当前物种实际可用的品种）
+        items[#items + 1] = { spacer = true }
+
+        local otherItems = {}
+        local pIDs = info.possibleBreedIDs
+        local pNames = info.possibleBreedNames
+        if pIDs and pNames and type(pIDs) == "table" and type(pNames) == "table" then
+            -- 收集并排序
+            local possibleList = {}
+            for i = 1, #pIDs do
+                local bid = pIDs[i]
+                local bname = pNames[i]
+                if bid and bname then
+                    possibleList[#possibleList + 1] = { breedID = bid, breedName = bname }
+                end
+            end
+            tsort(possibleList, function(a, b) return a.breedID < b.breedID end)
+            for _, entry in ipairs(possibleList) do
+                otherItems[#otherItems + 1] = { text = entry.breedName,
+                    func = function() RematchSetBestNoPet(speciesID, entry.breedID) end }
+            end
+        else
+            -- 回退：Rematch 未提供可能品种时用全部品种
+            for _, br in ipairs(ALL_BREEDS) do
+                otherItems[#otherItems + 1] = { text = br[2], func = function() RematchSetBestNoPet(speciesID, br[1]) end }
+            end
+        end
+        otherItems[#otherItems + 1] = { text = CANCEL }
+        Rematch.menus:Register("GenDexOtherBreedsMenu", otherItems)
+
+        items[#items + 1] = { text = GetLocaleString("SET_OTHER_BREED"), subMenu = "GenDexOtherBreedsMenu" }
+    end
 
     Rematch.menus:Register("GenDexSetBestMenu", items)
 end
