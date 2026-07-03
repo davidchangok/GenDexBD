@@ -337,10 +337,12 @@ local function OnPlayerLogin()
             if frame.petOwner ~= 2 or not frame.petIndex then return end
             local petID = "battle:2:" .. frame.petIndex
             if addonTable.BuildSetBestSubMenu then
-                -- 先关闭其他插件/系统可能弹出的右键菜单
-                CloseDropDownMenus()
-                addonTable.BuildSetBestSubMenu(nil, petID)
-                Rematch.menus:Show("GenDexSetBestMenu", frame, petID, "cursor")
+                -- 延迟一帧：等暴雪内置右击菜单弹出后再关闭，避免重叠
+                C_Timer.After(0, function()
+                    CloseDropDownMenus()
+                    addonTable.BuildSetBestSubMenu(nil, petID)
+                    Rematch.menus:Show("GenDexSetBestMenu", frame, petID, "cursor")
+                end)
             end
         end
         for _, key in ipairs({"ActiveEnemy","Enemy2","Enemy3"}) do
