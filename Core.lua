@@ -329,25 +329,24 @@ local function OnPlayerLogin()
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START");eventFrame:RegisterEvent("PET_BATTLE_PET_CHANGED");eventFrame:RegisterEvent("PET_BATTLE_CLOSE")
     hooksecurefunc('PetBattleUnitFrame_UpdateDisplay', UpdateStarOnFrame)
 
-    -- 战斗界面敌方宠物右击菜单
+    -- 战斗界面敌方宠物右击菜单 — SetScript 替换模板 OnClick，彻底拦截暴雪内置右键菜单
     if PetBattleFrame then
-        local function BattleEnemyOnClick(frame, button)
-            if button ~= "RightButton" then return end
-            if not Rematch or not Rematch.menus then return end
-            if frame.petOwner ~= 2 or not frame.petIndex then return end
-            local petID = "battle:2:" .. frame.petIndex
-            if addonTable.BuildSetBestSubMenu then
-                -- 延迟一帧：等暴雪内置右击菜单弹出后再关闭，避免重叠
-                C_Timer.After(0, function()
-                    CloseDropDownMenus()
-                    addonTable.BuildSetBestSubMenu(nil, petID)
-                    Rematch.menus:Show("GenDexSetBestMenu", frame, petID, "cursor")
-                end)
-            end
-        end
         for _, key in ipairs({"ActiveEnemy","Enemy2","Enemy3"}) do
             local f = PetBattleFrame[key]
-            if f then f:HookScript("OnClick", BattleEnemyOnClick) end
+            if f then
+                local origOnClick = f:GetScript("OnClick")
+                f:SetScript("OnClick", function(self, button, down)
+                    if button == "RightButton" and self.petOwner == 2 and self.petIndex then
+                        if not Rematch or not Rematch.menus then return end
+                        local petID = "battle:2:" .. self.petIndex
+                        if not addonTable.BuildSetBestSubMenu then return end
+                        addonTable.BuildSetBestSubMenu(nil, petID)
+                        Rematch.menus:Show("GenDexSetBestMenu", self, petID, "cursor")
+                    elseif origOnClick then
+                        origOnClick(self, button, down)
+                    end
+                end)
+            end
         end
     end
 end
