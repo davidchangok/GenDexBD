@@ -328,6 +328,24 @@ local function OnPlayerLogin()
     _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START");eventFrame:RegisterEvent("PET_BATTLE_PET_CHANGED");eventFrame:RegisterEvent("PET_BATTLE_CLOSE")
     hooksecurefunc('PetBattleUnitFrame_UpdateDisplay', UpdateStarOnFrame)
+
+    -- 战斗界面敌方宠物右击菜单
+    if PetBattleFrame then
+        local function BattleEnemyOnClick(frame, button)
+            if button ~= "RightButton" then return end
+            if not Rematch or not Rematch.menus then return end
+            if frame.petOwner ~= 2 or not frame.petIndex then return end
+            local petID = "battle:2:" .. frame.petIndex
+            if addonTable.BuildSetBestSubMenu then
+                addonTable.BuildSetBestSubMenu(nil, petID)
+                Rematch.menus:Show("GenDexSetBestMenu", frame, petID, "cursor")
+            end
+        end
+        for _, key in ipairs({"ActiveEnemy","Enemy2","Enemy3"}) do
+            local f = PetBattleFrame[key]
+            if f then f:HookScript("OnClick", BattleEnemyOnClick) end
+        end
+    end
 end
 
 local function OnEvent(_, event, ...)

@@ -85,6 +85,7 @@ local GOLD = "|cffffd600"
 local GRAY = "|cff888888"
 
 -- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
+-- 同时暴露为 addonTable.BuildSetBestSubMenu 供战斗界面右击菜单调用
 local function BuildSetBestSubMenu(_, petID)
     if not Rematch or not Rematch.petInfo then return end
     local info = Rematch.petInfo:Fetch(petID)
@@ -93,12 +94,12 @@ local function BuildSetBestSubMenu(_, petID)
     local speciesID = info.speciesID
     local currentBreedID = (info.hasBreed and info.breedID and info.breedID > 0) and info.breedID or nil
     local currentBreedName = currentBreedID and info.breedName and info.breedName ~= "" and info.breedName or nil
-    -- numPossibleBreeds: 该物种有多少种可选品种（1 = 唯一属性）
+    -- numPossibleBreeds: 该物种有多少种可选品种（0=数据暂缺, 1=唯一属性, >=2=多品种）
     local numBreeds = info.numPossibleBreeds or 0
 
     local items = {}
 
-    if numBreeds <= 1 then
+    if numBreeds == 1 then
         -- ===== 唯一属性物种：仅提示，无需设置/取消/子菜单 =====
         items[#items + 1] = { text = GOLD .. GetLocaleString("ONLY_BREED_IS_BEST") .. "|r", isDisabled = true }
     else
@@ -176,6 +177,7 @@ local function BuildSetBestSubMenu(_, petID)
 
     Rematch.menus:Register("GenDexSetBestMenu", items)
 end
+addonTable.BuildSetBestSubMenu = BuildSetBestSubMenu
 
 local function injectRematchMenus()
     if not Rematch or not Rematch.menus or not Rematch.menus.AddToMenu then return end
