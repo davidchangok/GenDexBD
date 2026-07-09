@@ -102,7 +102,18 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
     local items = {}
 
     if numBreeds == 1 then
-        -- ===== 唯一属性物种：仅提示，无需设置/取消/子菜单 =====
+        -- ===== 唯一属性物种：自动设为最佳属性并写入数据库 =====
+        local onlyBreedID = currentBreedID
+        if not onlyBreedID and info.possibleBreedIDs and #info.possibleBreedIDs > 0 then
+            onlyBreedID = info.possibleBreedIDs[1]
+        end
+        if onlyBreedID and not addonTable.IsBestBreed(speciesID, onlyBreedID) then
+            addonTable.SetBestBreed(speciesID, onlyBreedID, "auto", "")
+            -- 延迟一帧刷新，避免菜单构建期间 Update() 破坏按钮 UI 层级
+            C_Timer.After(0, function()
+                if Rematch.petsPanel then Rematch.petsPanel:Update() end
+            end)
+        end
         items[#items + 1] = { text = GOLD .. GetLocaleString("ONLY_BREED_IS_BEST") .. "|r", isDisabled = true }
     else
         -- ===== 多品种物种：展示所有已设最佳品种 =====
