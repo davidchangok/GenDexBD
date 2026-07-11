@@ -104,15 +104,22 @@ local function GetEnemyBreed(petIndex) return GetPetBreed(2, petIndex) end
 local function GetAllyBreed(petIndex)  return GetPetBreed(1, petIndex) end
 
 -- 检查宠物是否可捕捉（仅敌方+野外战斗有意义）
--- 野外可捕捉宠物品质≤4(Rare)；Epic(5)/Legendary(6)一定不可捕捉
+-- 训练师/NPC/PvP 对战中的宠物全部不可捕捉；野外对战中，品质 Epic(5)/Legendary(6) 不可捕捉
 local function IsPetCapturable(team, petIndex)
     if team ~= 2 then return true end
-    if not isWildBattle then return true end
+    -- 非野外战斗（训练师/NPC/PvP）：敌方宠物一律不可捕捉
+    if not isWildBattle then return false end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, petIndex)
     if not speciesID then return false end
+    -- 品质检查：Epic(5)/Legendary(6) 不可捕捉
     if C_PetBattles.GetBreedQuality then
         local quality = C_PetBattles.GetBreedQuality(2, petIndex)
         if quality and quality >= 5 then return false end
+    end
+    -- 物种级检查：非野外物种不可捕捉
+    if C_PetJournal.GetPetInfoBySpeciesID then
+        local _, _, _, _, _, _, isWild = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
+        if isWild == false then return false end
     end
     return true
 end
