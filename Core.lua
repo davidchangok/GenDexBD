@@ -73,6 +73,12 @@ function addonTable.MigrateBestBreeds(db)
     if migrated then print("|cffffd700[GenDexBD]|r " .. GetLocaleString("MIGRATION_COMPLETE")) end
 end
 
+-- 战斗状态变量（需提前声明：后面定义的函数通过闭包引用，Lua 5.1 不做变量提升）
+local isWildBattle = false
+local encounterCache = {}
+local alertedSpecies = {}
+local ownedCache = {}
+
 -- ========================================================================
 -- 步骤 a：获取敌方宠物的品种（优先 Rematch 缓存，回退比例推算）
 -- ========================================================================
@@ -98,13 +104,15 @@ local function GetEnemyBreed(petIndex) return GetPetBreed(2, petIndex) end
 local function GetAllyBreed(petIndex)  return GetPetBreed(1, petIndex) end
 
 -- 检查宠物是否可捕捉（仅敌方+野外战斗有意义）
+-- 野外可捕捉宠物品质≤4(Rare)；Epic(5)/Legendary(6)一定不可捕捉
 local function IsPetCapturable(team, petIndex)
     if team ~= 2 then return true end
     if not isWildBattle then return true end
     local speciesID = C_PetBattles.GetPetSpeciesID(2, petIndex)
     if not speciesID then return false end
-    if C_PetJournal.PetIsCapturable then
-        return C_PetJournal.PetIsCapturable(speciesID)
+    if C_PetBattles.GetBreedQuality then
+        local quality = C_PetBattles.GetBreedQuality(2, petIndex)
+        if quality and quality >= 5 then return false end
     end
     return true
 end
@@ -218,10 +226,10 @@ end
 -- 统计数据（encounterCache 以 speciesID→breedID 聚合，防止同物种多槽位覆盖）
 -- ========================================================================
 
-local encounterCache = {}     -- {[speciesID] = {[breedID]=true, ...}}
-local alertedSpecies = {}    -- {[speciesID]=true}
-local ownedCache = {}         -- {[speciesID]=count}      同场战斗缓存
-local isWildBattle = false
+-- 初始化战斗状态（变量已在文件顶部声明）
+encounterCache = {}     -- {[speciesID] = {[breedID]=true, ...}}
+alertedSpecies = {}    -- {[speciesID]=true}
+ownedCache = {}         -- {[speciesID]=count}      同场战斗缓存
 local scanTimer = nil         -- 延迟扫描 timer，用于 CLOSE 时取消
 
 -- 同场战斗内只查一次 Rematch（pcall 保护）
