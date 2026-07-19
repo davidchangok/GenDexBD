@@ -106,7 +106,7 @@ local AUTO_TAGS = {
         "bleed", "流血", "rend", "割裂", "lacerate",
         "hemorrhage", "出血", "gouge",
         -- 中毒
-        "poison", "毒性", "toxic", "venom",
+        "poison", "中毒.*每轮", "中毒.*持续", "toxic", "venom",
         "contaminate", "污染",
         "neurotoxin", "麻痹",
         -- 燃烧Dot
