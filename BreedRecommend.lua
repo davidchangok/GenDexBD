@@ -77,7 +77,7 @@ local AUTO_TAGS = {
         "clobber", "bash", "重击", "冲撞", "headbutt",
         "concuss", "脑震荡", "knock.*down", "击倒", "trip", "绊倒",
         "sleep.*first", "催眠", "confus.*first",
-        "counterstrike", "反击", "riposte", "招架",
+        "counter", "riposte", "招架",
         "reflect.*attack", "反弹.*攻击",
         "retaliate", "报复", "deflect.*attack",
         "charge.*first", "冲锋", "pounce", "突袭",
