@@ -151,8 +151,8 @@ local AUTO_TAGS = {
         "rebuilt", "重铸", "reconstruct", "重建",
         "failsafe", "故障保护",
         -- 百分比回血
-        "max health.*heal", "最大生命.*回复",
-        "of.*max.*health", "最大生命值.*的",
+        "最大生命.*回复", "of.*max.*health",
+        -- 注: 去"最大生命值.*的"(吸血=汲取敌人HP,非自身HP缩放)
         -- 吸血
         "drain.*health", "吸取.*生命", "leech", "吸血",
         "siphon", "虹吸", "vampir",
