@@ -106,7 +106,7 @@ local AUTO_TAGS = {
         "bleed", "流血", "rend", "割裂", "lacerate",
         "hemorrhage", "出血", "gouge",
         -- 中毒
-        "poison", "中毒", "毒性", "toxic", "venom",
+        "poison", "毒性", "toxic", "venom",
         "contaminate", "污染",
         "neurotoxin", "麻痹",
         -- 燃烧Dot
@@ -137,7 +137,7 @@ local AUTO_TAGS = {
     SCALES_HEALTH = {
         -- 治疗
         "heals ", "治疗", "healing ", "治愈", "回复.*生命",
-        "mend", "cure", "疗伤", "restore.*health", "恢复.*生命",
+        "mend", "cure", "疗伤", "restore.*health",
         "recover.*health", "康复", "regenerate", "再生",
         "rejuvenate", "回春", "bloom", "绽放", "blossom", "开花",
         "renew.*health", "重振", "invigorate", "提神",
