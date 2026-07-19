@@ -112,7 +112,7 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
             for _, rec in ipairs(recommendations) do
                 local line1 = string.format(GetLocaleString("RECOMMEND_SCORE_FMT"), rec.breedCode, rec.score)
                 if rec.breedID == currentBreedID then
-                    line1 = line1 .. " |cff00ff00← 当前属性|r"
+                    line1 = line1 .. " |cff00ff00←|r"
                 end
 
                 items[#items + 1] = {
