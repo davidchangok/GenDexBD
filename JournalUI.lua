@@ -114,7 +114,11 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
 
             for _, rec in ipairs(recommendations) do
                 local line1 = string.format(GetLocaleString("RECOMMEND_SCORE_FMT"), rec.breedCode, rec.score)
+                -- 绿色←当前属性 + 金色★最佳属性（可同时出现: ←★）
                 if rec.breedID == currentBreedID then
+                    line1 = line1 .. " |cff00ff00←|r"
+                end
+                if addonTable.IsBestBreed(speciesID, rec.breedID) then
                     line1 = line1 .. " |cffffd700★|r"
                 end
 
