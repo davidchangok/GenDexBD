@@ -33,6 +33,8 @@ local function label(b)
     if not i or not i.hasBreed or not i.breedID or i.breedID==0 then return end
     local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
     local sc = addonTable.BEST_BREED_COLOR or {1.0, 0.84, 0.0}
+    local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
+    if doDbg then print(string.format("[GenDexDBG] label: pet=%s sid=%d bid=%d best=%s oldText=%s", i.speciesName or "?", i.speciesID, i.breedID, best and "YES" or "no", b.Breed:GetText() or "nil")) end
     b.Breed:SetText(best and (addonTable.BEST_BREED_STAR..i.breedName) or i.breedName)
     b.Breed:SetTextColor(best and sc[1] or 0.6, best and sc[2] or 0.6, 0.6)
 end
@@ -121,30 +123,8 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     text = line1,
                     func = function()
                         addonTable.SetBestBreed(sid, bid, "auto", "")
-                        -- Rematch的petsPanel:Update()只重建布局不重填按钮
-                        -- 需要通过ScrollBox滚动触发Fill->label()钩子
                         if Rematch and Rematch.petsPanel then
                             Rematch.petsPanel:Update()
-                            -- 关键: 滚动ScrollBox 0像素强制触发Fill
-                            local scrollBox = Rematch.petsPanel.List and Rematch.petsPanel.List.ScrollBox
-                            if scrollBox and scrollBox.Scroll then
-                                scrollBox:Scroll(0)  -- 微小滚动触发重绘
-                            end
-                            -- 备用: 再手动扫描所有子孙Frame调用label
-                            C_Timer.After(0.1, function()
-                                local function scanLabel(parent)
-                                    if not parent then return end
-                                    for _, child in ipairs({parent:GetChildren()}) do
-                                        if child.Breed and child.petID then
-                                            pcall(label, child)
-                                        end
-                                        scanLabel(child)
-                                    end
-                                end
-                                if Rematch.petsPanel and Rematch.petsPanel.List then
-                                    scanLabel(Rematch.petsPanel.List)
-                                end
-                            end)
                         end
                     end,
                 }
