@@ -7,9 +7,7 @@ local GetBreedCode = addonTable.GetBreedCode
 
 function addonTable.SetBestBreed(s,b,c,n)
     if not s or not b then return end;if not GeneDexDB then return end
-    local bb=GeneDexDB.BestBreeds;if not bb or type(bb)~="table" then GeneDexDB.BestBreeds={} end
-    if not GeneDexDB.BestBreeds[s] or type(GeneDexDB.BestBreeds[s])~="table" then GeneDexDB.BestBreeds[s]={} end
-    GeneDexDB.BestBreeds[s][b]={category=c or "custom",note=n or "",addedAt=time()}
+    GeneDexDB.BestBreeds[s]={[b]={category=c or "custom",note=n or "",addedAt=time()}}
 end
 function addonTable.RemoveBestBreed(s,b)
     if not s or not b then return end
