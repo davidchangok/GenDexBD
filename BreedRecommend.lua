@@ -65,6 +65,9 @@ local AUTO_TAGS = {
         "each.*speed", "每.*点速度",
         "based on.*speed", "基于.*速度",
         "slower.*more", "越慢.*越",
+        -- 速度增益（加速自己=需要速度品种放大收益）
+        "speed.*increas", "速度.*提高", "速度.*提升",
+        "专注", "concentrat", -- 专注类技能：提高速度+暴击+命中
         "swap.*pet", "替换.*宠", "switch.*pet",
         "nether gate", "虚空之门", "portal", "传送",
         "force.*swap", "强制.*换", "recall", "召回",
@@ -84,6 +87,9 @@ local AUTO_TAGS = {
         "freeze.*target", "冰冻.*目标", "polymorph", "变形",
         "lightning storm", "雷暴", "sandstorm", "沙尘暴",
         "rain dance", "祈雨", "sunlight", "阳光",
+        -- 天气（变天需先手才能抢在对手行动前生效）
+        "moonlight", "月光", "moonfire", "月火",
+        "天气变为", "变为.*天气", "weather.*change",
         "mudslide", "泥石流", "cleansing rain",
         "call darkness", "arcane storm", "scorched", "焦土",
         "cocoon", "茧", "barrier.*first", "先手.*屏障", "shroud", "幕",
@@ -132,12 +138,12 @@ local AUTO_TAGS = {
         "wrath", "愤怒", "fury", "狂怒",
         "judgment", "审判", "cataclysm", "大灾变",
         "apocalypse", "天启",
-        -- 攻击加成/增幅
-        "howl", "嚎叫", "amplify.*damage", "增幅.*伤害",
+        -- 攻击加成/增幅（无.*，防止"伤害...速度提高"跨词误匹配）
+        "howl", "嚎叫", "amplify", "增幅",
         "enrage", "激怒", "berserk", "狂暴",
-        "bloodlust", "嗜血", "roar.*damage", "咆哮",
-        "damage.*increas", "伤害.*提[高升]",
-        "power.*boost", "攻击.*提升",
+        "bloodlust", "嗜血", "roar", "咆哮",
+        "伤害提高", "伤害提升", "damage increased", "damage boost",
+        "攻击.*提升", "power boost",
     },
     SCALES_HEALTH = {
         -- 治疗
@@ -293,10 +299,10 @@ local function Score(h, p, s, tc, pt)
     local ws = ws_base
     if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.7 end
 
-    -- 速度贡献 = 基础速度×系数 + 先手标签×(系数×阈值)
-    -- 旧: wp*p + (ws_base+ws_needs×sb)*s + wh*h  → S/S=1.8时(1.0+3.2)×1.8=7.56 放大过度
-    -- 新: wp*p + ws_base*s + ws_needs×(s×sb) + wh*h  → 基础按系数线性，先手才加成
-    local raw = wp * p + ws * s + ws_needs * (s * sb) + wh * h
+    -- 速度贡献 = 基础速度×系数 + 先手标签×阈值（不乘系数，避免双重放大）
+    -- 旧: ws_needs*(s*sb) → S/S=1.8, sb=2.0 → 1.6×3.6=5.76, P/P=0.8,sb=1.0 → 1.6×0.8=1.28 差4.5倍
+    -- 新: ws_needs*sb → S/S=1.6×2.0=3.2, P/P=1.6×1.0=1.6 差2倍（合理，反映速度阈值价值）
+    local raw = wp * p + ws * s + ws_needs * sb + wh * h
     return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs}
 end
 
@@ -348,7 +354,7 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                 print(string.format("  %-6s %8d %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f",
                     code,mfloor(score+0.5),detail.wh,detail.wp,
                     detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
-                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*(s*detail.sb) + detail.wh*h))
+                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h))
             end
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
                        stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=tc}
