@@ -33,6 +33,8 @@ local W_POWER = 0.6   -- SCALES_POWER 加成（超线性技能）
 local W_HEALTH = 1.0  -- SCALES_HEALTH 加成（血量技能稀缺价值更高）
 local W_FORCE = 3.0
 local SCALE = 100
+local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
+                       -- 来源：NGA 5.0实测数据 "能量0.1:速度0.1≈生命0.15"
 
 local FAMILY_MOD = {
     [3]  = { h=1.0, p=1.0, s=1.3 }, [4] = { h=1.0, p=1.3, s=1.0 },
@@ -298,10 +300,9 @@ local function Score(h, p, s, tc, pt)
     local ws = ws_base
     if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.7 end
 
-    -- 速度贡献 = 基础速度×系数 + 先手标签×阈值（不乘系数，避免双重放大）
-    -- 旧: ws_needs*(s*sb) → S/S=1.8, sb=2.0 → 1.6×3.6=5.76, P/P=0.8,sb=1.0 → 1.6×0.8=1.28 差4.5倍
-    -- 新: ws_needs*sb → S/S=1.6×2.0=3.2, P/P=1.6×1.0=1.6 差2倍（合理，反映速度阈值价值）
-    local raw = wp * p + ws * s + ws_needs * sb + wh * h
+    -- 生命等价比修正：1生命 ≈ 0.67攻击/速度（NGA 5.0实测 "0.1攻:0.1速≈0.15命"）
+    -- 品种生命系数(0.2-1.8)需要打折后再参与评分
+    local raw = wp * p + ws * s + ws_needs * sb + wh * h * HP_VALUE
     return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs}
 end
 
@@ -353,7 +354,7 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                 print(string.format("  %-6s %8d %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f",
                     code,mfloor(score+0.5),detail.wh,detail.wp,
                     detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
-                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h))
+                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h*HP_VALUE))
             end
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
                        stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=tc}
