@@ -95,7 +95,8 @@ local AUTO_TAGS = {
         "每一击", "each hit", "each strike",
         "1.2次", "1.3次", "1.2把", "1.3把", -- 多段攻击的数量范围描述
         -- DoT/每轮
-        "every round", "每轮", "each round", "每回合",
+        "every round", "each round", "每回合",
+        "每轮造成", "每轮额外", -- 仅伤害型每轮(排除"每轮回复"等治疗)
         "per round", "per turn", "each turn",
         "damage over", "持续.*伤害", "每回合造成",
         "additional.*damage.*each", "额外.*每轮",
