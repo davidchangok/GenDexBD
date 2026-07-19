@@ -121,24 +121,16 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     text = line1,
                     func = function()
                         local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
-                        if doDbg then print(string.format("|cff00ff00[GenDexDBG]|r 点击菜单: sid=%d bid=%d code=%s", sid, bid, rec.breedCode)) end
-                        -- 1. 写入数据库
+                        if doDbg then print(string.format("[GenDexDBG] 点击菜单: sid=%d bid=%d code=%s", sid, bid, rec.breedCode)) end
                         addonTable.SetBestBreed(sid, bid, "auto", "")
-                        if doDbg then
-                            local bb = GeneDexDB and GeneDexDB.BestBreeds
-                            local exists = bb and bb[sid] and bb[sid][bid]
-                            print(string.format("|cff00ff00[GenDexDBG]|r   DB写入: %s", exists and "成功" or "失败!"))
-                        end
-                        -- 2. 验证 IsBestBreed
-                        local verified = addonTable.IsBestBreed(sid, bid)
-                        if doDbg then print(string.format("|cff00ff00[GenDexDBG]|r   IsBestBreed验证: %s", verified and "true" or "FALSE!")) end
-                        -- 3. 刷新Rematch面板
-                        if Rematch and Rematch.petsPanel then
-                            Rematch.petsPanel:Update()
-                            if doDbg then print("|cff00ff00[GenDexDBG]|r   Rematch面板已刷新") end
-                        else
-                            if doDbg then print("|cffff0000[GenDexDBG]|r   Rematch.petsPanel 不可用!") end
-                        end
+                        if doDbg then print("[GenDexDBG]   SetBestBreed完成, 0.15s后刷新面板") end
+                        -- 延迟刷新: 菜单点击后立即销毁菜单，同步调用Update()会被截断
+                        C_Timer.After(0.15, function()
+                            if Rematch and Rematch.petsPanel then
+                                Rematch.petsPanel:Update()
+                                if doDbg then print("[GenDexDBG]   Rematch面板已刷新") end
+                            end
+                        end)
                     end,
                 }
             end
