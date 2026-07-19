@@ -29,8 +29,8 @@ local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.2, [1.2]=1.5, [1.4]=2.0 }
 
 local W_BASE  = 1.0
 local W_SPEED = 0.8   -- NEEDS_SPEED 标签加成
-local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
-local W_HEALTH = 0.5   -- SCALES_HEALTH 加成（与W_POWER持平,W_BASE更均衡）
+local W_POWER = 0.6   -- SCALES_POWER 加成（超线性技能）
+local W_HEALTH = 0.6   -- SCALES_HEALTH 加成
 local W_FORCE = 3.0
 local SCALE = 100
 local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
@@ -72,8 +72,8 @@ local AUTO_TAGS = {
         "charge.*first", "冲锋", "pounce", "突袭",
         "ambush", "伏击",
         "backstab", "背刺", "leap", "跳击", "lunge", "猛扑",
-        "trap", "陷阱", "web", "蛛网", "ensnare", "诱捕",
-        "immobiliz", "定身", "blind.*target", "致盲",
+        "trap", "陷阱", "web", "蛛网", "网住", "网罩", "ensnare", "诱捕",
+        "immobiliz", "定身", "无法逃跑", "无法.*切换", "blind.*target", "致盲",
         "freeze.*target", "冰冻.*目标",
         "sandstorm", "沙尘暴", "rain dance", "祈雨",
         "天气变为", "变为.*天气",
