@@ -342,6 +342,8 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                     detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
                     detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h*HP_VALUE))
             end
+            -- 歧义品种扣1分: Breed 10(P/B)与8(P/S)系数完全相同,BreedData声明8优先
+            if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
                        stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=tc}
         end
