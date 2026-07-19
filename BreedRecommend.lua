@@ -74,7 +74,7 @@ local AUTO_TAGS = {
         "nether gate", "虚空之门", "portal", "传送",
         "force.*swap", "强制.*换", "recall", "召回",
         "stun", "昏迷", "晕眩",
-        "clobber", "猛击", "bash", "重击", "冲撞", "headbutt",
+        "clobber", "bash", "重击", "冲撞", "headbutt",
         "concuss", "脑震荡", "knock.*down", "击倒", "trip", "绊倒",
         "sleep.*first", "催眠", "confus.*first",
         "counterstrike", "反击", "riposte", "招架",
@@ -106,6 +106,7 @@ local AUTO_TAGS = {
         "triple.*hit", "三连击", "double.*hit", "双重.*击",
         "two.*times", "两次", "three.*times", "三次",
         "combo.*attack", "连击", "chain.*attack", "链.*攻击",
+        "重复", "repeat", -- "重复4次" = 4-hit multi-strike
         "每一击", "each hit", "each strike",
         "1.2次", "1.3次", "1.2把", "1.3把", -- 多段攻击的数量范围描述
         -- DoT/每轮
