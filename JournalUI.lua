@@ -123,9 +123,21 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     text = line1,
                     func = function()
                         addonTable.SetBestBreed(sid, bid, "auto", "")
-                        if Rematch and Rematch.petsPanel then
+                        -- petsPanel:Update()只重建布局不触发Fill钩子
+                        -- 用定时器逃逸菜单销毁帧,然后手动调用label()
+                        C_Timer.After(0.1, function()
+                            if not Rematch or not Rematch.petsPanel then return end
                             Rematch.petsPanel:Update()
-                        end
+                            -- 遍历List下所有子Frame,对匹配的按钮强制label
+                            local function forceLabel(f)
+                                if not f then return end
+                                if f.Breed and f.petID then pcall(label, f) end
+                                for _, c in ipairs({f:GetChildren()}) do forceLabel(c) end
+                            end
+                            if Rematch.petsPanel.List then
+                                forceLabel(Rematch.petsPanel.List)
+                            end
+                        end)
                     end,
                 }
             end
