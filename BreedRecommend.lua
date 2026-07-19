@@ -99,6 +99,7 @@ local AUTO_TAGS = {
         "two.*times", "两次", "three.*times", "三次",
         "combo.*attack", "连击", "chain.*attack", "链.*攻击",
         "每一击", "each hit", "each strike",
+        "1.2次", "1.3次", "1.2把", "1.3把", -- 多段攻击的数量范围描述
         -- DoT/每轮
         "every round", "每轮", "each round", "每回合",
         "per round", "per turn", "each turn",
@@ -169,9 +170,9 @@ local AUTO_TAGS = {
         "detonate", "引爆", "implode", "内爆",
         "杀死.*施法者", "杀死.*使用者", "立即杀死",
         "总生命值", "剩余.*生命值",
-        -- 换血
-        "split.*health", "平分生命", "平衡生命",
-        "swap.*life", "life.*exchange",
+        -- 换血/均分生命值
+        "split.*health", "平分生命", "平衡生命", "均分生命",
+        "swap.*life", "life.*exchange", "生命交换",
         -- 护盾/屏障
         "shield.*absorb", "护盾.*吸收",
         "barrier.*damage", "屏障", "ward", "结界",
@@ -220,17 +221,13 @@ local function AutoClassify(abilityID)
     end
     cleaned = cleaned:gsub("%s+", " ")
 
-    -- 按句分割，每句独立匹配，防止 .* 跨句误匹配
-    -- 例: "持续.*伤害" 不应匹配 "持续轮" + "...伤害" 跨越无关内容
-    local sentences = {}
-    for part in (cleaned .. "。"):gmatch("([^。]*)") do
-        if part ~= "" then sentences[#sentences + 1] = part end
-    end
-
+    -- 按中文句号。换行分割（UTF-8 safe：gsub 按字节序列匹配，而不是 [^。] 数组）
+    -- Lua 5.1 的 [^。] 对多字节字符无效，因为它是逐字节匹配的
+    cleaned = cleaned:gsub("。", "\n")
     local tags = {}
     for tag, patterns in pairs(AUTO_TAGS) do
         for _, pat in ipairs(patterns) do
-            for _, sentence in ipairs(sentences) do
+            for sentence in cleaned:gmatch("[^\n]+") do
                 if sfind(sentence, pat) then
                     tags[tag] = true; break
                 end
