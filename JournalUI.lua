@@ -113,6 +113,8 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
             end
 
             for _, rec in ipairs(recommendations) do
+                -- 跳过歧义品种: Breed 10(P/B)与Breed 8(P/S)系数完全相同,仅显示P/S
+                if not addonTable.BREED_AMBIGUITY or not addonTable.BREED_AMBIGUITY[rec.breedID] then
                 local line1 = string.format(GetLocaleString("RECOMMEND_SCORE_FMT"), rec.breedCode, rec.score)
                 if rec.breedID == currentBreedID then
                     line1 = line1 .. " |cffffd700★|r"
@@ -141,6 +143,7 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                         end)
                     end,
                 }
+                end  -- BREED_AMBIGUITY if
             end
         end
     end
