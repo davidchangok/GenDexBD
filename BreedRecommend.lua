@@ -25,7 +25,7 @@ local sfind, slower = string.find, string.lower
 -- ============================================================================
 
 local SPEED_THRESHOLDS = {0.8, 1.0, 1.2, 1.4}
-local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.15, [1.2]=1.3, [1.4]=1.5 }
+local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.1, [1.2]=1.2, [1.4]=1.3 }
 
 local W_BASE  = 1.0
 local W_SPEED = 0.8   -- NEEDS_SPEED 标签加成
