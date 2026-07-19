@@ -16,6 +16,7 @@ local RAW_TAGS = {
     },
     SCALES_HEALTH = {
         163, 282, 136, 821, 160,
+        283, -- 生存：免死至1点HP（生存/坦度技能）
     },
     FORCE_PP = { 919, 921 },
     FORCE_SS = {},
