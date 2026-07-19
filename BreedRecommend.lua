@@ -25,11 +25,11 @@ local sfind, slower = string.find, string.lower
 -- ============================================================================
 
 local SPEED_THRESHOLDS = {0.8, 1.0, 1.2, 1.4}
-local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.15, [1.2]=1.3, [1.4]=1.5 }
+local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.2, [1.2]=1.5, [1.4]=1.8 }
 
 local W_BASE  = 1.0
 local W_SPEED = 0.8   -- NEEDS_SPEED 标签加成
-local W_POWER = 0.6   -- SCALES_POWER 加成（超线性技能）
+local W_POWER = 0.4   -- SCALES_POWER 加成（超线性技能,控制不让P/P虚高）
 local W_HEALTH = 0.6   -- SCALES_HEALTH 加成
 local W_FORCE = 3.0
 local SCALE = 100
@@ -51,8 +51,8 @@ local FAMILY_MOD = {
     [6]  = { h=1.3, p=1.0, s=0.8 },
     -- 7型: 元素 — 无视天气负面 → 均衡(策略型)
     [7]  = { h=1.0, p=1.0, s=1.0 },
-    -- 8型: 野兽 — <50%HP伤害+25% → 偏血量
-    [8]  = { h=1.2, p=1.0, s=1.0 },
+    -- 8型: 野兽 — <50%HP伤害+25% → 战术操作,非品种引导
+    [8]  = { h=1.0, p=1.0, s=1.0 },
     -- 9型: 水栖 — DoT减免 → 均衡偏血
     [9]  = { h=1.1, p=1.0, s=1.0 },
     -- 10型:机械 — 复活20%HP一次 → 偏攻击
