@@ -115,10 +115,12 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     line1 = line1 .. " |cffffd700★|r"
                 end
 
+                -- 捕获循环变量避免闭包引用最后一个值
+                local breedID = rec.breedID
                 items[#items + 1] = {
                     text = line1,
                     func = function()
-                        addonTable.SetBestBreed(speciesID, rec.breedID, "auto", "")
+                        addonTable.SetBestBreed(speciesID, breedID, "auto", "")
                         C_Timer.After(0, function()
                             if Rematch.petsPanel then Rematch.petsPanel:Update() end
                         end)
