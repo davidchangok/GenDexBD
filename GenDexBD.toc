@@ -13,7 +13,9 @@
 
 Locales.lua
 BreedData.lua
+Data_SkillTags.lua
 BreedMath.lua
+BreedRecommend.lua
 Core.lua
 Tooltip.lua
 JournalUI.lua

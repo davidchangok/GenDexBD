@@ -84,6 +84,78 @@ local MAX_MENU_RETRY = 5
 local GOLD = "|cffffd600"
 local GRAY = "|cff888888"
 
+    -- ===== 智能推荐子菜单构建函数 =====
+    local function BuildRecommendSubMenu(_, petID)
+        if not Rematch or not Rematch.petInfo then return end
+        local info = Rematch.petInfo:Fetch(petID)
+        if not info or not info.speciesID then return end
+
+        local speciesID = info.speciesID
+        local petType = info.petType
+        local possibleBreedIDs = info.possibleBreedIDs
+        local currentBreedID = (info.hasBreed and info.breedID and info.breedID > 0) and info.breedID or nil
+
+        local items = {}
+
+        -- 调用推荐引擎
+        local recommendations = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, 3)
+
+        if #recommendations == 0 then
+            items[#items + 1] = {
+                text = GRAY .. "(" .. GetLocaleString("RECOMMEND_NO_DATA") .. ")|r",
+                isDisabled = true,
+            }
+        else
+            -- 标题行
+            items[#items + 1] = {
+                text = GOLD .. GetLocaleString("RECOMMEND_TITLE") .. "|r",
+                isDisabled = true,
+            }
+
+            -- 标签统计
+            local hasTags = false
+            for _, rec in ipairs(recommendations) do
+                if next(rec.tagCounts) then hasTags = true; break end
+            end
+            if not hasTags then
+                items[#items + 1] = {
+                    text = GRAY .. "  " .. GetLocaleString("RECOMMEND_NO_TAGS") .. "|r",
+                    isDisabled = true,
+                }
+            end
+
+            -- Top 3 推荐品种（显示品种代码 + 评分 + 三围）
+            for _, rec in ipairs(recommendations) do
+                local line1 = string.format(GetLocaleString("RECOMMEND_SCORE_FMT"), rec.breedCode, rec.score)
+
+                -- 标记当前品种
+                if rec.breedID == currentBreedID then
+                    line1 = line1 .. " ←"
+                end
+
+                local line2 = string.format(GetLocaleString("RECOMMEND_STATS_FMT"),
+                    rec.stats.h_coef, rec.stats.p_coef, rec.stats.s_coef)
+
+                items[#items + 1] = {
+                    text = line1,
+                    func = function()
+                        addonTable.SetBestBreed(speciesID, rec.breedID, "auto", "")
+                        C_Timer.After(0, function()
+                            if Rematch.petsPanel then Rematch.petsPanel:Update() end
+                        end)
+                    end,
+                }
+                -- 数值详情作为灰色子行
+                items[#items + 1] = {
+                    text = GRAY .. line2 .. "|r",
+                    isDisabled = true,
+                }
+            end
+        end
+
+        Rematch.menus:Register("GenDexRecommendMenu", items)
+    end
+
     -- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
 -- 同时暴露为 addonTable.BuildSetBestSubMenu 供战斗界面右击菜单调用
 -- isBattle: true=战斗界面调用, nil/false=宠物列表调用
@@ -188,6 +260,14 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
         items[#items + 1] = { text = GetLocaleString("SET_OTHER_BREED"), subMenu = "GenDexOtherBreedsMenu" }
     end
 
+    -- ===== 智能推荐（所有可多选的物种都显示，含唯一品种） =====
+    items[#items + 1] = { spacer = true }
+    items[#items + 1] = {
+        text = GetLocaleString("SMART_RECOMMEND"),
+        subMenu = "GenDexRecommendMenu",
+        subMenuFunc = BuildRecommendSubMenu,
+    }
+
     -- ===== 在手册中显示（仅战斗界面） =====
     if isBattle and speciesName then
         items[#items + 1] = { spacer = true }
@@ -209,6 +289,7 @@ local function injectRematchMenus()
 
     Rematch.menus:Register("GenDexSetBestMenu", {{text="..."}})
     Rematch.menus:Register("GenDexOtherBreedsMenu", {{text="..."}})
+    Rematch.menus:Register("GenDexRecommendMenu", {{text="..."}})
 
     local ok = pcall(function()
         Rematch.menus:AddToMenu("PetMenu",{

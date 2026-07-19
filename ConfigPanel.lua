@@ -10,6 +10,7 @@ local OPTIONS = {
     { "AssumeRareQuality",  "OPTION_ASSUME_RARE",       "check" },
     { "ShowBestBreedNote",  "OPTION_SHOW_NOTE",         "check" },
     { "TrackEncounters",    "OPTION_TRACK_ENCOUNTERS",  "check" },
+    { "DebugRecommend",     "OPTION_DEBUG_RECOMMEND",   "check" },
     { "AlertDuration",      "OPTION_ALERT_DURATION",    "slider" },
 }
 

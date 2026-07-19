@@ -29,6 +29,7 @@ local DB_DEFAULTS = {
         ShowInTooltip = true, AlertInBattle = true,
         AssumeRareQuality = true, ShowBestBreedNote = true, AlertDuration = 5,
         TrackEncounters = true,
+        DebugRecommend = false,
     },
     DBVersion = CURRENT_DB_VERSION,
 }
@@ -103,23 +104,25 @@ end
 local function GetEnemyBreed(petIndex) return GetPetBreed(2, petIndex) end
 local function GetAllyBreed(petIndex)  return GetPetBreed(1, petIndex) end
 
--- 检查宠物是否可捕捉（仅敌方+野外战斗有意义）
--- 训练师/NPC/PvP 对战中的宠物全部不可捕捉；野外对战中，品质 Epic(5)/Legendary(6) 不可捕捉
+-- 检查宠物是否可捕捉/可对战
+-- 通用检查：canBattle=false 的纯伴生宠物（如尤娜）一律不可对战
+-- 敌方额外检查：非野外战斗不可捕捉、Epic/Legendary 品质不可捕捉、非野外物种不可捕捉
 local function IsPetCapturable(team, petIndex)
+    local speciesID = C_PetBattles.GetPetSpeciesID(team, petIndex)
+    if not speciesID then return false end
+    -- 物种级检查：canBattle（纯伴生宠物不可对战）+ isWild（仅野外物种可捕捉）
+    if C_PetJournal.GetPetInfoBySpeciesID then
+        local _, _, _, _, _, _, isWild, canBattle = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
+        if canBattle == false then return false end
+        if team == 2 and isWild == false then return false end
+    end
     if team ~= 2 then return true end
     -- 非野外战斗（训练师/NPC/PvP）：敌方宠物一律不可捕捉
     if not isWildBattle then return false end
-    local speciesID = C_PetBattles.GetPetSpeciesID(2, petIndex)
-    if not speciesID then return false end
     -- 品质检查：Epic(5)/Legendary(6) 不可捕捉
     if C_PetBattles.GetBreedQuality then
         local quality = C_PetBattles.GetBreedQuality(2, petIndex)
         if quality and quality >= 5 then return false end
-    end
-    -- 物种级检查：非野外物种不可捕捉
-    if C_PetJournal.GetPetInfoBySpeciesID then
-        local _, _, _, _, _, _, isWild = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
-        if isWild == false then return false end
     end
     return true
 end
@@ -402,20 +405,19 @@ local function OnPlayerLogin()
                 local origOnClick = f:GetScript("OnClick")
                 f:SetScript("OnClick", function(self, button, down)
                     if button == "RightButton" and self.petIndex and self.petOwner then
+                        -- 不可对战的宠物不继续操作
+                        if not IsPetCapturable(self.petOwner, self.petIndex) then
+                            if origOnClick then origOnClick(self, button, down) end
+                            return
+                        end
                         -- 己方(1) 或 敌方(2)：弹出最优品种设置菜单
                         if self.petOwner == 1 then
-                            -- 己方：团队 1
                             if not Rematch or not Rematch.menus then return end
                             local petID = "battle:1:" .. self.petIndex
                             if not addonTable.BuildSetBestSubMenu then return end
                             addonTable.BuildSetBestSubMenu(nil, petID, true)
                             Rematch.menus:Show("GenDexSetBestMenu", self, petID, "cursor")
                         elseif self.petOwner == 2 then
-                            -- 敌方：检查可捕捉性
-                            if not IsPetCapturable(2, self.petIndex) then
-                                if origOnClick then origOnClick(self, button, down) end
-                                return
-                            end
                             if not Rematch or not Rematch.menus then return end
                             local petID = "battle:2:" .. self.petIndex
                             if not addonTable.BuildSetBestSubMenu then return end

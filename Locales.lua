@@ -71,7 +71,8 @@ local strings = {
     OPTION_ASSUME_RARE    = { zhCN = "默认按精良品质推算",       enUS = "Assume Rare quality" },
     OPTION_SHOW_NOTE      = { zhCN = "提示中显示最优备注",       enUS = "Show best breed note in tooltip" },
     OPTION_TRACK_ENCOUNTERS = { zhCN = "遇敌属性计数",           enUS = "Track Pet Encounters" },
-    OPTION_ALERT_DURATION = { zhCN = "目标提示显示时间",          enUS = "Alert display duration" },
+    OPTION_ALERT_DURATION = { zhCN = "目标提示显示时间",            enUS = "Alert display duration" },
+    OPTION_DEBUG_RECOMMEND = { zhCN = "诊断日志（智能推荐详情）",     enUS = "Debug log (Recommend details)" },
     SECONDS              = { zhCN = "秒",                      enUS = "sec" },
     EXPORT_BUTTON        = { zhCN = "导出配置",                 enUS = "Export Config" },
     IMPORT_BUTTON        = { zhCN = "导入配置",                 enUS = "Import Config" },
@@ -94,6 +95,16 @@ local strings = {
     BEST_BREED_LIST_TITLE = { zhCN = "已保存的最优品种",           enUS = "Saved Best Breeds" },
     BEST_BREED_NO_DATA    = { zhCN = "暂无保存记录",               enUS = "No saved breeds yet" },
     CATEGORY_HEADER       = { zhCN = "分类",                      enUS = "Category" },
+
+    -- 智能推荐
+    SMART_RECOMMEND        = { zhCN = "🤖 智能推荐",           enUS = "🤖 Smart Recommendation" },
+    RECOMMEND_TITLE        = { zhCN = "品种推荐 (评分)",        enUS = "Breed Recommendations (Score)" },
+    RECOMMEND_NO_DATA      = { zhCN = "技能标签数据不足",        enUS = "Insufficient ability tag data" },
+    RECOMMEND_NO_BREEDS    = { zhCN = "无法获取可选品种",        enUS = "Cannot determine possible breeds" },
+    RECOMMEND_SCORE_FMT    = { zhCN = "%s  — 评分: %d",      enUS = "%s  — Score: %d" },
+    RECOMMEND_STATS_FMT    = { zhCN = "  H×%.1f  P×%.1f  S×%.1f", enUS = "  H×%.1f  P×%.1f  S×%.1f" },
+    RECOMMEND_NO_TAGS      = { zhCN = "(无匹配标签，显示基础属性评分)", enUS = "(No matching tags; raw stat score)" },
+    RECOMMEND_SET_BREED    = { zhCN = "设为此品种",             enUS = "Set as Best Breed" },
 
     -- 战斗提示
     ALERT_TARGET          = { zhCN = "最优属性目标",        enUS = "Best Breed Target" },

@@ -17,72 +17,70 @@ local GetLocaleString = addonTable.GetLocaleString
 
 local type = type
 local pairs = pairs
-local strlower = string.lower
-local strfind = string.find
 
 -- ============================================================================
 -- API 返回字段自动探测（C_PetJournal.GetPetInfoBySpeciesID）
 -- ============================================================================
+-- 该 API 返回多个独立值（非 table 格式），位置随版本变化。
+-- 策略：取所有 5-100 范围的数字（排除 petType=1-10 等），最后 3 个中最大的为 health。
 
--- 已探测到的字段名缓存
-local petInfoFields = nil  -- { healthKey, powerKey, speedKey }
+-- 已探测到的基准属性位置缓存
+local petInfoFields = nil  -- { healthIndex, powerIndex, speedIndex }
 
---- 运行时自动探测 GetPetInfoBySpeciesID 返回表的三围基准属性字段名
---- 不依赖任何硬编码的字段名
---- @return healthKey, powerKey, speedKey 或均为 nil
+--- 运行时自动探测：在返回值数组中定位三围基准属性（5-100 范围数字）
+--- @return healthIdx, powerIdx, speedIdx 或均为 nil
 local function DetectPetInfoFields()
     if petInfoFields then
         return petInfoFields[1], petInfoFields[2], petInfoFields[3]
     end
 
-    -- 尝试取一个已知物种的返回数据来分析字段结构
-    local sample = C_PetJournal.GetPetInfoBySpeciesID(39)  -- 机械小鸡
-    if not sample then
-        sample = C_PetJournal.GetPetInfoBySpeciesID(1)
+    local values = {C_PetJournal.GetPetInfoBySpeciesID(39)}  -- 机械松鼠
+    if #values == 0 then
+        values = {C_PetJournal.GetPetInfoBySpeciesID(1)}
     end
-    if not sample then
+    if #values == 0 then
         return nil, nil, nil
     end
 
-    -- 收集所有键名
-    local allKeys = {}
-    for k in pairs(sample) do
-        allKeys[#allKeys + 1] = k
-    end
-
-    -- 按关键词模式匹配字段
-    local function findKey(patterns)
-        for _, key in ipairs(allKeys) do
-            local lowerKey = strlower(key)
-            for _, pat in ipairs(patterns) do
-                if strfind(lowerKey, pat, 1, true) then
-                    return key
-                end
-            end
+    -- 收集 5-100 的值
+    local nums = {}
+    for i, v in ipairs(values) do
+        if type(v) == "number" and v >= 5 and v <= 100 and v == math.floor(v) then
+            nums[#nums + 1] = {i = i, v = v}
         end
-        return nil
     end
 
-    local healthKey = findKey({"health", "hp"})
-    local powerKey  = findKey({"power", "attack", "atk"})
-    local speedKey  = findKey({"speed", "spd"})
+    if #nums < 3 then
+        return nil, nil, nil
+    end
 
-    petInfoFields = { healthKey, powerKey, speedKey }
-    return healthKey, powerKey, speedKey
+    -- 取最后 3 个符合范围的值，其中最大的为 health
+    local a, b, c = nums[#nums - 2], nums[#nums - 1], nums[#nums]
+    local v1, v2, v3 = a.v, b.v, c.v
+
+    if v1 >= v2 and v1 >= v3 then
+        petInfoFields = {a.i, b.i, c.i}
+    elseif v2 >= v1 and v2 >= v3 then
+        petInfoFields = {b.i, a.i, c.i}
+    else
+        petInfoFields = {c.i, a.i, b.i}
+    end
+
+    return petInfoFields[1], petInfoFields[2], petInfoFields[3]
 end
 
---- 从 GetPetInfoBySpeciesID 返回表提取三围基准属性
---- @param petInfo table|nil
+--- 从 API 返回值数组中提取三围基准属性
+--- @param values table 数值数组
 --- @return number|nil baseHealth, number|nil basePower, number|nil baseSpeed
-local function ExtractBaseStats(petInfo)
-    if not petInfo then
+local function ExtractBaseStats(values)
+    if not values or type(values) ~= "table" or #values == 0 then
         return nil, nil, nil
     end
-    local hKey, pKey, sKey = DetectPetInfoFields()
-    if not hKey or not pKey or not sKey then
+    local hIdx, pIdx, sIdx = DetectPetInfoFields()
+    if not hIdx or not pIdx or not sIdx then
         return nil, nil, nil
     end
-    return petInfo[hKey], petInfo[pKey], petInfo[sKey]
+    return values[hIdx], values[pIdx], values[sIdx]
 end
 
 -- ============================================================================
@@ -169,13 +167,14 @@ local function OnBattlePetTooltip(tooltip, data)
         return  -- 数据不完整，无法推算
     end
 
-    -- 获取物种基准属性（自动探测 API 字段名，不硬编码）
-    local petInfo = C_PetJournal.GetPetInfoBySpeciesID(speciesID)
-    if not petInfo then
+    -- 获取物种基准属性（自动探测，不硬编码）
+    -- C_PetJournal.GetPetInfoBySpeciesID 返回多个独立值，需打包为数组
+    local allValues = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
+    if #allValues == 0 then
         return
     end
 
-    local baseHealth, basePower, baseSpeed = ExtractBaseStats(petInfo)
+    local baseHealth, basePower, baseSpeed = ExtractBaseStats(allValues)
     if not baseHealth or not basePower or not baseSpeed then
         return
     end
