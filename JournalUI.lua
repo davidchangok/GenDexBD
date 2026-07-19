@@ -124,8 +124,8 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                         if doDbg then print(string.format("[GenDexDBG] 点击菜单: sid=%d bid=%d code=%s", sid, bid, rec.breedCode)) end
                         addonTable.SetBestBreed(sid, bid, "auto", "")
                         if doDbg then print("[GenDexDBG]   SetBestBreed完成, 0.15s后刷新面板") end
-                        -- 延迟刷新: 菜单点击后立即销毁菜单，同步调用Update()会被截断
-                        C_Timer.After(0.15, function()
+                        -- Rematch菜单关闭需要时间，延迟到菜单完全消失后再刷新
+                        C_Timer.After(0.5, function()
                             if Rematch and Rematch.petsPanel then
                                 Rematch.petsPanel:Update()
                                 if doDbg then print("[GenDexDBG]   Rematch面板已刷新") end
