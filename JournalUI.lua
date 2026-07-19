@@ -115,22 +115,13 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     line1 = line1 .. " |cffffd700★|r"
                 end
 
-                -- 捕获循环变量避免闭包引用最后一个值
                 local sid = speciesID
                 local bid = rec.breedID
                 items[#items + 1] = {
                     text = line1,
                     func = function()
-                        print("|cff00ff00[GenDexBD]|r 菜单点击: speciesID=" .. tostring(sid) .. " breedID=" .. tostring(bid))
-                        if not sid or not bid then
-                            print("|cffff0000[GenDexBD]|r 错误: sid或bid为空!")
-                            return
-                        end
                         addonTable.SetBestBreed(sid, bid, "auto", "")
-                        print("|cff00ff00[GenDexBD]|r SetBestBreed 完成")
-                        C_Timer.After(0, function()
-                            if Rematch.petsPanel then Rematch.petsPanel:Update() end
-                        end)
+                        if Rematch.petsPanel then Rematch.petsPanel:Update() end
                     end,
                 }
             end
