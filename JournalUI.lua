@@ -85,7 +85,7 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
         }
     else
         -- ===== 多品种：直接展示智能推荐 Top 3 =====
-        local recommendations = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, 3)
+        local recommendations = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, 99)
 
         if #recommendations == 0 then
             items[#items + 1] = {
