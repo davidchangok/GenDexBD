@@ -187,6 +187,21 @@ local AUTO_TAGS = {
     },
 }
 
+-- 语种过滤：中文客户端只保留中文关键词，英文客户端只保留英文
+do
+    local isCN = GetLocale() == "zhCN" or GetLocale() == "zhTW"
+    for tag, patterns in pairs(AUTO_TAGS) do
+        local filtered = {}
+        for _, p in ipairs(patterns) do
+            local first = string.byte(p, 1)
+            if (first > 127) == isCN then
+                filtered[#filtered + 1] = p
+            end
+        end
+        AUTO_TAGS[tag] = filtered
+    end
+end
+
 local autoTagCache = {}
 
 -- ============================================================================
