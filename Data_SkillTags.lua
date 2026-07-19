@@ -45,7 +45,10 @@ local RAW_TAGS = {
     },
 
     -- 强制纯攻击 P/P
-    FORCE_PP = {},
+    FORCE_PP = {
+        919, -- 黑爪：Black Claw体系核心 → 纯攻击爆发
+        921, -- 狩猎小队：多段攻击+增伤debuff
+    },
 
     -- 强制纯速度 S/S
     FORCE_SS = {},

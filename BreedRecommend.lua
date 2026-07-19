@@ -176,9 +176,8 @@ local AUTO_TAGS = {
         "detonate", "引爆", "implode", "内爆",
         "杀死.*施法者", "杀死.*使用者", "立即杀死",
         "总生命值", "剩余.*生命值",
-        -- 换血/均分生命值
-        "split.*health", "平分生命", "平衡生命", "均分生命",
-        "swap.*life", "life.*exchange", "生命交换",
+        -- 换血/平分（均分生命=生命交换，反SCALES_HEALTH：HP越低越强）
+        "split.*health", "swap.*life", "life.*exchange",
         -- 护盾/屏障
         "shield.*absorb", "护盾.*吸收",
         "barrier.*damage", "屏障", "ward", "结界",
