@@ -220,10 +220,22 @@ local function AutoClassify(abilityID)
     end
     cleaned = cleaned:gsub("%s+", " ")
 
+    -- 按句分割，每句独立匹配，防止 .* 跨句误匹配
+    -- 例: "持续.*伤害" 不应匹配 "持续轮" + "...伤害" 跨越无关内容
+    local sentences = {}
+    for part in (cleaned .. "。"):gmatch("([^。]*)") do
+        if part ~= "" then sentences[#sentences + 1] = part end
+    end
+
     local tags = {}
     for tag, patterns in pairs(AUTO_TAGS) do
         for _, pat in ipairs(patterns) do
-            if sfind(cleaned, pat) then tags[tag] = true; break end
+            for _, sentence in ipairs(sentences) do
+                if sfind(sentence, pat) then
+                    tags[tag] = true; break
+                end
+            end
+            if tags[tag] then break end
         end
     end
     if next(tags) then autoTagCache[abilityID] = tags; return tags end
