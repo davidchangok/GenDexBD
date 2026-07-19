@@ -135,6 +135,20 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
         end
     end
 
+    -- ===== 已设最佳品种标注 =====
+    local allBest = addonTable.GetAllBestBreeds(speciesID)
+    if next(allBest) then
+        items[#items + 1] = { spacer = true }
+        for bID in pairs(allBest) do
+            local code = GetBreedCode(bID) or "?"
+            local displayName = addonTable.GetBreedDisplayName and addonTable.GetBreedDisplayName(bID, code) or code
+            items[#items + 1] = {
+                text = GOLD .. "已设最佳: " .. displayName .. " ★|r",
+                isDisabled = true,
+            }
+        end
+    end
+
     -- ===== 在手册中显示（仅战斗界面） =====
     if isBattle and speciesName then
         items[#items + 1] = { spacer = true }
