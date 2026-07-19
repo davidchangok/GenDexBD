@@ -121,16 +121,31 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     text = line1,
                     func = function()
                         local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
-                        if doDbg then print(string.format("[GenDexDBG] 点击菜单: sid=%d bid=%d code=%s", sid, bid, rec.breedCode)) end
+                        if doDbg then print(string.format("[GenDexDBG] 点击: sid=%d bid=%d", sid, bid)) end
                         addonTable.SetBestBreed(sid, bid, "auto", "")
-                        if doDbg then print("[GenDexDBG]   SetBestBreed完成, 0.15s后刷新面板") end
-                        -- Rematch菜单关闭需要时间，延迟到菜单完全消失后再刷新
-                        C_Timer.After(0.5, function()
-                            if Rematch and Rematch.petsPanel then
-                                Rematch.petsPanel:Update()
-                                if doDbg then print("[GenDexDBG]   Rematch面板已刷新") end
+                        if doDbg then print(string.format("[GenDexDBG]   DB: %s", addonTable.IsBestBreed(sid, bid) and "OK" or "FAIL")) end
+                        if Rematch and Rematch.petsPanel then
+                            Rematch.petsPanel:Update()
+                            if doDbg then
+                                local btns = Rematch.petsPanel.buttons
+                                local cnt = 0
+                                if btns then for _ in pairs(btns) do cnt=cnt+1 end end
+                                print(string.format("[GenDexDBG]   Update() done, buttons=%d, 0.15s后跑label", cnt or 0))
                             end
-                        end)
+                            C_Timer.After(0.15, function()
+                                local fixed = 0
+                                if Rematch.petsPanel and Rematch.petsPanel.buttons then
+                                    for _, btn in pairs(Rematch.petsPanel.buttons) do
+                                        if btn and btn.Breed and btn.petID then
+                                            label(btn); fixed = fixed + 1
+                                        end
+                                    end
+                                end
+                                if doDbg then print(string.format("[GenDexDBG]   label完成: %d个按钮", fixed)) end
+                            end)
+                        elseif doDbg then
+                            print("|cffff0000[GenDexDBG]   Rematch.petsPanel不可用|r")
+                        end
                     end,
                 }
             end
