@@ -81,7 +81,7 @@ local AUTO_TAGS = {
         "reflect.*attack", "反弹.*攻击",
         "retaliate", "报复", "deflect.*attack",
         "charge.*first", "冲锋", "pounce", "突袭",
-        "ambush", "伏击", "sneak.*attack", "偷袭",
+        "ambush", "伏击",
         "backstab", "背刺", "leap", "跳击", "lunge", "猛扑",
         "dash", "疾跑", "sprint", "飞奔",
         "trap", "陷阱", "web", "蛛网", "ensnare", "诱捕",
