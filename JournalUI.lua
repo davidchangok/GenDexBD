@@ -115,9 +115,6 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     line1 = line1 .. " <-"
                 end
 
-                local line2 = string.format(GetLocaleString("RECOMMEND_STATS_FMT"),
-                    rec.stats.h_coef, rec.stats.p_coef, rec.stats.s_coef)
-
                 items[#items + 1] = {
                     text = line1,
                     func = function()
@@ -126,10 +123,6 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                             if Rematch.petsPanel then Rematch.petsPanel:Update() end
                         end)
                     end,
-                }
-                items[#items + 1] = {
-                    text = GRAY .. line2 .. "|r",
-                    isDisabled = true,
                 }
             end
         end
