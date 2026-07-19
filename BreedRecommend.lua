@@ -25,7 +25,7 @@ local sfind, slower = string.find, string.lower
 -- ============================================================================
 
 local SPEED_THRESHOLDS = {0.8, 1.0, 1.2, 1.4}
-local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.1, [1.2]=1.2, [1.4]=1.3 }
+local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.15, [1.2]=1.3, [1.4]=1.5 }
 
 local W_BASE  = 1.0
 local W_SPEED = 0.8   -- NEEDS_SPEED 标签加成
@@ -45,162 +45,17 @@ local FAMILY_MOD = {
 -- ============================================================================
 -- Layer 2: 自动分类关键词（精炼版）
 -- ============================================================================
--- SCALES_POWER 仅含超线性技能；普通攻击不在此列
-
-local AUTO_TAGS = {
-    NEEDS_SPEED = {
-        "优先", "先手", "率先", "首先", "抢先",
-        "goes first", "always first", "first strike",
-        "initiative", "preemptive", "starts first",
-        "interrupt", "打断", "反制", "disrupt",
-        "dodge", "闪避", "躲闪", "evade", "evasive", "elusive",
-        "deflect", "偏斜", "blink", "闪现", "vanish", "消失",
-        "ethereal", "虚化",
-        "升空", "升上", "起飞", "soar",
-        "1轮内不可攻击", "1轮内无法攻击",
-        "burrow", "钻地", "钻入", "underground",
-        "dive", "潜水", "下潜", "submerge",
-        "feign death", "假死",
-        "faster than", "比.*快",
-        "swap.*pet", "替换.*宠", "switch.*pet",
-        "nether gate", "虚空之门", "portal", "传送",
-        "force.*swap", "强制.*换", "recall", "召回",
-        "stun", "昏迷", "晕眩",
-        "knock.*down", "击倒",
-        "sleep.*first", "催眠",
-        "reflect.*attack", "反弹.*攻击",
-        "charge.*first", "冲锋", "pounce", "突袭",
-        "ambush", "伏击",
-        "backstab", "背刺", "leap", "跳击", "lunge", "猛扑",
-        "trap", "陷阱", "web", "蛛网", "网住", "网罩", "ensnare", "诱捕",
-        "immobiliz", "定身", "无法逃跑", "无法.*切换", "blind.*target", "致盲",
-        "freeze.*target", "冰冻.*目标",
-        "sandstorm", "沙尘暴", "rain dance", "祈雨",
-        "天气变为", "变为.*天气",
-        "mudslide", "泥石流", "cleansing rain",
-        "call darkness", "arcane storm", "scorched", "焦土",
-        "lightning storm", "雷暴",
-        "cocoon", "茧", "barrier.*first", "先手.*屏障", "shroud", "幕",
-        "purge.*enemy", "驱散.*敌方",
-    },
-    SCALES_POWER = {
-        -- 多段（≥2 hits，非单段普攻）
-        "flurry", "乱舞", "swarm", "蜂群", "frenzy", "狂暴",
-        "stampede", "猛踏", "thrash",
-        "volley", "连射", "barrage", "弹幕", "salvo", "齐射",
-        "triple.*hit", "三连击", "double.*hit", "双重.*击",
-        "two.*times", "两次", "three.*times", "三次",
-        "combo.*attack", "连击", "chain.*attack", "链.*攻击",
-        "重复", "repeat", -- "重复4次" = 4-hit multi-strike
-        "每一击", "each hit", "each strike",
-        "1.2次", "1.3次", "1.2把", "1.3把", -- 多段攻击的数量范围描述
-        -- DoT/每轮
-        "every round", "each round", "每回合",
-        "每轮造成", "每轮额外", -- 仅伤害型每轮(排除"每轮回复"等治疗)
-        "per round", "per turn", "each turn",
-        "damage over", "持续.*伤害", "每回合造成",
-        "additional.*damage.*each", "额外.*每轮",
-        -- 延迟伤害（轮后触发）
-        "轮后.*造成", "after.*round.*damage", "turns.*later",
-        -- 流血
-        "bleed", "流血", "rend", "割裂", "lacerate",
-        "hemorrhage", "出血", "gouge",
-        -- 中毒
-        "poison", "中毒.*每轮", "中毒.*持续", "toxic", "venom",
-        "contaminate", "污染",
-        "neurotoxin", "麻痹",
-        -- 燃烧Dot
-        "ignite", "点燃", "scorch", "焦灼", "immolate", "献祭",
-        "conflagrate", "burn.*damage", "燃烧.*伤害",
-        -- 冰霜Dot
-        "chill", "冻伤", "frostbite", "frost.*damage",
-        "hypotherm", "低温",
-        -- 诅咒
-        "curse", "诅咒", "haunt", "鬼影", "doom",
-        -- 斩杀/条件增伤
-        "execute", "斩杀", "execution", "处决",
-        "低于.*双倍", "below.*double",
-        "如果.*中毒.*双倍",
-        -- 高额爆发
-        "devastat", "毁灭", "annihilate", "湮灭", "obliterate", "抹除",
-        "surge of power", "能量涌动", "burst.*damage", "爆发",
-        "wrath", "愤怒", "fury", "狂怒",
-        "judgment", "审判", "cataclysm", "大灾变",
-        "apocalypse", "天启",
-        -- 攻击加成/增幅（无.*，防止"伤害...速度提高"跨词误匹配）
-        "howl", "嚎叫", "amplify", "增幅",
-        "enrage", "激怒", "berserk", "狂暴",
-        "bloodlust", "嗜血", "roar", "咆哮",
-        "伤害提高", "伤害提升", "damage increased", "damage boost",
-        "攻击.*提升", "power boost",
-    },
-    SCALES_HEALTH = {
-        -- 治疗
-        "heals ", "治疗", "healing ", "治愈", "回复.*生命",
-        "mend", "cure", "疗伤", "restore.*health",
-        "recover.*health", "康复", "regenerate", "再生",
-        "rejuvenate", "回春", "bloom", "绽放", "blossom", "开花",
-        "renew.*health", "重振", "invigorate", "提神",
-        "nourish", "滋养", "sooth", "安抚",
-        "bandage", "绷带", "first aid", "急救",
-        -- 复活/重生/机械不死
-        "resurrect", "复活", "revive", "复苏",
-        "rebirth", "重生", "reincarnate", "转生",
-        "undying", "不死", "reanimate", "还魂",
-        "second life", "第二条命",
-        "rebuilt", "重铸", "reconstruct", "重建",
-        "failsafe", "故障保护",
-        -- 百分比回血
-        "最大生命.*回复", "of.*max.*health",
-        -- 注: 去"最大生命值.*的"(吸血=汲取敌人HP,非自身HP缩放)
-        -- 吸血
-        "drain.*health", "吸取.*生命", "leech", "吸血",
-        "siphon", "虹吸", "vampir",
-        -- 吞噬
-        "consume", "吞食", "devour", "吞噬",
-        "feast", "盛宴", "feed", "进食",
-        -- 牺牲/自爆/自毁
-        "sacrifice", "牺牲", "self.destruct", "自爆",
-        "explode", "爆炸", "martyr", "殉道",
-        "detonate", "引爆", "implode", "内爆",
-        "杀死.*施法者", "杀死.*使用者", "立即杀死",
-        "总生命值", "剩余.*生命值",
-        -- 换血/平分（均分生命=生命交换，反SCALES_HEALTH：HP越低越强）
-        "split.*health", "swap.*life", "life.*exchange",
-        -- 护盾/屏障
-        "shield.*absorb", "护盾.*吸收",
-        "barrier.*damage", "屏障", "ward", "结界",
-        "aegis", "神盾", "bulwark", "壁垒",
-        "absorb.*damage", "吸收.*伤害",
-        -- 减伤
-        "reduce.*damage", "减免.*伤害", "damage.*reduce",
-        "伤害降低", "降低.*伤害",
-        "受到.*伤害.*降低", "受到.*伤害.*减少",
-        "damage.*cap", "伤害上限", "cannot.*exceed",
-        "prevent.*damage", "防止.*伤害",
-        -- 坦克/耐久
-        "fortitude", "坚毅", "endure.*damage", "承受",
-        "withstand", "坚韧", "resilien", "韧性",
-        -- 守护
-        "guardian", "守护者", "protector", "保护者",
-        "sanctuary", "庇护所", "blessing", "祝福", "purify", "净化",
-    },
-}
-
--- 语种过滤：中文客户端只保留中文关键词，英文客户端只保留英文
-do
-    local isCN = GetLocale() == "zhCN" or GetLocale() == "zhTW"
-    for tag, patterns in pairs(AUTO_TAGS) do
-        local filtered = {}
-        for _, p in ipairs(patterns) do
-            local first = string.byte(p, 1)
-            if (first > 127) == isCN then
-                filtered[#filtered + 1] = p
-            end
-        end
-        AUTO_TAGS[tag] = filtered
-    end
-end
+-- 关键词从 Locales.lua 的 addonTable.AUTO_TAG_KEYWORDS 读取
+-- 按客户端语种自动选择 zhCN 或 enUS
+local AUTO_TAGS = (function()
+    local kw = addonTable.AUTO_TAG_KEYWORDS
+    local key = (GetLocale() == "zhCN" or GetLocale() == "zhTW") and "zhCN" or "enUS"
+    return {
+        NEEDS_SPEED   = kw.NEEDS_SPEED[key],
+        SCALES_POWER  = kw.SCALES_POWER[key],
+        SCALES_HEALTH = kw.SCALES_HEALTH[key],
+    }
+end)()
 
 local autoTagCache = {}
 

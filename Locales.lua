@@ -198,6 +198,117 @@ function addonTable.GetBestBreedCategoryName(category)
     return GetLocalizedString(strings, stringKey)
 end
 
+-- ============================================================================
+-- 自动分类关键词（zhCN/enUS 分离，便于维护）
+-- ============================================================================
+
+addonTable.AUTO_TAG_KEYWORDS = {
+    NEEDS_SPEED = {
+        zhCN = {
+            "优先","先手","率先","首先","抢先",
+            "打断","反制",
+            "闪避","躲闪","偏斜","闪现","消失","虚化",
+            "升空","升上","起飞","1轮内不可攻击","1轮内无法攻击",
+            "钻地","钻入","潜水","下潜",
+            "假死","比.*快",
+            "替换.*宠","虚空之门","传送","强制.*换","召回",
+            "昏迷","晕眩","击倒","催眠",
+            "反弹.*攻击","冲锋","突袭","伏击","背刺","跳击","猛扑",
+            "陷阱","蛛网","网住","网罩","诱捕","定身","无法逃跑","无法.*切换","致盲",
+            "冰冻.*目标","沙尘暴","祈雨","天气变为","变为.*天气",
+            "泥石流","焦土","雷暴",
+            "茧","先手.*屏障","幕","驱散.*敌方",
+        },
+        enUS = {
+            "goes first","always first","first strike",
+            "initiative","preemptive","starts first",
+            "interrupt","disrupt",
+            "dodge","evade","evasive","elusive",
+            "deflect","blink","vanish","ethereal",
+            "soar",
+            "burrow","underground","dive","submerge",
+            "feign death","faster than",
+            "swap.*pet","switch.*pet","nether gate","portal","force.*swap","recall",
+            "stun","knock.*down","sleep.*first",
+            "reflect.*attack","charge.*first","pounce","ambush","backstab","leap","lunge",
+            "trap","web","ensnare","immobiliz","blind.*target","freeze.*target",
+            "sandstorm","rain dance","mudslide","cleansing rain",
+            "call darkness","arcane storm","scorched","lightning storm",
+            "cocoon","barrier.*first","shroud","purge.*enemy",
+        },
+    },
+    SCALES_POWER = {
+        zhCN = {
+            "乱舞","蜂群","猛踏","连射","弹幕","齐射",
+            "三连击","双重.*击","两次","三次","连击","链.*攻击","重复",
+            "每一击","1.2次","1.3次","1.2把","1.3把",
+            "每回合","每轮造成","每轮额外","持续.*伤害","每回合造成","额外.*每轮","轮后.*造成",
+            "流血","割裂","出血",
+            "中毒.*每轮","中毒.*持续","毒性","污染","麻痹",
+            "点燃","焦灼","献祭","燃烧.*伤害",
+            "冻伤","低温",
+            "诅咒","鬼影",
+            "斩杀","处决","低于.*双倍","如果.*中毒.*双倍",
+            "毁灭","湮灭","抹除","能量涌动","爆发","愤怒","狂怒",
+            "审判","大灾变","天启",
+            "嚎叫","增幅","激怒","狂暴","嗜血","咆哮",
+            "伤害提高","伤害提升","攻击.*提升",
+        },
+        enUS = {
+            "flurry","swarm","frenzy","stampede","thrash",
+            "volley","barrage","salvo",
+            "triple.*hit","double.*hit","two.*times","three.*times",
+            "combo.*attack","chain.*attack","repeat",
+            "each hit","each strike",
+            "every round","each round","per round","per turn","each turn",
+            "damage over","additional.*damage.*each","after.*round.*damage","turns.*later",
+            "bleed","rend","lacerate","hemorrhage","gouge",
+            "poison","toxic","venom","contaminate","neurotoxin",
+            "ignite","scorch","immolate","conflagrate","burn.*damage",
+            "chill","frostbite","frost.*damage","hypotherm",
+            "curse","haunt","doom",
+            "execute","execution","below.*double",
+            "devastat","annihilate","obliterate","surge of power","burst.*damage",
+            "wrath","fury","judgment","cataclysm","apocalypse",
+            "howl","amplify","enrage","berserk","bloodlust","roar",
+            "damage increased","damage boost","power boost",
+        },
+    },
+    SCALES_HEALTH = {
+        zhCN = {
+            "治疗","治愈","回复.*生命","疗伤","康复","再生","回春","绽放","开花",
+            "重振","提神","滋养","安抚","绷带","急救",
+            "复活","复苏","重生","转生","不死","还魂","第二条命",
+            "重铸","重建","故障保护",
+            "最大生命.*回复","吸取.*生命","吸血","虹吸",
+            "吞食","吞噬","盛宴","进食",
+            "牺牲","自爆","爆炸","殉道","引爆","内爆",
+            "杀死.*施法者","杀死.*使用者","立即杀死","总生命值","剩余.*生命值",
+            "护盾.*吸收","屏障","结界","神盾","壁垒","吸收.*伤害",
+            "减免.*伤害","伤害降低","降低.*伤害","受到.*伤害.*降低","受到.*伤害.*减少",
+            "伤害上限","防止.*伤害",
+            "坚毅","承受","坚韧","韧性",
+            "守护者","保护者","庇护所","祝福","净化",
+        },
+        enUS = {
+            "heals ","healing ","mend","cure",
+            "restore.*health","recover.*health","regenerate","rejuvenate",
+            "bloom","blossom","renew.*health","invigorate","nourish","sooth",
+            "bandage","first aid",
+            "resurrect","revive","rebirth","reincarnate","undying","reanimate","second life",
+            "rebuilt","reconstruct","failsafe",
+            "of.*max.*health","drain.*health","leech","siphon","vampir",
+            "consume","devour","feast","feed",
+            "sacrifice","self.destruct","explode","martyr","detonate","implode",
+            "split.*health","swap.*life","life.*exchange",
+            "shield.*absorb","barrier.*damage","ward","aegis","bulwark","absorb.*damage",
+            "reduce.*damage","damage.*reduce","damage.*cap","cannot.*exceed","prevent.*damage",
+            "fortitude","endure.*damage","withstand","resilien",
+            "guardian","protector","sanctuary","blessing","purify",
+        },
+    },
+}
+
 --- 便捷函数：获取指定键的本地化字符串
 --- @param key string 字符串键
 --- @return string
