@@ -83,7 +83,7 @@ local AUTO_TAGS = {
         "immobiliz", "定身", "blind.*target", "致盲",
         "freeze.*target", "冰冻.*目标", "polymorph", "变形",
         "lightning storm", "雷暴", "sandstorm", "沙尘暴",
-        "rain dance", "祈雨", "sunlight", "阳光", "moonlight", "月光",
+        "rain dance", "祈雨", "sunlight", "阳光",
         "mudslide", "泥石流", "cleansing rain",
         "call darkness", "arcane storm", "scorched", "焦土",
         "cocoon", "茧", "barrier.*first", "先手.*屏障", "shroud", "幕",
@@ -93,7 +93,7 @@ local AUTO_TAGS = {
     SCALES_POWER = {
         -- 多段（≥2 hits，非单段普攻）
         "flurry", "乱舞", "swarm", "蜂群", "frenzy", "狂暴",
-        "stampede", "猛踏", "thrash", "鞭笞",
+        "stampede", "猛踏", "thrash",
         "volley", "连射", "barrage", "弹幕", "salvo", "齐射",
         "triple.*hit", "三连击", "double.*hit", "双重.*击",
         "two.*times", "两次", "three.*times", "三次",
@@ -289,12 +289,14 @@ local function Score(h, p, s, tc, pt)
 
     local sb = 1.0
     if (tc["NEEDS_SPEED"] or 0) > 0 then sb = SpeedBonus(s) end
-    ws_needs = ws_needs * sb
 
-    local ws = ws_base + ws_needs
-    if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.7 end  -- 无先手→速度仍有生存价值
+    local ws = ws_base
+    if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.7 end
 
-    local raw = wp*p + ws*s + wh*h
+    -- 速度贡献 = 基础速度×系数 + 先手标签×(系数×阈值)
+    -- 旧: wp*p + (ws_base+ws_needs×sb)*s + wh*h  → S/S=1.8时(1.0+3.2)×1.8=7.56 放大过度
+    -- 新: wp*p + ws_base*s + ws_needs×(s×sb) + wh*h  → 基础按系数线性，先手才加成
+    local raw = wp * p + ws * s + ws_needs * (s * sb) + wh * h
     return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs}
 end
 
@@ -346,7 +348,7 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                 print(string.format("  %-6s %8d %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f",
                     code,mfloor(score+0.5),detail.wh,detail.wp,
                     detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
-                    detail.wp*p+detail.ws*s+detail.wh*h))
+                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*(s*detail.sb) + detail.wh*h))
             end
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
                        stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=tc}
