@@ -120,31 +120,31 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 items[#items + 1] = {
                     text = line1,
                     func = function()
-                        local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
-                        if doDbg then print(string.format("[GenDexDBG] 点击: sid=%d bid=%d", sid, bid)) end
                         addonTable.SetBestBreed(sid, bid, "auto", "")
-                        if doDbg then print(string.format("[GenDexDBG]   DB: %s", addonTable.IsBestBreed(sid, bid) and "OK" or "FAIL")) end
+                        -- Rematch的petsPanel:Update()只重建布局不重填按钮
+                        -- 需要通过ScrollBox滚动触发Fill->label()钩子
                         if Rematch and Rematch.petsPanel then
                             Rematch.petsPanel:Update()
-                            if doDbg then
-                                local btns = Rematch.petsPanel.buttons
-                                local cnt = 0
-                                if btns then for _ in pairs(btns) do cnt=cnt+1 end end
-                                print(string.format("[GenDexDBG]   Update() done, buttons=%d, 0.15s后跑label", cnt or 0))
+                            -- 关键: 滚动ScrollBox 0像素强制触发Fill
+                            local scrollBox = Rematch.petsPanel.List and Rematch.petsPanel.List.ScrollBox
+                            if scrollBox and scrollBox.Scroll then
+                                scrollBox:Scroll(0)  -- 微小滚动触发重绘
                             end
-                            C_Timer.After(0.15, function()
-                                local fixed = 0
-                                if Rematch.petsPanel and Rematch.petsPanel.buttons then
-                                    for _, btn in pairs(Rematch.petsPanel.buttons) do
-                                        if btn and btn.Breed and btn.petID then
-                                            label(btn); fixed = fixed + 1
+                            -- 备用: 再手动扫描所有子孙Frame调用label
+                            C_Timer.After(0.1, function()
+                                local function scanLabel(parent)
+                                    if not parent then return end
+                                    for _, child in ipairs({parent:GetChildren()}) do
+                                        if child.Breed and child.petID then
+                                            pcall(label, child)
                                         end
+                                        scanLabel(child)
                                     end
                                 end
-                                if doDbg then print(string.format("[GenDexDBG]   label完成: %d个按钮", fixed)) end
+                                if Rematch.petsPanel and Rematch.petsPanel.List then
+                                    scanLabel(Rematch.petsPanel.List)
+                                end
                             end)
-                        elseif doDbg then
-                            print("|cffff0000[GenDexDBG]   Rematch.petsPanel不可用|r")
                         end
                     end,
                 }
