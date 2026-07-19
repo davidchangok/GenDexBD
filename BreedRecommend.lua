@@ -139,17 +139,22 @@ local function GetPetType(speciesID)
 end
 
 local function Score(h, p, s, tc, pt)
-    local wh = W_BASE + W_HEALTH * (tc["SCALES_HEALTH"] or 0)
-    local wp = W_BASE + W_POWER  * (tc["SCALES_POWER"]  or 0)
-    local ws_base  = W_BASE
-    local ws_needs = W_SPEED * (tc["NEEDS_SPEED"] or 0)
+    -- 家族被动修正基础权重(不是只修正NEEDS_SPEED)
+    --   飞行: >50%HP时速度+50% → ws偏高
+    --   亡灵: 死亡复活一回合 → wp偏高
+    --   魔法: 单次伤害≤35%HP → wh偏高, ws偏低
+    --   野兽: <50%HP时增伤 → wh偏高(存活力)
+    --   机械: 死亡复活一次 → wp偏高
+    local fm = FAMILY_MOD[pt] or {h=1.0, p=1.0, s=1.0}
+
+    local wh = (W_BASE + W_HEALTH * (tc["SCALES_HEALTH"] or 0)) * fm.h
+    local wp = (W_BASE + W_POWER  * (tc["SCALES_POWER"]  or 0)) * fm.p
+    local ws_base  = W_BASE * fm.s
+    local ws_needs = W_SPEED * (tc["NEEDS_SPEED"] or 0) * fm.s
 
     if (tc["FORCE_PP"] or 0) > 0 then wp = wp + W_FORCE end
     if (tc["FORCE_SS"] or 0) > 0 then ws_needs = ws_needs + W_FORCE end
     if (tc["FORCE_HH"] or 0) > 0 then wh = wh + W_FORCE end
-
-    local fm = FAMILY_MOD[pt]
-    if fm then wh = wh * fm.h; wp = wp * fm.p; ws_needs = ws_needs * fm.s end
 
     local sb = 1.0
     if (tc["NEEDS_SPEED"] or 0) > 0 then sb = SpeedBonus(s) end
