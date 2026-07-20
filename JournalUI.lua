@@ -25,6 +25,8 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
+local labelDebugPrinted = {}
+
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
     if not Rematch or not Rematch.petInfo then return end
@@ -33,7 +35,14 @@ local function label(b)
     local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
     local sc = addonTable.BEST_BREED_COLOR or {1.0, 0.84, 0.0}
     local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
-    if doDbg then print(string.format("[GenDexDBG] label: pet=%s sid=%d bid=%d best=%s oldText=%s", i.speciesName or "?", i.speciesID, i.breedID, best and "YES" or "no", b.Breed:GetText() or "nil")) end
+    if doDbg then
+        local dkey = i.speciesID .. "_" .. i.breedID
+        local dval = (best and "Y" or "N") .. "_" .. (i.breedName or "")
+        if labelDebugPrinted[dkey] ~= dval then
+            labelDebugPrinted[dkey] = dval
+            print(string.format("[GenDexDBG] label: pet=%s sid=%d bid=%d best=%s oldText=%s", i.speciesName or "?", i.speciesID, i.breedID, best and "YES" or "no", b.Breed:GetText() or "nil"))
+        end
+    end
     b.Breed:SetText(best and (addonTable.BEST_BREED_STAR..i.breedName) or i.breedName)
     b.Breed:SetTextColor(best and sc[1] or 0.6, best and sc[2] or 0.6, 0.6)
 end
