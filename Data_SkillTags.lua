@@ -32,7 +32,9 @@ local RAW_TAGS = {
         -- 163奔踏debuff、283生存免死 不标HP: 不依赖宠物自身血量
     },
     FORCE_PP = { 919, 921 },
-    FORCE_SS = {},
+    FORCE_SS = {
+        167, -- 坚果弹幕: 松鼠签名技,社区明确S/S最优
+    },
     FORCE_HH = {},
 }
 
