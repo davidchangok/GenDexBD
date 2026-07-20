@@ -246,7 +246,11 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "每回合","每轮造成","每轮额外","持续.*伤害","每回合造成","额外.*每轮","轮后.*造成",
             "流血","割裂","出血",
             "中毒.*每轮","中毒.*持续","毒性","污染","麻痹",
-            "点燃","焦灼","献祭","燃烧.*伤害",
+            "点燃","焦灼","献祭",
+            -- 移除 "燃烧.*伤害"：过匹配（技能名"燃烧"+任意"伤害"→触发）
+            -- 替代："燃烧.*额外"精确匹配条件额外伤害
+            "燃烧.*额外","中毒.*额外",
+            "冰冻.*额外",
             "冻伤","低温",
             "诅咒","鬼影",
             "斩杀","处决","低于.*双倍","如果.*中毒.*双倍",
@@ -266,7 +270,11 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "damage over","additional.*damage.*each","after.*round.*damage","turns.*later",
             "bleed","rend","lacerate","hemorrhage","gouge",
             "poison","toxic","venom","contaminate","neurotoxin",
-            "ignite","scorch","immolate","conflagrate","burn.*damage",
+            "ignite","scorch","immolate","conflagrate",
+            -- removed "burn.*damage": over-matches basic "Burn" ability name
+            -- replacement: "burning.*extra" for conditional bonus damage
+            "burning.*extra","poison.*extra",
+            "frozen.*extra",
             "chill","frostbite","frost.*damage","hypotherm",
             "curse","haunt","doom",
             "execute","execution","below.*double",
