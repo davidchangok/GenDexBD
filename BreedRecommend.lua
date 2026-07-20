@@ -73,6 +73,7 @@ local COMMUNITY_BREED_BONUS = {
     [374] = "H/P",-- 黑羔羊: H/P社区首选,高血高攻+Chew+Comeback+Stampede
     [478] = "H/S",-- 森林蛾: H/S社区首选,Cocoon Strike>速度技,需血量维持飞行被动
     [1749] = "S", -- Death Adder: S/S社区共识,341速致盲剧毒+Puncture Wound双倍
+[548] = "P", -- 蛮锤狮鹫: P/P社区"no-brainer",仅3种鸟有P/P,切削之风+群殴多段爆发
 }
 
 -- ============================================================================
