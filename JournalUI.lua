@@ -27,19 +27,16 @@ end
 
 local labelDebugDone = {}
 local speciesSkillPrinted = {}
-local labelHookVerified = false
-local labelCallCount = 0
 
 local function SummarizeSpeciesSkills(speciesID)
     if speciesSkillPrinted[speciesID] then return end
     speciesSkillPrinted[speciesID] = true
-    if not addonTable.CollectSkillTags then
-        print("|cffff0000[GenDexDBG]|r SummarizeSpeciesSkills: CollectSkillTags is nil!")
-        return
-    end
+    if not addonTable.CollectSkillTags then return end
     local tc = addonTable.CollectSkillTags(speciesID)
     if not tc or not next(tc) then
-        print(string.format("[GenDexDBG] skills: sid=%d NO TAGS", speciesID))
+        local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
+        local name = type(vals[1])=="string" and vals[1] or "?"
+        print(string.format("[GenDexDBG] skills: pet=%s sid=%d  tags={}", name, speciesID))
         return
     end
     local parts = {}
@@ -54,20 +51,7 @@ local function SummarizeSpeciesSkills(speciesID)
 end
 
 local function label(b)
-    labelCallCount = labelCallCount + 1
-    if not labelHookVerified then
-        labelHookVerified = true
-        print("|cff00ffff[GenDexDBG]|r label() hook verified! (callCount=" .. labelCallCount .. ")")
-    end
-    if not b or not b.Breed or not b.petID then
-        if labelCallCount <= 3 then
-            print(string.format("|cffff6600[GenDexDBG]|r label() EARLY EXIT: b=%s Breed=%s petID=%s",
-                b and type(b) or "nil",
-                b and b.Breed and type(b.Breed) or "nil",
-                b and b.petID and type(b.petID) or "nil"))
-        end
-        return
-    end
+    if not b or not b.Breed or not b.petID then return end
     if not Rematch or not Rematch.petInfo then return end
     local i=Rematch.petInfo:Fetch(b.petID)
     if not i or not i.hasBreed or not i.breedID or i.breedID==0 then return end
