@@ -237,38 +237,9 @@ local function GetAbilityName(aid)
     return aname or "?"
 end
 
-local function CollectTags(speciesID)
-    -- 缓存命中：直接返回最佳配招标签
-    local cached = speciesBuildCache[speciesID]
-    if cached then return cached.bestTagCounts end
-
-    local results = { C_PetJournal.GetPetAbilityList(speciesID) }
-    local at = results[1]
-    if not at or type(at) ~= "table" then return {} end
-
-    local slots = GroupAbilitiesBySlot(at)
-    local builds = EnumerateBuilds(slots)
-
-    -- 单配招宠物（1 build）：快速路径
-    if #builds == 1 then
-        local tc = ComputeBuildTags(builds[1])
-        speciesBuildCache[speciesID] = {bestBuild=1, bestTagCounts=tc, allBuilds=builds, slots=slots}
-        return tc
-    end
-
-    -- 多配招宠物（2-8 builds）：用B/B(3)中性分评估每个配招，选最优
-    local bestBuildIdx, bestScore = 1, -1
-    local neutH, neutP, neutS = 1.0, 1.0, 1.0  -- B/B 品种系数
-    for idx, build in ipairs(builds) do
-        local tc = ComputeBuildTags(build)
-        local score = Score(neutH, neutP, neutS, tc, nil)  -- nil=无家族修正(用默认1.0)
-        if score > bestScore then bestBuildIdx, bestScore = idx, score end
-    end
-    local bestTc = ComputeBuildTags(builds[bestBuildIdx])
-    speciesBuildCache[speciesID] = {bestBuild=bestBuildIdx, bestTagCounts=bestTc,
-                                     allBuilds=builds, slots=slots, bestScore=bestScore}
-    return bestTc
-end
+-- ============================================================================
+-- 评分函数（前置: CollectTags 引用 Score 选最佳配招）
+-- ============================================================================
 
 local function SpeedBonus(s_coef)
     local b = 1.0
@@ -316,6 +287,39 @@ local function Score(h, p, s, tc, pt)
     -- 品种生命系数(0.2-1.8)需要打折后再参与评分
     local raw = wp * p + ws * s + ws_needs * sb + wh * h * HP_VALUE
     return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs}
+end
+
+local function CollectTags(speciesID)
+    -- 缓存命中：直接返回最佳配招标签
+    local cached = speciesBuildCache[speciesID]
+    if cached then return cached.bestTagCounts end
+
+    local results = { C_PetJournal.GetPetAbilityList(speciesID) }
+    local at = results[1]
+    if not at or type(at) ~= "table" then return {} end
+
+    local slots = GroupAbilitiesBySlot(at)
+    local builds = EnumerateBuilds(slots)
+
+    -- 单配招宠物（1 build）：快速路径
+    if #builds == 1 then
+        local tc = ComputeBuildTags(builds[1])
+        speciesBuildCache[speciesID] = {bestBuild=1, bestTagCounts=tc, allBuilds=builds, slots=slots}
+        return tc
+    end
+
+    -- 多配招宠物（2-8 builds）：用B/B(3)中性分评估每个配招，选最优
+    local bestBuildIdx, bestScore = 1, -1
+    local neutH, neutP, neutS = 1.0, 1.0, 1.0  -- B/B 品种系数
+    for idx, build in ipairs(builds) do
+        local tc = ComputeBuildTags(build)
+        local score = Score(neutH, neutP, neutS, tc, nil)  -- nil=无家族修正(用默认1.0)
+        if score > bestScore then bestBuildIdx, bestScore = idx, score end
+    end
+    local bestTc = ComputeBuildTags(builds[bestBuildIdx])
+    speciesBuildCache[speciesID] = {bestBuild=bestBuildIdx, bestTagCounts=bestTc,
+                                     allBuilds=builds, slots=slots, bestScore=bestScore}
+    return bestTc
 end
 
 -- ============================================================================
