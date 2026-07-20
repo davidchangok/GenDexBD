@@ -242,7 +242,7 @@ addonTable.AUTO_TAG_KEYWORDS = {
         zhCN = {
             "乱舞","蜂群","猛踏","连射","弹幕","齐射",
             "三连击","双重.*击","两次","三次","连击","链.*攻击","重复",
-            "每一击","1.2次","1.3次","1.2把","1.3把",
+            "每一击","每击中一次","1.2次","1.3次","1.2把","1.3把",
             "每回合","每轮造成","每轮额外","持续.*伤害","每回合造成","额外.*每轮","轮后.*造成",
             "流血","割裂","出血",
             "中毒.*每轮","中毒.*持续","毒性","污染","麻痹",
@@ -265,7 +265,7 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "volley","barrage","salvo",
             "triple.*hit","double.*hit","two.*times","three.*times",
             "combo.*attack","chain.*attack","repeat",
-            "each hit","each strike",
+            "each hit","each strike","each time it hits",
             "every round","each round","per round","per turn","each turn",
             "damage over","additional.*damage.*each","after.*round.*damage","turns.*later",
             "bleed","rend","lacerate","hemorrhage","gouge",
