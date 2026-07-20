@@ -28,9 +28,9 @@ local SPEED_THRESHOLDS = {0.8, 1.0, 1.2, 1.4}
 local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.1, [1.2]=1.25, [1.4]=1.4 }
 
 local W_BASE  = 1.0
-local W_SPEED = 1.0   -- NEEDS_SPEED 标签加成
+local W_SPEED = 0.7   -- NEEDS_SPEED 标签加成（降为0.7防碾压SCALES_HEALTH）
 local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
-local W_HEALTH = 0.6   -- SCALES_HEALTH 加成（PvE坦克生存技:治疗/护盾/天启拖延）
+local W_HEALTH = 0.9   -- SCALES_HEALTH 加成（PvE坦克生存技;因HP_VALUE=0.67折扣,需高于W_SPEED）
 local W_FORCE = 3.0
 local W_COMMUNITY = 1.5  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
                           -- 1.5 × 100 = 150分加成，翻转中等差距的排名
@@ -281,7 +281,7 @@ local function Score(h, p, s, tc, pt)
     if (tc["NEEDS_SPEED"] or 0) > 0 then sb = SpeedBonus(s) end
 
     local ws = ws_base
-    if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.7 end
+    if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.85 end  -- 弱化惩罚:坦克无需速度
 
     -- 生命等价比修正：1生命 ≈ 0.67攻击/速度（NGA 5.0实测 "0.1攻:0.1速≈0.15命"）
     -- 品种生命系数(0.2-1.8)需要打折后再参与评分
