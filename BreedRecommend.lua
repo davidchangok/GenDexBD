@@ -277,24 +277,26 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             local h,p,s = br[1],br[2],br[3]
             local score,detail = Score(h,p,s,tc,petType)
             local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or "?"
-            if doDebug then
-                print(string.format("  %-6s %8d %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f",
-                    code,mfloor(score+0.5),detail.wh,detail.wp,
-                    detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
-                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h*HP_VALUE))
-            end
             -- 歧义品种扣1分: Breed 10(P/B)与8(P/S)系数完全相同,BreedData声明8优先
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
             -- 社区例外加权：直接加分到社区共识偏好的纯品种(H/H, P/P, S/S)
             -- 软覆盖: W_COMMUNITY=0.5 × 100 ≈ 50分，只翻转差距<50的排名
             local commStat = COMMUNITY_BREED_BONUS[speciesID]
+            local commBonus = 0
             if commStat then
                 local targetCode = commStat == "H" and "H/H" or commStat == "P" and "P/P" or commStat == "S" and "S/S" or nil
                 if targetCode and code == targetCode then
-                    score = score + W_COMMUNITY * SCALE
-                    if doDebug then
-                        print(string.format("  [Community] +%d bonus applied to %s (commStat=%s)", W_COMMUNITY * SCALE, code, commStat))
-                    end
+                    commBonus = W_COMMUNITY * SCALE
+                    score = score + commBonus
+                end
+            end
+            if doDebug then
+                print(string.format("  %-6s %8d %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f",
+                    code,mfloor(score+0.5),detail.wh,detail.wp,
+                    detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
+                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h*HP_VALUE))
+                if commBonus > 0 then
+                    print(string.format("    ↑ +%d Community bonus (commStat=%s)", commBonus, commStat))
                 end
             end
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
