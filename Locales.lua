@@ -219,6 +219,7 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "冰冻.*目标","沙尘暴","祈雨","天气变为","变为.*天气",
             "泥石流","焦土","雷暴",
             "茧","先手.*屏障","幕","驱散.*敌方",
+            "安抚","昏昏欲睡",
         },
         enUS = {
             "goes first","always first","first strike",
@@ -236,6 +237,7 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "sandstorm","rain dance","mudslide","cleansing rain",
             "call darkness","arcane storm","scorched","lightning storm",
             "cocoon","barrier.*first","shroud","purge.*enemy",
+            "soothe","drowsy",
         },
     },
     SCALES_POWER = {
@@ -287,7 +289,8 @@ addonTable.AUTO_TAG_KEYWORDS = {
     SCALES_HEALTH = {
         zhCN = {
             "治疗","治愈","回复.*生命","疗伤","康复","再生","回春","绽放","开花",
-            "重振","提神","滋养","安抚","绷带","急救",
+            "重振","提神","滋养","绷带","急救",
+            -- 移除 "安抚": 游戏内技能=睡眠CC(使目标昏昏欲睡),非治疗
             "复活","复苏","重生","转生","不死","还魂","第二条命",
             "重铸","重建","故障保护",
             "最大生命.*回复","吸取.*生命","吸血","虹吸",
@@ -303,7 +306,8 @@ addonTable.AUTO_TAG_KEYWORDS = {
         enUS = {
             "heals ","healing ","mend","cure",
             "restore.*health","recover.*health","regenerate","rejuvenate",
-            "bloom","blossom","renew.*health","invigorate","nourish","sooth",
+            "bloom","blossom","renew.*health","invigorate","nourish",
+            -- removed "sooth": matches ability Soothe=sleep CC, not heal
             "bandage","first aid",
             "resurrect","revive","rebirth","reincarnate","undying","reanimate","second life",
             "rebuilt","reconstruct","failsafe",
