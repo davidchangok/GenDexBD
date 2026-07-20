@@ -77,6 +77,32 @@ end)()
 local autoTagCache = {}
 
 -- ============================================================================
+-- 否定词过滤：防止过匹配（如"阻止回复生命"误匹配SCALES_HEALTH）
+-- ============================================================================
+-- 每个标签可定义否定模式列表，句子匹配否定模式时跳过该标签的正向匹配
+local NEGATE_PATTERNS = {
+    SCALES_HEALTH = {
+        -- 中文：否定回复/治疗 → 这是debuff不是治疗技能
+        "阻止.*回复", "无法.*回复", "不能.*回复", "禁止.*回复",
+        "不会.*回复", "不再.*回复", "防止.*回复",
+        "阻止.*治疗", "无法.*治疗", "不能.*治疗", "禁止.*治疗",
+        "阻止.*治愈", "无法.*治愈",
+        -- 英文：否定heal/restore → debuff, not a healing ability
+        "prevent.*heal", "prevent.*restore", "prevent.*recover",
+        "cannot.*heal", "unable.*heal", "stop.*heal",
+        "block.*heal", "block.*restore",
+    },
+    SCALES_POWER = {
+        -- 中文："受到攻击时.*提升速度" → 被攻击触发，非自身增幅
+        "受到.*攻击.*速度",
+        "受到.*攻击.*闪避",
+        -- 英文："when attacked.*speed" → reactive, not self-amplify
+        "when.*attacked.*speed",
+        "when.*struck.*speed",
+    },
+}
+
+-- ============================================================================
 -- 内部函数
 -- ============================================================================
 
@@ -109,7 +135,17 @@ local function AutoClassify(abilityID)
     for tag, patterns in pairs(AUTO_TAGS) do
         for _, pat in ipairs(patterns) do
             for sentence in cleaned:gmatch("[^\n]+") do
-                if sfind(sentence, pat) then
+                -- 先检查否定模式：句子含否定词则跳过此句的该标签匹配
+                local negated = false
+                local negList = NEGATE_PATTERNS[tag]
+                if negList then
+                    for _, negPat in ipairs(negList) do
+                        if sfind(sentence, negPat) then
+                            negated = true; break
+                        end
+                    end
+                end
+                if not negated and sfind(sentence, pat) then
                     tags[tag] = true; break
                 end
             end
