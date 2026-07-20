@@ -32,8 +32,8 @@ local W_SPEED = 1.0   -- NEEDS_SPEED 标签加成
 local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
 local W_HEALTH = 0.4   -- SCALES_HEALTH 加成
 local W_FORCE = 3.0
-local W_COMMUNITY = 1.0  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
-                          -- 1.0 × 100 = 100分加成，翻转中等差距的排名
+local W_COMMUNITY = 1.5  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
+                          -- 1.5 × 100 = 150分加成，翻转中等差距的排名
 local SCALE = 100
 local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
                        -- 来源：NGA 5.0实测数据 "能量0.1:速度0.1≈生命0.15"
@@ -307,7 +307,7 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
             -- 社区例外加权：直接加分到社区共识偏好的品种
             -- commStat: 单字母"H"/"P"/"S"→纯品种H/H/P/P/S/S; 完整码"H/P"→直接匹配
-            -- 软覆盖: W_COMMUNITY=1.0 × 100 = 100分，翻转中等差距的排名
+            -- 软覆盖: W_COMMUNITY=1.5 × 100 = 150分，翻转较大差距的排名
             local commStat = COMMUNITY_BREED_BONUS[speciesID]
             local commBonus = 0
             if commStat then
@@ -337,21 +337,6 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
     end
 
     tsort(rs, function(a,b)return a.score>b.score end)
-    -- 社区品种强制排第一（COMMUNITY_BONUS加分可能不够翻转高差距排名）
-    local commStat2 = COMMUNITY_BREED_BONUS[speciesID]
-    if commStat2 then
-        local commTarget = (#commStat2 == 1)
-            and (commStat2 == "H" and "H/H" or commStat2 == "P" and "P/P" or commStat2 == "S" and "S/S")
-            or commStat2
-        for i = 2, #rs do
-            if rs[i].breedCode == commTarget then
-                local c = rs[i]
-                table.remove(rs, i)
-                table.insert(rs, 1, c)
-                break
-            end
-        end
-    end
     topN=topN or 3
     if #rs>topN then local t={};for i=1,topN do t[i]=rs[i]end;return t end
     return rs
