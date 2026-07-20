@@ -273,9 +273,9 @@ local function Score(h, p, s, tc, pt)
     local ws_base  = W_BASE * fm.s
     local ws_needs = W_SPEED * (tc["NEEDS_SPEED"] or 0) * fm.s
 
-    if (tc["FORCE_PP"] or 0) > 0 then wp = wp + W_FORCE end
-    if (tc["FORCE_SS"] or 0) > 0 then ws_needs = ws_needs + W_FORCE end
-    if (tc["FORCE_HH"] or 0) > 0 then wh = wh + W_FORCE end
+    if (tc["FORCE_PP"] or 0) > 0 then wp = wp + W_FORCE * p end
+    if (tc["FORCE_SS"] or 0) > 0 then ws_needs = ws_needs + W_FORCE * s end
+    if (tc["FORCE_HH"] or 0) > 0 then wh = wh + W_FORCE * h end
 
     local sb = 1.0
     if (tc["NEEDS_SPEED"] or 0) > 0 then sb = SpeedBonus(s) end
