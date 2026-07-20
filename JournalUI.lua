@@ -27,6 +27,7 @@ end
 
 local labelDebugDone = {}
 local speciesSkillPrinted = {}
+local autoSetDone = {}
 
 local function SummarizeSpeciesSkills(speciesID)
     if speciesSkillPrinted[speciesID] then return end
@@ -42,6 +43,13 @@ local function label(b)
     if not Rematch or not Rematch.petInfo then return end
     local i=Rematch.petInfo:Fetch(b.petID)
     if not i or not i.hasBreed or not i.breedID or i.breedID==0 then return end
+    -- 单品种宠物：自动设为最佳（无选择余地）
+    if not autoSetDone[i.speciesID] and i.numPossibleBreeds and i.numPossibleBreeds == 1 then
+        autoSetDone[i.speciesID] = true
+        if not addonTable.IsBestBreed(i.speciesID, i.breedID) then
+            addonTable.SetBestBreed(i.speciesID, i.breedID, "auto", "")
+        end
+    end
     local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
     local sc = addonTable.BEST_BREED_COLOR or {1.0, 0.84, 0.0}
     local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
