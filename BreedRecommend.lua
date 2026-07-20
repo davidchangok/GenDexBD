@@ -245,6 +245,15 @@ function addonTable.DumpSpeciesAbilities(speciesID, petType)
     if not petType then petType = GetPetType(speciesID) end
     local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
     local name = type(vals[1])=="string" and vals[1] or "?"
+    -- 标签摘要（统一输出，菜单/label双路径均可见）
+    local tc = CollectTags(speciesID)
+    local parts = {}
+    if tc and next(tc) then
+        for tag, count in pairs(tc) do parts[#parts+1] = tag .. "×" .. count end
+        table.sort(parts)
+    end
+    print(string.format("[GenDexDBG] skills: pet=%s sid=%d  tags={%s}",
+        name, speciesID, #parts>0 and table.concat(parts, ", ") or ""))
     print("|cffffd700=== [GenDexDBG] speciesID=" .. tostring(speciesID) .. " (" .. name .. ") petType=" .. tostring(petType) .. " ===|r")
     local at = ({ C_PetJournal.GetPetAbilityList(speciesID) })[1]
     if at and type(at) == "table" then
