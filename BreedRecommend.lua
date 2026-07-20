@@ -237,29 +237,38 @@ end
 -- 公开 API + 诊断
 -- ============================================================================
 
+--- 诊断：打印物种所有技能详情（无条件输出，独立于评分流程）
+--- @param speciesID number
+--- @param petType number|nil 已知类型可传入，nil则自动查
+function addonTable.DumpSpeciesAbilities(speciesID, petType)
+    if not speciesID then return end
+    if not petType then petType = GetPetType(speciesID) end
+    local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
+    local name = type(vals[1])=="string" and vals[1] or "?"
+    print("|cffffd700=== [GenDexDBG] speciesID=" .. tostring(speciesID) .. " (" .. name .. ") petType=" .. tostring(petType) .. " ===|r")
+    local at = ({ C_PetJournal.GetPetAbilityList(speciesID) })[1]
+    if at and type(at) == "table" then
+        for _, aid in pairs(at) do
+            if type(aid) == "number" and aid > 0 then
+                local _, _, aname, _, _, desc = pcall(C_PetBattles.GetAbilityInfoByID, aid)
+                local stTags, acTags = SkillTags[aid], autoTagCache[aid]
+                if acTags == false then acTags = nil end
+                print(string.format("  aid=%d |%s|  desc=%s", aid, aname or "?", desc or "???"))
+                if stTags then local tl={};for t in pairs(stTags)do tl[#tl+1]=t end; print("    -> Static: "..table.concat(tl,", ")) end
+                if acTags then local tl={};for t in pairs(acTags)do tl[#tl+1]=t end; print("    -> Auto:   "..table.concat(tl,", ")) end
+                if not stTags and not acTags then print("    -> NO TAGS MATCHED") end
+            end
+        end
+    end
+end
+
 function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, topN)
     if not speciesID then return {} end; if not petType then petType = GetPetType(speciesID) end
     local tc = CollectTags(speciesID)
 
     local doDebug = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
     if doDebug then
-        local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
-        local name = type(vals[1])=="string" and vals[1] or "?"
-        print("|cffffd700=== [GenDexDBG] speciesID=" .. tostring(speciesID) .. " (" .. name .. ") petType=" .. tostring(petType) .. " ===|r")
-        local at = ({ C_PetJournal.GetPetAbilityList(speciesID) })[1]
-        if at and type(at) == "table" then
-            for _, aid in pairs(at) do
-                if type(aid) == "number" and aid > 0 then
-                    local _, _, aname, _, _, desc = pcall(C_PetBattles.GetAbilityInfoByID, aid)
-                    local stTags, acTags = SkillTags[aid], autoTagCache[aid]
-                    if acTags == false then acTags = nil end
-                    print(string.format("  aid=%d |%s|  desc=%s", aid, aname or "?", desc or "???"))
-                    if stTags then local tl={};for t in pairs(stTags)do tl[#tl+1]=t end; print("    -> Static: "..table.concat(tl,", ")) end
-                    if acTags then local tl={};for t in pairs(acTags)do tl[#tl+1]=t end; print("    -> Auto:   "..table.concat(tl,", ")) end
-                    if not stTags and not acTags then print("    -> NO TAGS MATCHED") end
-                end
-            end
-        end
+        addonTable.DumpSpeciesAbilities(speciesID, petType)
         print("--- Final scores ---")
         print(string.format("  %-6s %8s %8s %8s %8s %8s %8s %8s", "Breed","Score","wH","wP","wS-Base","wS-Need","S-Bns","Raw"))
     end

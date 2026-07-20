@@ -33,21 +33,21 @@ local function SummarizeSpeciesSkills(speciesID)
     speciesSkillPrinted[speciesID] = true
     if not addonTable.CollectSkillTags then return end
     local tc = addonTable.CollectSkillTags(speciesID)
-    if not tc or not next(tc) then
-        local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
-        local name = type(vals[1])=="string" and vals[1] or "?"
-        print(string.format("[GenDexDBG] skills: pet=%s sid=%d  tags={}", name, speciesID))
-        return
-    end
     local parts = {}
-    for tag, count in pairs(tc) do
-        parts[#parts+1] = tag .. "×" .. count
+    if tc and next(tc) then
+        for tag, count in pairs(tc) do
+            parts[#parts+1] = tag .. "×" .. count
+        end
+        table.sort(parts)
     end
-    table.sort(parts)
     local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
     local name = type(vals[1])=="string" and vals[1] or "?"
     print(string.format("[GenDexDBG] skills: pet=%s sid=%d  tags={%s}",
-        name, speciesID, table.concat(parts, ", ")))
+        name, speciesID, #parts>0 and table.concat(parts, ", ") or ""))
+    -- 追加完整技能详情（与多品种宠物菜单输出一致）
+    if addonTable.DumpSpeciesAbilities then
+        addonTable.DumpSpeciesAbilities(speciesID, nil)
+    end
 end
 
 local function label(b)
