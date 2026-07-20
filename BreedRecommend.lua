@@ -32,8 +32,8 @@ local W_SPEED = 1.0   -- NEEDS_SPEED 标签加成
 local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
 local W_HEALTH = 0.4   -- SCALES_HEALTH 加成
 local W_FORCE = 3.0
-local W_COMMUNITY = 0.5  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
-                          -- 0.5 × 100 = 50分加成，足以翻转接近的排名但不压垮强信号
+local W_COMMUNITY = 1.0  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
+                          -- 1.0 × 100 = 100分加成，翻转中等差距的排名
 local SCALE = 100
 local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
                        -- 来源：NGA 5.0实测数据 "能量0.1:速度0.1≈生命0.15"
@@ -299,7 +299,7 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             -- 歧义品种扣1分: Breed 10(P/B)与8(P/S)系数完全相同,BreedData声明8优先
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
             -- 社区例外加权：直接加分到社区共识偏好的纯品种(H/H, P/P, S/S)
-            -- 软覆盖: W_COMMUNITY=0.5 × 100 ≈ 50分，只翻转差距<50的排名
+            -- 软覆盖: W_COMMUNITY=1.0 × 100 = 100分，翻转中等差距的排名
             local commStat = COMMUNITY_BREED_BONUS[speciesID]
             local commBonus = 0
             if commStat then
