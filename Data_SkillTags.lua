@@ -50,6 +50,11 @@ local RAW_TAGS = {
         360, -- 乱舞: 老鼠族签名技,先手额外攻击→S/S最优
     },
     FORCE_HH = {},
+    SUICIDE_HP = {
+        282,  -- 自爆: 总生命值%伤害,HP直接=攻击力→血量品种加权
+        2209, -- 爆裂: 同上(Burst)
+        1025, -- 末日决战: 同上(Armageddon)
+    },
 }
 
 addonTable.SkillTags = {}
