@@ -337,6 +337,21 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
     end
 
     tsort(rs, function(a,b)return a.score>b.score end)
+    -- 社区品种强制排第一（COMMUNITY_BONUS加分可能不够翻转高差距排名）
+    local commStat2 = COMMUNITY_BREED_BONUS[speciesID]
+    if commStat2 then
+        local commTarget = (#commStat2 == 1)
+            and (commStat2 == "H" and "H/H" or commStat2 == "P" and "P/P" or commStat2 == "S" and "S/S")
+            or commStat2
+        for i = 2, #rs do
+            if rs[i].breedCode == commTarget then
+                local c = rs[i]
+                table.remove(rs, i)
+                table.insert(rs, 1, c)
+                break
+            end
+        end
+    end
     topN=topN or 3
     if #rs>topN then local t={};for i=1,topN do t[i]=rs[i]end;return t end
     return rs
