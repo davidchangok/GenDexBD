@@ -30,7 +30,7 @@ local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.1, [1.2]=1.25, [1.4]=1.4 }
 local W_BASE  = 1.0
 local W_SPEED = 0.8   -- NEEDS_SPEED 标签加成
 local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
-local W_HEALTH = 0.5   -- SCALES_HEALTH 加成
+local W_HEALTH = 0.4   -- SCALES_HEALTH 加成
 local W_FORCE = 3.0
 local SCALE = 100
 local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
