@@ -25,6 +25,7 @@ local RAW_TAGS = {
         519, -- 天启：延迟秒杀+感染DoT
         448, -- 蠕行软泥：每轮额外DoT
         123, -- 治疗波：StandardDamage攻击力缩放治疗(非HP缩放)
+        581, -- 群殴：3轮多段攻击+增伤debuff(同奔踏)
     },
     SCALES_HEALTH = {
         282, 136, 821, 160,
