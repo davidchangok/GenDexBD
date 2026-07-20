@@ -315,3 +315,7 @@ function addonTable.RecommendBestBreed(speciesID,petType,possibleBreedIDs)
     if #rs>0 then return rs[1].breedID,rs[1].breedCode,rs[1].score end
     return nil,nil,nil
 end
+
+-- 暴露技能标签收集供 JournalUI label 摘要
+addonTable.CollectSkillTags = CollectTags
+addonTable.GetSkillTags = function() return SkillTags end

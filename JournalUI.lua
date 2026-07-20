@@ -25,7 +25,26 @@ function addonTable.GetAllBestBreeds(s)
     local sd=bb[s];return (sd and type(sd)=="table") and sd or {}
 end
 
-local labelDebugPrinted = {}
+local labelDebugDone = {}
+local speciesSkillPrinted = {}
+
+local function SummarizeSpeciesSkills(speciesID)
+    if speciesSkillPrinted[speciesID] then return end
+    speciesSkillPrinted[speciesID] = true
+    if not addonTable.CollectSkillTags then return end
+    local tc = addonTable.CollectSkillTags(speciesID)
+    if not tc or not next(tc) then return end
+    -- 统计每个标签下的技能数
+    local parts = {}
+    for tag, count in pairs(tc) do
+        parts[#parts+1] = tag .. "×" .. count
+    end
+    table.sort(parts)
+    local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
+    local name = type(vals[1])=="string" and vals[1] or "?"
+    print(string.format("[GenDexDBG] skills: pet=%s sid=%d  tags={%s}",
+        name, speciesID, table.concat(parts, ", ")))
+end
 
 local function label(b)
     if not b or not b.Breed or not b.petID then return end
@@ -38,9 +57,12 @@ local function label(b)
     if doDbg then
         local dkey = i.speciesID .. "_" .. i.breedID
         local dval = (best and "Y" or "N") .. "_" .. (i.breedName or "")
-        if labelDebugPrinted[dkey] ~= dval then
-            labelDebugPrinted[dkey] = dval
-            print(string.format("[GenDexDBG] label: pet=%s sid=%d bid=%d best=%s oldText=%s", i.speciesName or "?", i.speciesID, i.breedID, best and "YES" or "no", b.Breed:GetText() or "nil"))
+        if labelDebugDone[dkey] ~= dval then
+            labelDebugDone[dkey] = dval
+            SummarizeSpeciesSkills(i.speciesID)
+            print(string.format("[GenDexDBG] label: pet=%s sid=%d bid=%d breed=%s best=%s",
+                i.speciesName or "?", i.speciesID, i.breedID, i.breedName or "?",
+                best and "YES" or "no"))
         end
     end
     b.Breed:SetText(best and (addonTable.BEST_BREED_STAR..i.breedName) or i.breedName)
