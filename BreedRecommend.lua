@@ -30,7 +30,7 @@ local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.1, [1.2]=1.25, [1.4]=1.4 }
 local W_BASE  = 1.0
 local W_SPEED = 1.0   -- NEEDS_SPEED 标签加成
 local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
-local W_HEALTH = 0.4   -- SCALES_HEALTH 加成
+local W_HEALTH = 0.6   -- SCALES_HEALTH 加成（PvE坦克生存技:治疗/护盾/天启拖延）
 local W_FORCE = 3.0
 local W_COMMUNITY = 1.5  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
                           -- 1.5 × 100 = 150分加成，翻转中等差距的排名
