@@ -55,6 +55,10 @@ local RAW_TAGS = {
         2209, -- 爆裂: 同上(Burst)
         1025, -- 末日决战: 同上(Armageddon)
     },
+    POWER_AMP = {
+        208, -- 增压: +125%下次攻击,Power²→P/P品种加权
+        362, -- 嚎叫: +100%下次攻击,同上
+    },
 }
 
 addonTable.SkillTags = {}

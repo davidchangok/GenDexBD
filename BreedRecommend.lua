@@ -32,6 +32,7 @@ local W_SPEED = 0.7   -- NEEDS_SPEED 标签加成（降为0.7防碾压SCALES_HEA
 local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
 local W_HEALTH = 0.9   -- SCALES_HEALTH 加成（PvE坦克生存技;因HP_VALUE=0.67折扣,需高于W_SPEED）
 local W_SUICIDE = 2.0  -- SUICIDE_HP 加成（HP%自爆:血量直接=攻击力,加权高于普通回血护盾）
+local W_POWER_AMP = 1.5  -- POWER_AMP 加成（伤害放大器:+125%/+100%,Power²受益）
 local W_FORCE = 3.0
 local W_COMMUNITY = 1.5  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
                           -- 1.5 × 100 = 150分加成，翻转中等差距的排名
@@ -272,7 +273,8 @@ local function Score(h, p, s, tc, pt)
 
     local wh = (W_BASE + W_HEALTH * (tc["SCALES_HEALTH"] or 0)
                        + W_SUICIDE * (tc["SUICIDE_HP"] or 0)) * fm.h
-    local wp = (W_BASE + W_POWER  * (tc["SCALES_POWER"]  or 0)) * fm.p
+    local wp = (W_BASE + W_POWER  * (tc["SCALES_POWER"]  or 0)
+                       + W_POWER_AMP * (tc["POWER_AMP"] or 0)) * fm.p
     local ws_base  = W_BASE * fm.s
     local ws_needs = W_SPEED * (tc["NEEDS_SPEED"] or 0) * fm.s
 
