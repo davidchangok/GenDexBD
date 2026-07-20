@@ -214,7 +214,7 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "替换.*宠","虚空之门","传送","强制.*换","召回",
             "昏迷","晕眩","击倒","催眠","致盲",
             "反弹.*攻击","冲锋","突袭","伏击","背刺","跳击","猛扑",
-            "速度.*提高","速度.*提升",
+            -- "速度.*提高","速度.*提升" 移除: 自加速技降低对基础速度依赖,非NEEDS_SPEED
             "陷阱","蛛网","诱捕","定身","无法逃跑","无法.*切换",
             "冰冻.*目标","沙尘暴","祈雨","天气变为","变为.*天气",
             "泥石流","焦土","雷暴",
@@ -232,7 +232,8 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "feign death","faster than",
             "swap.*pet","switch.*pet","nether gate","portal","force.*swap","recall",
             "stun","knock.*down","sleep.*first","blind",
-            "reflect.*attack","charge.*first","pounce","ambush","backstab","leap","lunge",
+            "reflect.*attack","charge.*first","pounce","ambush","backstab","lunge",
+            -- "leap" 移除: 自加速技(Leap=跳跃,速度+25%)→降低对基础速度依赖,非NEEDS_SPEED
             "trap","web","ensnare","immobiliz","blind.*target","freeze.*target",
             "sandstorm","rain dance","mudslide","cleansing rain",
             "call darkness","arcane storm","scorched","lightning storm",
