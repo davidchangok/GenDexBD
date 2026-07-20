@@ -91,6 +91,7 @@ local AUTO_TAGS = (function()
 end)()
 
 local autoTagCache = {}
+local speciesBuildCache = {}
 
 -- ============================================================================
 -- 否定词过滤：防止过匹配（如"阻止回复生命"误匹配SCALES_HEALTH）
@@ -177,20 +178,96 @@ local function AutoClassify(abilityID)
     return nil
 end
 
-local function CollectTags(speciesID)
+-- ============================================================================
+-- 配招枚举：按槽位分组 + 枚举合法配招（解决幽灵配招问题）
+-- ============================================================================
+-- API返回顺序: at[1]=slot1主, at[2]=slot2主, at[3]=slot3主
+--               at[4]=slot1副, at[5]=slot2副, at[6]=slot3副
+
+-- 槽位分组
+local function GroupAbilitiesBySlot(flatList)
+    local slots = {}
+    local count = #flatList
+    for i = 1, 3 do
+        local opts = {}
+        if flatList[i] and flatList[i] > 0 then opts[#opts+1] = flatList[i] end
+        if count >= i+3 and flatList[i+3] and flatList[i+3] > 0
+           and flatList[i+3] ~= flatList[i] then
+            opts[#opts+1] = flatList[i+3]
+        end
+        slots[i] = opts
+    end
+    return slots
+end
+
+-- 枚举所有合法配招（递归回溯，最多 2³=8 种）
+local function EnumerateBuilds(slots)
+    local builds = {}
+    local function backtrack(slotIdx, chosen)
+        if slotIdx > 3 then
+            builds[#builds+1] = { abilities = {chosen[1], chosen[2], chosen[3]} }
+            return
+        end
+        for _, aid in ipairs(slots[slotIdx]) do
+            chosen[slotIdx] = aid
+            backtrack(slotIdx + 1, chosen)
+        end
+    end
+    backtrack(1, {})
+    return builds
+end
+
+-- 计算单个配招的标签（复用 SkillTags + AutoClassify）
+local function ComputeBuildTags(build)
     local tc = {}
-    local results = { C_PetJournal.GetPetAbilityList(speciesID) }
-    local at = results[1]
-    if not at or type(at) ~= "table" then return tc end
-    for _, aid in pairs(at) do
-        if type(aid) == "number" and aid > 0 then
-            local tags = SkillTags[aid] or AutoClassify(aid)
-            if tags then for tag in pairs(tags) do
+    for _, aid in ipairs(build.abilities) do
+        local tags = SkillTags[aid] or AutoClassify(aid)
+        if tags then
+            for tag in pairs(tags) do
                 tc[tag] = (tc[tag] or 0) + 1
-            end end
+            end
         end
     end
     return tc
+end
+
+-- 获取技能名（调试用）
+local function GetAbilityName(aid)
+    local _, _, aname = pcall(C_PetBattles.GetAbilityInfoByID, aid)
+    return aname or "?"
+end
+
+local function CollectTags(speciesID)
+    -- 缓存命中：直接返回最佳配招标签
+    local cached = speciesBuildCache[speciesID]
+    if cached then return cached.bestTagCounts end
+
+    local results = { C_PetJournal.GetPetAbilityList(speciesID) }
+    local at = results[1]
+    if not at or type(at) ~= "table" then return {} end
+
+    local slots = GroupAbilitiesBySlot(at)
+    local builds = EnumerateBuilds(slots)
+
+    -- 单配招宠物（1 build）：快速路径
+    if #builds == 1 then
+        local tc = ComputeBuildTags(builds[1])
+        speciesBuildCache[speciesID] = {bestBuild=1, bestTagCounts=tc, allBuilds=builds, slots=slots}
+        return tc
+    end
+
+    -- 多配招宠物（2-8 builds）：用B/B(3)中性分评估每个配招，选最优
+    local bestBuildIdx, bestScore = 1, -1
+    local neutH, neutP, neutS = 1.0, 1.0, 1.0  -- B/B 品种系数
+    for idx, build in ipairs(builds) do
+        local tc = ComputeBuildTags(build)
+        local score = Score(neutH, neutP, neutS, tc, nil)  -- nil=无家族修正(用默认1.0)
+        if score > bestScore then bestBuildIdx, bestScore = idx, score end
+    end
+    local bestTc = ComputeBuildTags(builds[bestBuildIdx])
+    speciesBuildCache[speciesID] = {bestBuild=bestBuildIdx, bestTagCounts=bestTc,
+                                     allBuilds=builds, slots=slots, bestScore=bestScore}
+    return bestTc
 end
 
 local function SpeedBonus(s_coef)
@@ -253,16 +330,38 @@ function addonTable.DumpSpeciesAbilities(speciesID, petType)
     if not petType then petType = GetPetType(speciesID) end
     local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
     local name = type(vals[1])=="string" and vals[1] or "?"
-    -- 标签摘要（统一输出，菜单/label双路径均可见）
-    local tc = CollectTags(speciesID)
+
+    -- 触发 CollectTags 以填充 speciesBuildCache
+    local bestTc = CollectTags(speciesID)
+    local cached = speciesBuildCache[speciesID]
+    local slots = cached and cached.slots or {}
+    local builds = cached and cached.allBuilds or {}
+
+    -- 最佳配招标签摘要
     local parts = {}
-    if tc and next(tc) then
-        for tag, count in pairs(tc) do parts[#parts+1] = tag .. "×" .. count end
+    if bestTc and next(bestTc) then
+        for tag, count in pairs(bestTc) do parts[#parts+1] = tag .. "×" .. count end
         table.sort(parts)
     end
-    print(string.format("[GenDexDBG] skills: pet=%s sid=%d  tags={%s}",
-        name, speciesID, #parts>0 and table.concat(parts, ", ") or ""))
+    local suffix = (#builds > 1) and string.format(" (best of %d builds)", #builds) or ""
+    print(string.format("[GenDexDBG] skills: pet=%s sid=%d  tags={%s}%s",
+        name, speciesID, #parts>0 and table.concat(parts, ", ") or "", suffix))
     print("|cffffd700=== [GenDexDBG] speciesID=" .. tostring(speciesID) .. " (" .. name .. ") petType=" .. tostring(petType) .. " ===|r")
+
+    -- 槽位分组输出（多配招宠物标槽位号）
+    if #slots > 0 then
+        for i = 1, 3 do
+            if slots[i] and #slots[i] > 0 then
+                local names = {}
+                for _, aid in ipairs(slots[i]) do
+                    names[#names+1] = string.format("[%d]%s", aid, GetAbilityName(aid))
+                end
+                print(string.format("  -- Slot %d: %s", i, table.concat(names, " | ")))
+            end
+        end
+    end
+
+    -- 再输出所有技能详情（按原格式，flat list）
     local at = ({ C_PetJournal.GetPetAbilityList(speciesID) })[1]
     if at and type(at) == "table" then
         for _, aid in pairs(at) do
@@ -281,11 +380,36 @@ end
 
 function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, topN)
     if not speciesID then return {} end; if not petType then petType = GetPetType(speciesID) end
-    local tc = CollectTags(speciesID)
+
+    -- 触发 CollectTags 以填充 speciesBuildCache（内部 GroupAbilitiesBySlot + EnumerateBuilds）
+    local bestTc = CollectTags(speciesID)
+    local cached = speciesBuildCache[speciesID]
+    local builds = cached and cached.allBuilds or {}
+    local bestBuildIdx = cached and cached.bestBuild or 1
 
     local doDebug = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
     if doDebug then
         addonTable.DumpSpeciesAbilities(speciesID, petType)
+        -- 多配招时输出槽位 + 配招枚举 + 标签摘要
+        if #builds > 1 then
+            print("  Builds (" .. #builds .. " total):")
+            for idx, build in ipairs(builds) do
+                local names = {}
+                for _, aid in ipairs(build.abilities) do
+                    names[#names+1] = GetAbilityName(aid)
+                end
+                local btc = ComputeBuildTags(build)
+                local btparts = {}
+                if btc and next(btc) then
+                    for tag, count in pairs(btc) do btparts[#btparts+1] = tag .. "×" .. count end
+                    table.sort(btparts)
+                end
+                local marker = (idx == bestBuildIdx) and " ← best" or ""
+                print(string.format("  B%d %s  tags={%s}%s",
+                    idx, table.concat(names, "+"), table.concat(btparts, ", "), marker))
+            end
+            print("--- Per-breed best-build scores ---")
+        end
         print("--- Final scores ---")
         print(string.format("  %-6s %8s %8s %8s %8s %8s %8s %8s", "Breed","Score","wH","wP","wS-Base","wS-Need","S-Bns","Raw"))
     end
@@ -301,8 +425,25 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
         local br = BREEDS[bid]
         if br then
             local h,p,s = br[1],br[2],br[3]
-            local score,detail = Score(h,p,s,tc,petType)
             local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or "?"
+
+            -- 多配招枚举：每个品种取所有配招的最高分（对该品种最有利的配招）
+            local bestScore, bestDetail, bestBIdx = -9999, nil, bestBuildIdx
+            for idx, build in ipairs(builds) do
+                local btc = ComputeBuildTags(build)
+                local bscore, bdetail = Score(h, p, s, btc, petType)
+                if bscore > bestScore then
+                    bestScore, bestDetail, bestBIdx = bscore, bdetail, idx
+                end
+            end
+            -- 无配招时用空标签降级（不应发生，但健壮处理）
+            if not bestDetail then
+                bestScore, bestDetail = Score(h, p, s, bestTc, petType)
+            end
+
+            local score = bestScore
+            local detail = bestDetail
+
             -- 歧义品种扣1分: Breed 10(P/B)与8(P/S)系数完全相同,BreedData声明8优先
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
             -- 社区例外加权：直接加分到社区共识偏好的品种
@@ -331,8 +472,10 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                     print(string.format("    ↑ +%d Community bonus (commStat=%s)", commBonus, commStat))
                 end
             end
+            -- tagCounts 反映该品种最优配招的实际标签
+            local breedBtc = (bestBIdx > 0 and builds[bestBIdx]) and ComputeBuildTags(builds[bestBIdx]) or bestTc
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
-                       stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=tc}
+                       stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=breedBtc}
         end
     end
 
