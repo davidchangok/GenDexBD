@@ -32,6 +32,8 @@ local W_SPEED = 1.0   -- NEEDS_SPEED 标签加成
 local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
 local W_HEALTH = 0.4   -- SCALES_HEALTH 加成
 local W_FORCE = 3.0
+local W_COMMUNITY = 0.5  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
+                          -- 0.5 × 100 = 50分加成，足以翻转接近的排名但不压垮强信号
 local SCALE = 100
 local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
                        -- 来源：NGA 5.0实测数据 "能量0.1:速度0.1≈生命0.15"
@@ -57,6 +59,16 @@ local FAMILY_MOD = {
     [9]  = { h=1.0, p=1.1, s=1.0 },
     -- 10型:机械 — 复活20%HP一次 → 偏攻击
     [10] = { h=1.0, p=1.2, s=1.0 },
+}
+
+-- ============================================================================
+-- 社区例外加权表（speciesID → 社区偏好的单属性 "H"/"P"/"S"）
+-- 软覆盖机制：加成 W_COMMUNITY 到偏好属性权重，乘以品种系数
+-- 远小于 FORCE(3.0)，仅用于翻转差距较小的排名
+-- 社区共识来源：WarcraftPets 论坛/评论区（详见 memory/community-breed-consensus.md）
+-- ============================================================================
+local COMMUNITY_BREED_BONUS = {
+    [438] = "H",  -- 王蛇: H/H社区首选,高血量+野兽被动+毒牙递增
 }
 
 -- ============================================================================
@@ -273,6 +285,18 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             end
             -- 歧义品种扣1分: Breed 10(P/B)与8(P/S)系数完全相同,BreedData声明8优先
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
+            -- 社区例外加权：直接加分到社区共识偏好的纯品种(H/H, P/P, S/S)
+            -- 软覆盖: W_COMMUNITY=0.5 × 100 ≈ 50分，只翻转差距<50的排名
+            local commStat = COMMUNITY_BREED_BONUS[speciesID]
+            if commStat then
+                local targetCode = commStat == "H" and "H/H" or commStat == "P" and "P/P" or commStat == "S" and "S/S" or nil
+                if targetCode and code == targetCode then
+                    score = score + W_COMMUNITY * SCALE
+                    if doDebug then
+                        print(string.format("  [Community] +%d bonus applied to %s (commStat=%s)", W_COMMUNITY * SCALE, code, commStat))
+                    end
+                end
+            end
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
                        stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=tc}
         end
