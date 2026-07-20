@@ -70,6 +70,7 @@ local FAMILY_MOD = {
 local COMMUNITY_BREED_BONUS = {
     [438] = "H",  -- 王蛇: H/H社区首选,高血量+野兽被动+毒牙递增
     [406] = "H",  -- 甲虫: H/H天启战术首选,需活到陨星落下(1806血)
+    [374] = "H/P",-- 黑羔羊: H/P社区首选,高血高攻+Chew+Comeback+Stampede
 }
 
 -- ============================================================================
@@ -298,12 +299,18 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or "?"
             -- 歧义品种扣1分: Breed 10(P/B)与8(P/S)系数完全相同,BreedData声明8优先
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
-            -- 社区例外加权：直接加分到社区共识偏好的纯品种(H/H, P/P, S/S)
+            -- 社区例外加权：直接加分到社区共识偏好的品种
+            -- commStat: 单字母"H"/"P"/"S"→纯品种H/H/P/P/S/S; 完整码"H/P"→直接匹配
             -- 软覆盖: W_COMMUNITY=1.0 × 100 = 100分，翻转中等差距的排名
             local commStat = COMMUNITY_BREED_BONUS[speciesID]
             local commBonus = 0
             if commStat then
-                local targetCode = commStat == "H" and "H/H" or commStat == "P" and "P/P" or commStat == "S" and "S/S" or nil
+                local targetCode
+                if #commStat == 1 then
+                    targetCode = commStat == "H" and "H/H" or commStat == "P" and "P/P" or commStat == "S" and "S/S" or nil
+                else
+                    targetCode = commStat  -- 完整品种码如 "H/P"
+                end
                 if targetCode and code == targetCode then
                     commBonus = W_COMMUNITY * SCALE
                     score = score + commBonus
