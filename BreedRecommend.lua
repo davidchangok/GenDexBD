@@ -101,10 +101,14 @@ local NEGATE_PATTERNS = {
         "不会.*回复", "不再.*回复", "防止.*回复",
         "阻止.*治疗", "无法.*治疗", "不能.*治疗", "禁止.*治疗",
         "阻止.*治愈", "无法.*治愈",
+        -- 中文：伤害降低→对方debuff非自身防御
+        "使.*目标.*伤.*降低", "降低.*目标.*伤",
         -- 英文：否定heal/restore → debuff, not a healing ability
         "prevent.*heal", "prevent.*restore", "prevent.*recover",
         "cannot.*heal", "unable.*heal", "stop.*heal",
         "block.*heal", "block.*restore",
+        -- 英文：enemy debuff → not self-defense
+        "enemy.*deal.*less", "reduce.*enemy.*damage", "target.*deal.*less",
     },
     SCALES_POWER = {
         -- 中文："受到攻击时.*提升速度" → 被攻击触发，非自身增幅
