@@ -348,9 +348,87 @@ def main():
         lines.append(f"  ... 共 {len(single)} 只（省略 {len(single)-30} 只）")
     lines.append("")
 
+    # --- 五、智能审查标记 ---
+    lines.append("=" * 70)
+    lines.append(f"  五、智能审查标记")
+    lines.append("=" * 70)
+
+    # A. 小差距宠物 (Top1-2 ≤ 15分, 不含FORCE/COMM)
+    small_gap = []
+    hh_with_speed = []
+    single_tag = []
+    low_score = []
+
+    for r in multi:
+        breeds = r.get("breeds", [])
+        if len(breeds) < 2:
+            continue
+        top1 = breeds[0]
+        top2 = breeds[1]
+        gap = top1["score"] - top2["score"]
+
+        # A: 小差距（排除FORCE和已有COMM的）
+        if gap <= 15 and not r["forceTags"] and not r["hasCommunity"]:
+            small_gap.append((r, gap, top1, top2))
+
+        # B: H/H排第一但有NEEDS_SPEED标签
+        t1_tags = top1.get("tags", "")
+        if top1["code"] in ("H/H",) and "NEEDS_SPEED" in t1_tags:
+            hh_with_speed.append((r, top1, top2, gap))
+
+        # C: 单标签宠物（只有一种标签类型, 且非单品种）
+        tcount = 0
+        for kw in ["NEEDS_SPEED", "SCALES_POWER", "SCALES_HEALTH", "POWER_AMP", "SUICIDE_HP", "FORCE_SS", "FORCE_PP", "FORCE_HH"]:
+            if kw in t1_tags:
+                tcount += 1
+        if tcount <= 1 and not r["single"] and breeds[0]["score"] < 500:
+            single_tag.append((r, top1))
+
+        # D: 极低分 (<400)
+        if breeds[0]["score"] <= 400:
+            low_score.append((r, top1))
+
+    # A 输出
+    if small_gap:
+        small_gap.sort(key=lambda x: x[1])  # 按差距排序
+        lines.append(f"\n  A. Top1-2差距≤15分（{len(small_gap)}只，排除FORCE/COMM）")
+        lines.append(f"  {'ID':<6} {'名称':<14} {'Top1':<6} {'分':<6} {'Top2':<6} {'分':<6} {'差':<4} {'标签'}")
+        lines.append(f"  {'-'*4}   {'-'*12}   {'-'*4}   {'-'*4}   {'-'*4}   {'-'*4}   {'-'*2}   {'-'*20}")
+        for r, gap, top1, top2 in small_gap[:40]:
+            lines.append(f"  {r['id']:<6} {r['name']:<14} {top1['code']:<6} {top1['score']:<6} {top2['code']:<6} {top2['score']:<6} {gap:<4} {top1.get('tags','')[:50]}")
+        if len(small_gap) > 40:
+            lines.append(f"  ... 共 {len(small_gap)} 只（省略 {len(small_gap)-40} 只）")
+
+    # B 输出
+    if hh_with_speed:
+        lines.append(f"\n  B. H/H Top1但有NEEDS_SPEED标签（{len(hh_with_speed)}只）")
+        lines.append(f"  {'ID':<6} {'名称':<14} {'H/H分':<7} {'Top2':<6} {'分':<6} {'差':<4} {'标签'}")
+        lines.append(f"  {'-'*4}   {'-'*12}   {'-'*5}   {'-'*4}   {'-'*4}   {'-'*2}   {'-'*30}")
+        for r, top1, top2, gap in hh_with_speed:
+            lines.append(f"  {r['id']:<6} {r['name']:<14} {top1['score']:<7} {top2['code']:<6} {top2['score']:<6} {gap:<4} {top1.get('tags','')[:50]}")
+
+    # C 输出
+    if single_tag:
+        lines.append(f"\n  C. 低分单标签宠物（{len(single_tag)}只, 仅1种标签类型+分<500）")
+        lines.append(f"  {'ID':<6} {'名称':<14} {'Top1':<6} {'分数':<6} {'标签'}")
+        lines.append(f"  {'-'*4}   {'-'*12}   {'-'*4}   {'-'*4}   {'-'*30}")
+        for r, top1 in single_tag:
+            lines.append(f"  {r['id']:<6} {r['name']:<14} {top1['code']:<6} {top1['score']:<6} {top1.get('tags','')[:50]}")
+
+    # D 输出
+    if low_score:
+        lines.append(f"\n  D. 极低分Top1 ≤400（{len(low_score)}只）")
+        lines.append(f"  {'ID':<6} {'名称':<14} {'Top1':<6} {'分数':<6} {'品种数':<6} {'标签'}")
+        lines.append(f"  {'-'*4}   {'-'*12}   {'-'*4}   {'-'*4}   {'-'*4}   {'-'*30}")
+        for r, top1 in low_score:
+            lines.append(f"  {r['id']:<6} {r['name']:<14} {top1['code']:<6} {top1['score']:<6} {r['numBreeds']:<6} {top1.get('tags','')[:50]}")
+
+    lines.append("")
+
     lines.append("=" * 70)
     lines.append(f"  报告结束  |  {len(parsed)}物种  |  单:{len(single)}  |  多:{len(multi)}")
     lines.append(f"  FORCE:{len(force_recs)}  |  共识:{len(community_recs)}  |  冲突:{len(conflict_recs)}")
+    lines.append(f"  小差距:{len(small_gap)}  |  H/H+速度:{len(hh_with_speed)}  |  单标签:{len(single_tag)}  |  低分:{len(low_score)}")
     lines.append("=" * 70)
 
     result = "\n".join(lines)
