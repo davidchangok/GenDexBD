@@ -59,142 +59,132 @@ local function DummyLocale(key)
 end
 
 local reportDialog = nil
+local reportWidgets = nil  -- { bar, barText, procText, statsText, closeBtn }
 
 local function ShowReportDialog()
     if not addonTable.GenerateReport then return end
 
-    -- 复用已有弹窗
-    if reportDialog then
-        reportDialog:Show()
-        return
+    -- 首次创建弹窗
+    if not reportDialog then
+        local dlg = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
+        dlg:SetSize(420, 240)
+        dlg:SetPoint("CENTER")
+        dlg:SetFrameStrata("DIALOG")
+        dlg:SetToplevel(true)
+        dlg.TitleBg:SetHeight(26)
+
+        local title = dlg:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+        title:SetPoint("TOP", 0, -12)
+        title:SetText(GetLocaleString("REPORT_DIALOG_TITLE"))
+
+        local procText = dlg:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        procText:SetPoint("TOPLEFT", 16, -38)
+        procText:SetWidth(380)
+        procText:SetJustifyH("LEFT")
+
+        -- 进度条
+        local bar = CreateFrame("StatusBar", nil, dlg)
+        bar:SetPoint("TOPLEFT", procText, "BOTTOMLEFT", -2, -6)
+        bar:SetPoint("RIGHT", -16, 0)
+        bar:SetHeight(22)
+        bar:SetMinMaxValues(0, 100)
+        bar:SetValue(0)
+        local barTex = bar:CreateTexture(nil, "ARTWORK")
+        bar:SetStatusBarTexture(barTex)
+        barTex:SetTexture("Interface\\Buttons\\WHITE8X8")
+        bar:SetStatusBarColor(0.15, 0.7, 0.15)
+
+        local barBg = bar:CreateTexture(nil, "BACKGROUND")
+        barBg:SetAllPoints(bar)
+        barBg:SetColorTexture(0.1, 0.1, 0.1)
+        barBg:SetDrawLayer("BACKGROUND", -1)
+
+        local barText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+        barText:SetPoint("CENTER")
+
+        -- 实时统计
+        local statsText = dlg:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        statsText:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -8)
+        statsText:SetPoint("RIGHT", -16, 0)
+        statsText:SetJustifyH("LEFT")
+
+        -- 诊断行
+        local dbgText = dlg:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        dbgText:SetPoint("BOTTOMLEFT", 16, 40)
+        dbgText:SetPoint("RIGHT", -16, 0)
+        dbgText:SetJustifyH("LEFT")
+        dbgText:SetTextColor(0.5, 0.5, 0.5)
+
+        -- 关闭按钮
+        local closeBtn = CreateFrame("Button", nil, dlg, "UIPanelButtonTemplate")
+        closeBtn:SetPoint("BOTTOM", 0, 12)
+        closeBtn:SetSize(80, 24)
+        closeBtn:SetText(CLOSE)
+        closeBtn:SetScript("OnClick", function()
+            dlg:Hide()
+        end)
+
+        reportDialog = dlg
+        reportWidgets = { bar = bar, barText = barText, procText = procText,
+                          statsText = statsText, dbgText = dbgText, closeBtn = closeBtn }
     end
 
-    local dlg = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
-    dlg:SetSize(400, 220)
-    dlg:SetPoint("CENTER")
-    dlg:SetFrameStrata("DIALOG")
-    dlg:SetToplevel(true)
-    dlg.TitleBg:SetHeight(26)
+    local w = reportWidgets
+    w.closeBtn:Disable()
+    w.bar:SetValue(0)
+    w.barText:SetText("0%")
+    w.procText:SetText(GetLocaleString("REPORT_PROCESSING") or "Analyzing...")
+    w.statsText:SetText("")
+    w.dbgText:SetText("|cff888888[诊断] 准备启动...|r")
 
-    local title = dlg:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    title:SetPoint("TOP", 0, -12)
-    title:SetText(GetLocaleString("REPORT_DIALOG_TITLE"))
+    reportDialog:Show()
 
-    -- 当前处理宠物名
-    local procText = dlg:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    procText:SetPoint("TOPLEFT", 16, -38)
-    procText:SetText("")
-
-    -- 进度条（手动创建，避免 TextStatusBarTemplate 依赖）
-    local bar = CreateFrame("StatusBar", nil, dlg)
-    bar:SetPoint("TOPLEFT", procText, "BOTTOMLEFT", -2, -6)
-    bar:SetPoint("RIGHT", -16, 0)
-    bar:SetHeight(20)
-    bar:SetMinMaxValues(0, 100)
-    bar:SetValue(0)
-    local barTex = bar:CreateTexture(nil, "ARTWORK")
-    bar:SetStatusBarTexture(barTex)
-    barTex:SetTexture("Interface\\Buttons\\WHITE8X8")
-    bar:SetStatusBarColor(0.1, 0.65, 0.1)
-    -- 边框背景
-    local barBg = bar:CreateTexture(nil, "BACKGROUND")
-    barBg:SetAllPoints(bar)
-    barBg:SetColorTexture(0.12, 0.12, 0.12)
-    barBg:SetDrawLayer("BACKGROUND", -1)
-
-    local barText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    barText:SetPoint("CENTER")
-    barText:SetText("0%")
-
-    -- 实时统计
-    local statsText = dlg:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-    statsText:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -8)
-    statsText:SetPoint("RIGHT", -16, 0)
-    statsText:SetJustifyH("LEFT")
-    statsText:SetText("")
-
-    -- 关闭按钮（处理中禁用）
-    local closeBtn = CreateFrame("Button", nil, dlg, "UIPanelButtonTemplate")
-    closeBtn:SetPoint("BOTTOM", 0, 16)
-    closeBtn:SetSize(80, 24)
-    closeBtn:SetText(CLOSE)
-    closeBtn:Disable()
-    closeBtn:SetScript("OnClick", function()
-        dlg:Hide()
-    end)
-
-    reportDialog = dlg
-
-    -- 启动报告
-    dlg:SetScript("OnShow", function()
-        -- 只运行一次
-        dlg:SetScript("OnShow", nil)
-
-        closeBtn:Disable()
-        bar:SetValue(0)
-        barText:SetText("0%")
-        procText:SetText("")
-        statsText:SetText(strformat("0 / 0"))
+    -- 用 C_Timer 延迟启动（按钮点击不受沙箱限制），等弹窗渲染完毕
+    C_Timer.After(0.3, function()
+        if not reportDialog:IsShown() then return end  -- 用户已关闭
+        w.dbgText:SetText("|cff888888[诊断] 正在收集物种列表...|r")
+        w.procText:SetText("收集物种列表中...")
+        print("|cff00ffff[GenDexDBG]|r Report: Starting from dialog...")
 
         addonTable.GenerateReport(
-            -- onProgress
             function(current, total, name, stats)
                 local pct = math.floor(current / total * 100)
-                bar:SetValue(pct)
-                barText:SetText(pct .. "%")
-
+                w.bar:SetValue(pct)
+                w.barText:SetText(pct .. "%")
                 if name then
-                    procText:SetText(strformat(
-                        GetLocaleString("REPORT_PROCESSING") or "Analyzing: %s",
-                        name))
+                    w.procText:SetText(strformat(
+                        GetLocaleString("REPORT_PROCESSING") or "Analyzing: %s", name))
                 end
-
                 local s = stats
-                statsText:SetText(strformat(
-                    "%s: %d / %d\n%s: %d  |  %s: %d  |  %s: %d  |  %s: %d\n%s: %d  |  %s: %d  |  %s: %d",
-                    GetLocaleString("REPORT_PROGRESS") or "Progress", current, total,
-                    DummyLocale("REPORT_SINGLE_BREED") or "Single", s.singleBreed,
-                    DummyLocale("REPORT_MULTI_BREED") or "Multi", s.multiBreed,
-                    DummyLocale("REPORT_COMMUNITY_CONFLICT") or "Conflict", s.communityConflict,
-                    DummyLocale("REPORT_ZERO_TAGS") or "ZeroTag", s.zeroTags,
-                    DummyLocale("REPORT_WITH_COMMUNITY") or "Community", s.withCommunity,
-                    DummyLocale("REPORT_FORCE_TAGS") or "FORCE", s.forceTags,
-                    DummyLocale("REPORT_ERRORS") or "Error", s.errors
-                ))
+                w.statsText:SetText(strformat(
+                    "进度: %d / %d  |  单品种: %d  |  多品种: %d\n共识: %d  |  冲突: %d  |  零标签: %d  |  异常: %d",
+                    current, total, s.singleBreed, s.multiBreed,
+                    s.withCommunity, s.communityConflict, s.zeroTags, s.errors))
+                w.dbgText:SetText(strformat("|cff888888[诊断] 批次 #%d/%d 完成|r",
+                    math.ceil(current / 50), math.ceil(total / 50)))
             end,
-            -- onComplete
             function(summary, errorMsg)
                 if errorMsg then
-                    procText:SetText("|cffff0000" .. errorMsg .. "|r")
-                    closeBtn:Enable()
+                    w.procText:SetText("|cffff0000" .. errorMsg .. "|r")
+                    w.dbgText:SetText("|cffff0000[诊断] 失败|r")
+                    w.closeBtn:Enable()
                     return
                 end
-
-                bar:SetValue(100)
-                barText:SetText("100%")
-                procText:SetText("|cff00ff00" .. strformat(
-                    GetLocaleString("REPORT_DONE_SUMMARY") or "Done! %d species analyzed",
-                    summary.total) .. "|r")
-
+                w.bar:SetValue(100)
+                w.barText:SetText("100%")
+                w.procText:SetText("|cff00ff00" .. strformat(
+                    GetLocaleString("REPORT_DONE_SUMMARY") or "Done! %d species", summary.total) .. "|r")
                 local s = summary
-                statsText:SetText(strformat(
-                    "%s: %d  |  %s: %d  |  %s: %d  |  %s: %d\n%s: %d  |  %s: %d  |  %s: %d  |  %s: %d",
-                    DummyLocale("REPORT_TOTAL_SPECIES") or "Total", s.total,
-                    DummyLocale("REPORT_SINGLE_BREED") or "Single", s.singleBreed,
-                    DummyLocale("REPORT_MULTI_BREED") or "Multi", s.multiBreed,
-                    DummyLocale("REPORT_SKIPPED") or "Skipped", s.skipped,
-                    DummyLocale("REPORT_WITH_COMMUNITY") or "Community", s.withCommunity,
-                    DummyLocale("REPORT_COMMUNITY_MATCH") or "Match", s.communityMatch,
-                    DummyLocale("REPORT_COMMUNITY_CONFLICT") or "Conflict", s.communityConflict,
-                    DummyLocale("REPORT_ERRORS") or "Error", s.errors
-                ))
-
-                closeBtn:Enable()
+                w.statsText:SetText(strformat(
+                    "总计: %d  |  单品种: %d  |  多品种: %d  |  跳过: %d\n共识: %d  |  匹配: %d  |  冲突: %d  |  零标签: %d",
+                    s.total, s.singleBreed, s.multiBreed, s.skipped,
+                    s.withCommunity, s.communityMatch, s.communityConflict, s.zeroTags))
+                w.dbgText:SetText("|cff00ff00[诊断] 完成，数据已保存|r")
+                w.closeBtn:Enable()
+                print("|cff00ff00[GenDexDBG]|r Report: Done. " .. s.total .. " species analyzed.")
             end
         )
     end)
-
-    dlg:Show()
 end
 
 local function ShowExportDialog()
