@@ -99,10 +99,9 @@ ProcessBatch = function()
 
     for i = batchStart, batchEnd do
         local sid = st.speciesIDs[i]
-        local ok, err = pcall(ProcessOneSpecies, sid, st)
+        local ok = pcall(ProcessOneSpecies, sid, st)
         if not ok then
             st.stats.errors = st.stats.errors + 1
-            DBG("物种 %d 异常: %s", sid or 0, tostring(err))
         end
         st.currentIdx = i
     end
@@ -131,7 +130,7 @@ local ScheduleNext = function()
     -- 如果帧未显示则显示
     runningFrame:Show()
     runningFrame._fired = false
-    runningFrame:SetScript("OnUpdate", function(self, elapsed)
+    runningFrame:SetScript("OnUpdate", function(self)
         if not self._fired then
             self._fired = true
             self:Hide()
