@@ -183,6 +183,7 @@ local COMMUNITY_BREED_BONUS = {
     [1238] = "B",    -- 幼年瓦格里: B/B(PvP鬼影先手),社区B/B+H/H都可,标记B/B为共识首选
     -- === 元素 ===
     [509] = "H/S",   -- 袖珍沼泽兽: H/S,痛殴先手晕+鞭笞额外攻击,元素均衡
+    [1328] = "H/S",  -- 红宝石小水滴/RubyDroplet: H/S,Xu-Fu推荐(*/2/2),元素治疗
     [445] = "H/S",   -- 小旋风: H/S社区Vek确认,289速Bash先手+Wild Winds反制水栖
     [1432] = "S",    -- 夜影幼苗/NightshadeSproutling: S/S,Xu-Fu推荐(1/2/1),元素速攻
     [1429] = "P",    -- 暮秋幼苗/AutumnalSproutling: P/P,Xu-Fu推荐(2/1/2),元素爆发
