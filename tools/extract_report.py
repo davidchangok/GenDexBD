@@ -226,6 +226,34 @@ def main():
         else:
             r["breeds"] = []
 
+        # 提取技能详情 ab 字段
+        r["abilities"] = []
+        ab_match = re.search(r'\["ab"\]\s*=\s*\{', rec_text)
+        if ab_match:
+            ab_start = ab_match.end() - 1
+            depth = 0
+            ab_end = ab_start
+            for i in range(ab_start, len(rec_text)):
+                c = rec_text[i]
+                if c == "{": depth += 1
+                elif c == "}":
+                    depth -= 1
+                    if depth == 0:
+                        ab_end = i + 1
+                        break
+            ab_text = rec_text[ab_start:ab_end]
+            # 提取每个技能字符串 "aid|name|desc|static_tags"
+            ab_entries = re.findall(r'"([^"]*(?:\\.[^"]*)*)"', ab_text)
+            for astr in ab_entries:
+                parts = astr.split("|", 3)
+                if len(parts) >= 3:
+                    r["abilities"].append({
+                        "aid": parts[0],
+                        "name": parts[1],
+                        "desc": parts[2][:100],  # 截断描述
+                        "static_tags": parts[3] if len(parts) > 3 else "",
+                    })
+
         parsed.append(r)
 
     print(f"解析完成: {len(parsed)} 条")
@@ -307,9 +335,9 @@ def main():
         )
     lines.append("")
 
-    # --- 多品种完整排名 ---
+    # --- 多品种技能+排名 ---
     lines.append("=" * 70)
-    lines.append(f"  三、多品种完整排名 ({len(multi)} 只)")
+    lines.append(f"  三、多品种技能+排名 ({len(multi)} 只)")
     lines.append("=" * 70)
 
     for r in multi:
@@ -326,14 +354,24 @@ def main():
         if len(breeds) >= 2:
             g = breeds[0]["score"] - breeds[1]["score"]
             if g < 20:
-                top12_gap = f" ⚡Top1-2差={g}"
+                top12_gap = f" [Top1-2差={g}]"
             elif g < 50:
                 top12_gap = f" (差={g})"
 
         lines.append(f"\n  {r['id']} {r['name']} ({r['type']})  {r['numBreeds']}种  {flags}{top12_gap}")
+
+        # 技能详情
+        abilities = r.get("abilities", [])
+        if abilities:
+            for ab in abilities:
+                stag = f" [{ab['static_tags']}]" if ab['static_tags'] else ""
+                lines.append(f"    aid={ab['aid']} |{ab['name']}|{stag}  {ab['desc']}")
+        else:
+            lines.append(f"    (技能数据缺失)")
+
         lines.append(f"  {'品种':<8} {'分数':<8} {'标签'}")
         lines.append(f"  {'-'*6}   {'-'*6}   {'-'*30}")
-        for b in breeds[:6]:  # 最多6个品种
+        for b in breeds[:6]:
             lines.append(f"  {b['code']:<8} {b['score']:<8} {b.get('tags','')[:50]}")
     lines.append("")
 

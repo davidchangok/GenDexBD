@@ -247,6 +247,32 @@ ProcessOneSpecies = function(speciesID, st)
     }
     st._lastName = speciesName
 
+    -- 收集技能详情（仅多品种宠物，用于关键词覆盖分析）
+    if numBreeds > 1 then
+        local at = ({ C_PetJournal.GetPetAbilityList(speciesID) })[1]
+        if at and type(at) == "table" then
+            local abList = {}
+            for _, aid in ipairs(at) do
+                if type(aid) == "number" and aid > 0 then
+                    local _, _, aname, _, _, desc = pcall(C_PetBattles.GetAbilityInfoByID, aid)
+                    if aname then
+                        -- 格式: "aid|名称|描述|静态标签|自动标签"
+                        local stTags = addonTable.GetSkillTags and addonTable.GetSkillTags()[aid]
+                        local stStr = ""
+                        if stTags then
+                            local tl = {}
+                            for t in pairs(stTags) do tl[#tl+1] = t end
+                            stStr = table.concat(tl, ",")
+                        end
+                        abList[#abList + 1] = aid .. "|" .. (aname or "?") .. "|" .. (desc or "")
+                            .. "|" .. stStr
+                    end
+                end
+            end
+            if #abList > 0 then rec.ab = abList end
+        end
+    end
+
     if numBreeds <= 1 then
         st.stats.singleBreed = st.stats.singleBreed + 1
         rec.sb = true
