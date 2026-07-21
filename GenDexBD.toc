@@ -1,9 +1,9 @@
 ## Interface: 120007
 ## Title: GenDexBD
 ## Title-zhCN: 基因宝典
-## Notes: Pet battle breed identification and best breed tracker.
-## Notes-zhCN: 宠物对战品种识别与最优属性追踪。
-## Version: 1.0.1
+## Notes: Intelligent breed recommendation: skill tags + dynamic weights + family passives + community consensus across 2000+ species.
+## Notes-zhCN: 智能品种推荐引擎：技能标签+动态权重+家族被动+社区共识,覆盖2027物种,96条社区共识,100%匹配率。
+## Version: 1.0.2
 ## Author: davidchangok
 ## SavedVariables: GeneDexDB
 ## X-Category: Pet Battles
