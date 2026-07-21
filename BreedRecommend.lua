@@ -134,6 +134,8 @@ local COMMUNITY_BREED_BONUS = {
     [564] = "H",     -- 翡翠乌龟: H/H,龟类坦克型,甲壳护盾+治疗波
     [572] = "P",     -- 塔边小蟹: P/P,蟹类PvP速攻型,蟹钳+激流
     [1583] = "P",    -- 海藻凿孔蟹: P/P,螃蟹PvP型,同572
+    [2372] = "S",    -- 影背爬蟹/ShadowbackCrawler: S/S,Xu-Fu推荐(*/1/1)速攻
+    [2646] = "P/B",  -- 沙爪阳壳蟹/SandclawSunshell: P/B,Xu-Fu推荐(2/1/2),水栖爆发
     [463] = "H",     -- 灵魂蟹: H/H,螃蟹/龟坦克型,甲壳护盾+治疗波续航
     -- [713] 软壳幼龟: nb=2仅H/S和B/B, 无H/H品种, 移除
     [723] = "H",     -- 棘刺水龟: H/H,同龟类坦克H/H共识
@@ -159,6 +161,8 @@ local COMMUNITY_BREED_BONUS = {
     [548] = "P",     -- 蛮锤狮鹫: P/P社区"no-brainer",仅3种鸟有P/P,切削之风+群殴多段爆发
     [646] = "S",     -- 鸡: S/S(P/P也可),飞行×1.3速+325速,蛋幕+切削之风
     [1068] = "S",    -- 乌鸦: S/S,空袭+暗黑+夜袭,"very rare but best"
+    [2902] = "S",    -- 暗色惊惧之翼/DuskyDredwingPup: S/S,Xu-Fu推荐(2/1/1),飞行毒雾先手
+    [2380] = "P",    -- 寄生野猪蝇/ParasiticBoarfly: P/P,Xu-Fu推荐(2/1/1),飞行爆发
     [1572] = "S",    -- 夺目的红羽雀: S/S,飞行速度系S/S,啄击+飞羽+升空
     -- === 蝙蝠 ===
     [626] = "P",     -- 蝙蝠: P/P,鲁莽之击spam+鹰眼,无防御=最大化输出
@@ -169,15 +173,23 @@ local COMMUNITY_BREED_BONUS = {
     [1913] = "H/S",  -- 闪蹄小鹿: H/S,治疗辅助宠,宁静+引吭+自然守护
     -- === 亡灵 ===
     [627] = "H/P",   -- 被感染的松鼠: H/P,邪爆HP%+吞噬,亡灵偏攻
+    [1965] = "H/P",  -- 疫息/Blightbreath: H/P,Xu-Fu推荐(1/2/1),亡灵DOT坦克
+    [1600] = "S",    -- 骨蛇/BoneSerpent: S/S,Xu-Fu推荐(1/2/2),亡灵速攻
+    [1968] = "S",    -- 邪恶灵魂/WickedSoul: S/S,Xu-Fu推荐(*/2/*),亡灵速控
     [1740] = "P/S",  -- 幽灵蛆虫: P/S,吸血+疫病+幽魂之咬
     [455] = "P/S",   -- 生病的松鼠: P/S,刨花+激素刺激+奔踏/狂乱之击,亡灵松鼠
     [1238] = "B",    -- 幼年瓦格里: B/B(PvP鬼影先手),社区B/B+H/H都可,标记B/B为共识首选
     -- === 元素 ===
     [509] = "H/S",   -- 袖珍沼泽兽: H/S,痛殴先手晕+鞭笞额外攻击,元素均衡
     [445] = "H/S",   -- 小旋风: H/S社区Vek确认,289速Bash先手+Wild Winds反制水栖
+    [1432] = "S",    -- 夜影幼苗/NightshadeSproutling: S/S,Xu-Fu推荐(1/2/1),元素速攻
+    [1429] = "P",    -- 暮秋幼苗/AutumnalSproutling: P/P,Xu-Fu推荐(2/1/2),元素爆发
     [519] = "H",     -- 邪焰: H/H,灼燃大地+献祭+焚烧DOT叠加需血量,无P/P可选
     -- === 龙类 ===
     [557] = "P",     -- 虚空精灵龙: P/P,wp=2.30×1.8碾压ws_needs,P/P>591>S/S=565
+    [1563] = "S",    -- 青铜幼龙: S/S,Xu-Fu唯一S/S龙类幼崽,ArcaneSlash+CrystalPrison+升空
+    [1385] = "S",    -- 白化奇美拉幼崽: S/S,Xu-Fu推荐(1/2/1),龙类速攻
+    [142] = "S",     -- 金色龙鹰宝宝: S/S,Xu-Fu推荐(*/2/2),龙类速攻
     [1167] = "P",    -- 翡翠始祖龙宝宝: P/P,翡翠存在+翡翠梦境=Power缩放治疗,P/P最大治疗量
     [1976] = "P",    -- 利爪雏龙: P/P,SCALES_POWER×3飞行,隼龙围攻+狂风+掠食之击
     [1974] = "S",    -- 雪羽雏龙: S/S,隼龙围攻+尖鸣+掠食之击,飞行速攻
@@ -186,6 +198,9 @@ local COMMUNITY_BREED_BONUS = {
     [4261] = "B",    -- 黑曜战争雏龙: B/B,烈焰吐息+剃刀利爪+末日决战SUICIDE_HP,龙类均衡
     -- === 人型/野兽 PvP ===
     [514] = "S",     -- 剥石者幼崽: S/S,"head and shoulders better",专注+脚踢+偏斜=先手控
+    [1229] = "S",    -- 恶魔小鬼/FiendishImp: S/S,Xu-Fu推荐(1/1/2),人型速攻燃魂+自燃
+    [1953] = "S",    -- 雪怪矮人/SnoboldRunt: S/S,Xu-Fu推荐(1/2/1),人型速控
+    [1495] = "S",    -- 石食者/OreEater: S/S,Xu-Fu推荐(1/1/1),人型速控
     [1180] = "P",    -- 赞达拉袭胫者: P/P,黑爪+狩猎小队=纯爆发
     [1211] = "P",    -- 赞达拉撕踝者: P/P,Black Claw体系
     [1212] = "P",    -- 赞达拉裂足者: P/P,同上
@@ -213,6 +228,10 @@ local COMMUNITY_BREED_BONUS = {
     [2674] = "B",    -- H4ND-EE: B/B,重拳/砍劈+抓握/重建+万能打击/修复,均衡机械
     [2753] = "H",    -- 喷洒机器人0D型: H/H,水流喷射+毒雾喷洒/强化护甲
     [1567] = "P/S",  -- 哨兵之友: P/S,夜袭+月火术+虚无之界,NEEDS_SPEED×2飞行
+    [389] = "S",     -- 小小收割者/TinyHarvester: S/S,Xu-Fu推荐,机械速攻
+    [2001] = "H/P",  -- 呆博勒/Dibbler: H/P,Xu-Fu推荐(*/1/2),机械坦克钻孔+闪电
+    [1565] = "S",    -- 机械蝎子/MechanicalScorpid: S/S,Xu-Fu推荐(2/1/2),机械速攻
+    [254] = "S",     -- 蓝发条火箭机器人: S/S,Xu-Fu推荐(2/2/1),机械速攻
     -- === 其他 ===
     [1344] = "H/P",  -- 暴怒小箭猪: H/P,灵魂尖刺+侧击+复仇,SCALES_HEALTH+NEEDS_SPEED+SCALES_POWER
     [1185] = "H/S",  -- 幽灵小箭猪: H/S,幽灵打击+灵魂尖刺/幻象屏障+幽魂脊刺,魔法家族
@@ -228,6 +247,7 @@ local COMMUNITY_BREED_BONUS = {
     [1181] = "H",    -- 老年巨蟒: H/H社区共识,Beast被动+Poison Fang+Huge Fang生存越长越好
     -- 臭鼬家族: WarcraftPets社区共识H/P(heal吃Power+debuff需血量担伤),S/S=289速不够快
     [633] = "H/P",  -- 山地臭鼬: H/P(有此品种),COMMUNITY覆盖FORCE_SS有效
+    [2660] = "H/P", -- 泥蛞蝓/MuckSlug: H/P,Xu-Fu推荐(*/1/2),小动物坦克ShellShield+Absorb
     -- [397] [823] 无H/P品种, COMMUNITY无法生效, 依赖FORCE_SS自然决策
     -- === 蟑螂 ===
     -- 蟑螂家族共识S/S, FORCE_SS(乱舞)通常会强推, COMMUNITY加固
