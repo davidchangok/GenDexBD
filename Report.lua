@@ -104,19 +104,26 @@ local function ProcessBatch()
     local batchEnd = st.currentIdx + BATCH_SIZE
     if batchEnd > st.total then batchEnd = st.total end
 
+    local lastName = nil
     for i = st.currentIdx + 1, batchEnd do
         local sid = st.speciesIDs[i]
         local ok = pcall(ProcessOneSpecies, sid, st)
         if not ok then
             st.stats.errors = st.stats.errors + 1
         end
+        lastName = st._lastName  -- ProcessOneSpecies 写入
         st.currentIdx = i
     end
 
-    local pct = mfloor(st.currentIdx / st.total * 100)
-    print(sformat("|cff888888[GenDexBD]|r %s",
-        sformat(DummyLocale("REPORT_PROGRESS") or "Progress: %d/%d (%d%%)",
-            st.currentIdx, st.total, pct)))
+    -- 进度回调（UI 优先，聊天框降级）
+    if st.onProgress then
+        st.onProgress(st.currentIdx, st.total, lastName, st.stats)
+    else
+        local pct = mfloor(st.currentIdx / st.total * 100)
+        print(sformat("|cff888888[GenDexBD]|r %s",
+            sformat(DummyLocale("REPORT_PROGRESS") or "Progress: %d/%d (%d%%)",
+                st.currentIdx, st.total, pct)))
+    end
 
     if st.currentIdx >= st.total then
         DelayCall(FinishReport, 0.1)
@@ -125,14 +132,16 @@ local function ProcessBatch()
     end
 end
 
-local function StartReport()
+local function StartReport(onProgress, onComplete)
     if not Rematch or not Rematch.roster or not Rematch.petInfo then
-        print("|cffff0000[GenDexBD]|r " .. (DummyLocale("REPORT_NO_REMATCH") or "Rematch not available"))
+        local msg = DummyLocale("REPORT_NO_REMATCH") or "Rematch not available"
+        if onComplete then onComplete(nil, msg) else print("|cffff0000[GenDexBD]|r " .. msg) end
         return
     end
 
     if reportState then
-        print("|cffffd700[GenDexBD]|r " .. (DummyLocale("REPORT_ALREADY_RUNNING") or "Report already running..."))
+        local msg = DummyLocale("REPORT_ALREADY_RUNNING") or "Report already running..."
+        if onComplete then onComplete(nil, msg) else print("|cffffd700[GenDexBD]|r " .. msg) end
         return
     end
 
@@ -145,7 +154,8 @@ local function StartReport()
 
     local total = #allSpeciesIDs
     if total == 0 then
-        print("|cffff0000[GenDexBD]|r " .. (DummyLocale("REPORT_NO_SPECIES") or "No species found"))
+        local msg = DummyLocale("REPORT_NO_SPECIES") or "No species found"
+        if onComplete then onComplete(nil, msg) else print("|cffff0000[GenDexBD]|r " .. msg) end
         return
     end
 
@@ -153,6 +163,9 @@ local function StartReport()
         speciesIDs = allSpeciesIDs,
         total = total,
         currentIdx = 0,
+        _lastName = nil,
+        onProgress = onProgress,
+        onComplete = onComplete,
         results = {},
         conflicts = {},
         noTagsList = {},
@@ -170,12 +183,13 @@ local function StartReport()
         },
     }
 
-    print(sformat("|cff00ff00[GenDexBD]|r %s", sformat(
-        DummyLocale("REPORT_START") or "Report generation started: %d species", total)))
-    print(sformat("|cff888888[GenDexBD]|r %s",
-        sformat(DummyLocale("REPORT_PROGRESS") or "Progress: %d/%d (%d%%)", 0, total, 0)))
+    if not onProgress then
+        print(sformat("|cff00ff00[GenDexBD]|r %s", sformat(
+            DummyLocale("REPORT_START") or "Report generation started: %d species", total)))
+        print(sformat("|cff888888[GenDexBD]|r %s",
+            sformat(DummyLocale("REPORT_PROGRESS") or "Progress: %d/%d (%d%%)", 0, total, 0)))
+    end
 
-    -- 异步启动（帧定时器，绕过斜杠命令 C_Timer 限制）
     DelayCall(ProcessBatch, 0.1)
 end
 
@@ -210,6 +224,7 @@ local function ProcessOneSpecies(speciesID, st)
         t = petType, tn = GetPetTypeName(petType),
         nb = numBreeds, sb = false,
     }
+    st._lastName = speciesName
 
     if numBreeds <= 1 then
         st.stats.singleBreed = st.stats.singleBreed + 1
@@ -334,6 +349,12 @@ local function FinishReport()
 
     if not GeneDexDB then GeneDexDB = {} end
     GeneDexDB.SpeciesReport = { r = st.results, sm = summary, v = 1 }
+
+    if st.onComplete then
+        st.onComplete(summary)
+        reportState = nil
+        return
+    end
 
     local s = st.stats
     print("|cff00ff00=== [GenDexBD] " .. (DummyLocale("REPORT_DONE") or "Report Complete") .. " ===|r")

@@ -52,7 +52,143 @@ local function GetPetTypeName(petType)
     return _G["BATTLE_PET_NAME_" .. petType] or ("?" .. tostring(petType))
 end
 
--- ========== 导入导出弹窗 ==========
+-- ========== 评估报告进度弹窗 ==========
+
+local function DummyLocale(key)
+    return addonTable.GetLocaleString and addonTable.GetLocaleString(key) or key
+end
+
+local reportDialog = nil
+
+local function ShowReportDialog()
+    if not addonTable.GenerateReport then return end
+
+    -- 复用已有弹窗
+    if reportDialog then
+        reportDialog:Show()
+        return
+    end
+
+    local dlg = CreateFrame("Frame", nil, UIParent, "BasicFrameTemplateWithInset")
+    dlg:SetSize(400, 220)
+    dlg:SetPoint("CENTER")
+    dlg:SetFrameStrata("DIALOG")
+    dlg:SetToplevel(true)
+    dlg.TitleBg:SetHeight(26)
+
+    local title = dlg:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    title:SetPoint("TOP", 0, -12)
+    title:SetText(GetLocaleString("REPORT_DIALOG_TITLE"))
+
+    -- 当前处理宠物名
+    local procText = dlg:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    procText:SetPoint("TOPLEFT", 16, -38)
+    procText:SetText("")
+
+    -- 进度条
+    local bar = CreateFrame("StatusBar", nil, dlg, "TextStatusBarTemplate")
+    bar:SetPoint("TOPLEFT", procText, "BOTTOMLEFT", -2, -6)
+    bar:SetPoint("RIGHT", -16, 0)
+    bar:SetHeight(20)
+    bar:SetMinMaxValues(0, 100)
+    bar:SetValue(0)
+    bar:GetStatusBarTexture():SetGradient("VERTICAL", 0, 0.6, 0, 0.2, 0.85, 0)
+
+    local barText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    barText:SetPoint("CENTER")
+    barText:SetText("0%")
+
+    -- 实时统计
+    local statsText = dlg:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    statsText:SetPoint("TOPLEFT", bar, "BOTTOMLEFT", 0, -8)
+    statsText:SetPoint("RIGHT", -16, 0)
+    statsText:SetJustifyH("LEFT")
+    statsText:SetText("")
+
+    -- 关闭按钮（处理中禁用）
+    local closeBtn = CreateFrame("Button", nil, dlg, "UIPanelButtonTemplate")
+    closeBtn:SetPoint("BOTTOM", 0, 16)
+    closeBtn:SetSize(80, 24)
+    closeBtn:SetText(CLOSE)
+    closeBtn:Disable()
+    closeBtn:SetScript("OnClick", function()
+        dlg:Hide()
+    end)
+
+    reportDialog = dlg
+
+    -- 启动报告
+    dlg:SetScript("OnShow", function()
+        -- 只运行一次
+        dlg:SetScript("OnShow", nil)
+
+        closeBtn:Disable()
+        bar:SetValue(0)
+        barText:SetText("0%")
+        procText:SetText("")
+        statsText:SetText(strformat("0 / 0"))
+
+        addonTable.GenerateReport(
+            -- onProgress
+            function(current, total, name, stats)
+                local pct = math.floor(current / total * 100)
+                bar:SetValue(pct)
+                barText:SetText(pct .. "%")
+
+                if name then
+                    procText:SetText(strformat(
+                        GetLocaleString("REPORT_PROCESSING") or "Analyzing: %s",
+                        name))
+                end
+
+                local s = stats
+                statsText:SetText(strformat(
+                    "%s: %d / %d\n%s: %d  |  %s: %d  |  %s: %d  |  %s: %d\n%s: %d  |  %s: %d  |  %s: %d",
+                    GetLocaleString("REPORT_PROGRESS") or "Progress", current, total,
+                    DummyLocale("REPORT_SINGLE_BREED") or "Single", s.singleBreed,
+                    DummyLocale("REPORT_MULTI_BREED") or "Multi", s.multiBreed,
+                    DummyLocale("REPORT_COMMUNITY_CONFLICT") or "Conflict", s.communityConflict,
+                    DummyLocale("REPORT_ZERO_TAGS") or "ZeroTag", s.zeroTags,
+                    DummyLocale("REPORT_WITH_COMMUNITY") or "Community", s.withCommunity,
+                    DummyLocale("REPORT_FORCE_TAGS") or "FORCE", s.forceTags,
+                    DummyLocale("REPORT_ERRORS") or "Error", s.errors
+                ))
+            end,
+            -- onComplete
+            function(summary, errorMsg)
+                if errorMsg then
+                    procText:SetText("|cffff0000" .. errorMsg .. "|r")
+                    closeBtn:Enable()
+                    return
+                end
+
+                bar:SetValue(100)
+                barText:SetText("100%")
+                procText:SetText("|cff00ff00" .. strformat(
+                    GetLocaleString("REPORT_DONE_SUMMARY") or "Done! %d species analyzed",
+                    summary.total) .. "|r")
+
+                local s = summary
+                statsText:SetText(strformat(
+                    "%s: %d  |  %s: %d  |  %s: %d  |  %s: %d\n%s: %d  |  %s: %d  |  %s: %d  |  %s: %d",
+                    DummyLocale("REPORT_TOTAL_SPECIES") or "Total", s.total,
+                    DummyLocale("REPORT_SINGLE_BREED") or "Single", s.singleBreed,
+                    DummyLocale("REPORT_MULTI_BREED") or "Multi", s.multiBreed,
+                    DummyLocale("REPORT_SKIPPED") or "Skipped", s.skipped,
+                    DummyLocale("REPORT_WITH_COMMUNITY") or "Community", s.withCommunity,
+                    DummyLocale("REPORT_COMMUNITY_MATCH") or "Match", s.communityMatch,
+                    DummyLocale("REPORT_COMMUNITY_CONFLICT") or "Conflict", s.communityConflict,
+                    DummyLocale("REPORT_ERRORS") or "Error", s.errors
+                ))
+
+                closeBtn:Enable()
+            end
+        )
+    end)
+
+    dlg:Show()
+end
+
 local function ShowExportDialog()
     -- 序列化 BestBreeds: speciesID=breedID|category|note（元数据完整保留）
     local lines = {}
@@ -414,6 +550,12 @@ function addonTable.InitConfig()
     importBtn:SetPoint("LEFT", exportBtn, "RIGHT", 8, 0);importBtn:SetSize(120,24)
     importBtn:SetText(GetLocaleString("IMPORT_BUTTON"))
     importBtn:SetScript("OnClick", ShowImportDialog)
+
+    -- 生成评估报告按钮
+    local reportBtn = CreateFrame("Button", nil, page1, "UIPanelButtonTemplate")
+    reportBtn:SetPoint("LEFT", importBtn, "RIGHT", 8, 0);reportBtn:SetSize(140,24)
+    reportBtn:SetText(GetLocaleString("REPORT_BTN"))
+    reportBtn:SetScript("OnClick", ShowReportDialog)
 
     -- 遇敌统计 — Flipper 式 ScrollFrame 表格
     local statsTitle = page1:CreateFontString(nil, "ARTWORK", "GameFontNormal")

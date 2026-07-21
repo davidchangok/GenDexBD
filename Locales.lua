@@ -145,6 +145,12 @@ local strings = {
     REPORT_ZERO_TAGS_HEADER = { zhCN = "零标签（多品种）", enUS = "ZERO-TAG (multi-breed)" },
     REPORT_SAVED          = { zhCN = "报告已保存至 GeneDexDB.SpeciesReport", enUS = "Report saved to GeneDexDB.SpeciesReport" },
     REPORT_INSTRUCTIONS   = { zhCN = "退出游戏 → WTF/.../GenDexBD.lua → 复制 SpeciesReport 部分发给我", enUS = "Exit game → WTF/.../GenDexBD.lua → copy \"SpeciesReport\" section" },
+
+    -- 报告弹窗
+    REPORT_DIALOG_TITLE   = { zhCN = "品种评估报告", enUS = "Breed Assessment Report" },
+    REPORT_BTN            = { zhCN = "生成评估报告", enUS = "Generate Report" },
+    REPORT_PROCESSING     = { zhCN = "正在分析：%s", enUS = "Analyzing: %s" },
+    REPORT_DONE_SUMMARY   = { zhCN = "完成！%d 个物种已分析", enUS = "Done! %d species analyzed" },
 }
 
 -- ============================================================================
