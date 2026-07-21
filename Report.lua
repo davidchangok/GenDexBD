@@ -306,6 +306,7 @@ ProcessOneSpecies = function(speciesID, st)
                         targetCode = commStat == "H" and "H/H"
                             or commStat == "P" and "P/P"
                             or commStat == "S" and "S/S"
+                            or commStat == "B" and "B/B"
                     else
                         targetCode = commStat
                     end

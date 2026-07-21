@@ -134,7 +134,7 @@ local COMMUNITY_BREED_BONUS = {
     [627] = "H/P",   -- 被感染的松鼠: H/P,邪爆HP%+吞噬,亡灵偏攻
     [1740] = "P/S",  -- 幽灵蛆虫: P/S,吸血+疫病+幽魂之咬
     [455] = "P/S",   -- 生病的松鼠: P/S,刨花+激素刺激+奔踏/狂乱之击,亡灵松鼠
-    [1238] = "B",    -- 幼年瓦格里: B/B(PvP先手鬼影),可H/H(PvE生存),两品种都推
+    [1238] = "B",    -- 幼年瓦格里: B/B(PvP鬼影先手),社区B/B+H/H都可,标记B/B为共识首选
     -- === 元素 ===
     [509] = "H/S",   -- 袖珍沼泽兽: H/S,痛殴先手晕+鞭笞额外攻击,元素均衡
     [519] = "H",     -- 邪焰: H/H,灼燃大地+献祭+焚烧DOT叠加需血量,无P/P可选
@@ -576,7 +576,7 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             if commStat then
                 local targetCode
                 if #commStat == 1 then
-                    targetCode = commStat == "H" and "H/H" or commStat == "P" and "P/P" or commStat == "S" and "S/S" or nil
+                    targetCode = commStat == "H" and "H/H" or commStat == "P" and "P/P" or commStat == "S" and "S/S" or commStat == "B" and "B/B" or nil
                 else
                     targetCode = commStat  -- 完整品种码如 "H/P"
                 end
