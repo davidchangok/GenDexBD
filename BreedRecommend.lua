@@ -34,8 +34,8 @@ local W_HEALTH = 0.9   -- SCALES_HEALTH 加成（PvE坦克生存技;因HP_VALUE=
 local W_SUICIDE = 2.0  -- SUICIDE_HP 加成（HP%自爆:血量直接=攻击力,加权高于普通回血护盾）
 local W_POWER_AMP = 1.5  -- POWER_AMP 加成（伤害放大器:+125%/+100%,Power²受益）
 local W_FORCE = 3.0
-local W_COMMUNITY = 2.0  -- 社区例外加权（软覆盖，远小于 FORCE=3.0）
-                          -- 1.5 × 100 = 150分加成，翻转中等差距的排名
+local W_COMMUNITY = 4.0  -- 社区例外加权（软覆盖，>FORCE=3.0但独立生效）
+                          -- 4.0 × 100 = +400分加成，翻转较大差距的排名
 local SCALE = 100
 local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
                        -- 来源：NGA 5.0实测数据 "能量0.1:速度0.1≈生命0.15"
