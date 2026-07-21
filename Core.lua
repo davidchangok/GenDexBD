@@ -17,8 +17,12 @@ local CURRENT_DB_VERSION = 2
 addonTable.BEST_BREED_STAR = "★"
 addonTable.BEST_BREED_COLOR = {1.0, 0.84, 0.0}
 
-SlashCmdList["GENEDEXBDOPEN"] = function()
-    if addonTable.ToggleConfigPanel then addonTable.ToggleConfigPanel() end
+SlashCmdList["GENEDEXBDOPEN"] = function(msg)
+    if msg == "report" then
+        if addonTable.GenerateReport then addonTable.GenerateReport() end
+    else
+        if addonTable.ToggleConfigPanel then addonTable.ToggleConfigPanel() end
+    end
 end
 _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
 
@@ -387,10 +391,14 @@ local function OnPlayerLogin()
     if addonTable.InitTooltip then addonTable.InitTooltip() end
     if addonTable.InitJournalUI then addonTable.InitJournalUI() end
     if addonTable.InitConfig then addonTable.InitConfig() end
-    SlashCmdList["GENEDEXBDOPEN"] = function()
-        if addonTable.ToggleConfigPanel then
-            addonTable.ToggleConfigPanel()
-        else end
+    SlashCmdList["GENEDEXBDOPEN"] = function(msg)
+        if msg == "report" then
+            if addonTable.GenerateReport then addonTable.GenerateReport() end
+        else
+            if addonTable.ToggleConfigPanel then
+                addonTable.ToggleConfigPanel()
+            end
+        end
     end
     _G["SLASH_GENEDEXBDOPEN1"] = "/gbbd"
     eventFrame:RegisterEvent("PET_BATTLE_OPENING_START");eventFrame:RegisterEvent("PET_BATTLE_PET_CHANGED");eventFrame:RegisterEvent("PET_BATTLE_CLOSE")

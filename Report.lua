@@ -387,15 +387,11 @@ local function FinishReport()
     reportState = nil
 end
 
--- ============================================================================
--- 注册 Slash 命令
--- ============================================================================
-
+-- 注册 Slash 命令（/gbbd report 由 Core.lua 的 /gbbd handler 解析 msg 参数路由）
 SlashCmdList["GENEDEXBDREPORT"] = function()
     StartReport()
 end
 _G["SLASH_GENEDEXBDREPORT1"] = "/gbdreport"
-_G["SLASH_GENEDEXBDREPORT2"] = "/gbbd report"
 
 -- 暴露供其他模块使用
 addonTable.GenerateReport = StartReport
