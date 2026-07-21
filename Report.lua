@@ -359,11 +359,8 @@ FinishReport = function()
         forceList = st.forceList,
     }
 
-    -- 原地修改 GenDexBDInfo，不重新赋值（保持 WoW 追踪的引用）
-    for k in pairs(GenDexBDInfo) do GenDexBDInfo[k] = nil end
-    GenDexBDInfo.r = st.results
-    GenDexBDInfo.sm = summary
-    GenDexBDInfo.v = 1
+    if not GeneDexDB then GeneDexDB = {} end
+    GeneDexDB.SpeciesReport = { r = st.results, sm = summary, v = 1 }
     DBG("写入完成: %d 条记录", #st.results)
 
     -- 打印聊天框摘要
@@ -388,8 +385,8 @@ FinishReport = function()
         end
     end
 
-    print("|cff00ff00  数据已保存至 GenDexBDInfo.lua|r")
-    print("|cff888888  退出游戏 → WTF/.../GenDexBDInfo.lua → 复制文件内容发给我|r")
+    print("|cff00ff00  数据已保存|r")
+    print("|cff888888  退出游戏 → GenDexBD.lua → 搜索 SpeciesReport 复制该字段值|r")
 
     -- 回调（UI 弹窗）
     if st.onComplete then

@@ -6,7 +6,6 @@
 ## Version: 1.0.1
 ## Author: davidchangok
 ## SavedVariables: GeneDexDB
-## SavedVariables: GenDexBDInfo
 ## X-Category: Pet Battles
 ## X-Category-zhCN: 宠物对战
 ## X-Localizations: enUS, zhCN
