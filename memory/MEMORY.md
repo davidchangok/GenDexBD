@@ -13,3 +13,4 @@
 - [诚实规则](always-be-honest.md) — 任何情况下不准编造、偷懒、跳过验证步骤
 - [详细变更日志](detailed-change-log.md) — 每次GitHub推送后必须在本地记录做了什么，记忆随代码上传
 - [变更日志 2026-07](change-log-2026-07.md) — 2026年7月变更记录
+- [Custom验证结果](custom-verification-results.md) — 273条custom完整验证：8否定/18共识覆盖/57无数据
