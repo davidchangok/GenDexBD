@@ -60,8 +60,10 @@ local function InitDatabase()
     if type(GeneDexDB.BestBreeds) ~= "table" then GeneDexDB.BestBreeds = {} end
     if type(GeneDexDB.EncounterStats) ~= "table" then GeneDexDB.EncounterStats = {} end
     if GeneDexDB.SpeciesReport ~= nil then
-        GeneDexDB.SpeciesReport = nil  -- 已迁移至 GenDexBDInfo.lua
+        GeneDexDB.SpeciesReport = nil
     end
+    -- 初始化 GenDexBDInfo，确保 WoW SavedVariable 系统在退出时写入
+    if GenDexBDInfo == nil then GenDexBDInfo = {} end
     DeepMergeDefaults(GeneDexDB, DB_DEFAULTS)
     GeneDexDB.DBVersion = CURRENT_DB_VERSION
 end
