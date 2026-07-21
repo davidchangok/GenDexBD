@@ -71,9 +71,12 @@ end
 
 local reportState = nil
 local BATCH_SIZE = 50
-local runningFrame = nil  -- OnUpdate 驱动帧
+local runningFrame = nil
 
-local function FireOnProgress()
+-- 前向声明（WoW Lua 5.1: `function X()` 创建全局, 必须用 `X = function()` 模式）
+local ProcessOneSpecies, ProcessBatch, ScheduleNext, FinishReport, FireOnProgress
+
+FireOnProgress = function()
     if not reportState then return end
     local st = reportState
     if not st.onProgress then return end
@@ -83,9 +86,9 @@ local function FireOnProgress()
     end
 end
 
-local function ProcessBatch()
+ProcessBatch = function()
     if not reportState then
-        DBG("ProcessBatch: reportState 为 nil，中止")
+        DBG("ProcessBatch: reportState=nil, 中止")
         return
     end
 
@@ -94,20 +97,18 @@ local function ProcessBatch()
     local batchEnd = batchStart + BATCH_SIZE - 1
     if batchEnd > st.total then batchEnd = st.total end
 
-    local lastName = nil
     for i = batchStart, batchEnd do
         local sid = st.speciesIDs[i]
         local ok, err = pcall(ProcessOneSpecies, sid, st)
         if not ok then
             st.stats.errors = st.stats.errors + 1
-            DBG("物种 %d 处理异常: %s", sid or 0, tostring(err))
+            DBG("物种 %d 异常: %s", sid or 0, tostring(err))
         end
-        lastName = st._lastName
         st.currentIdx = i
     end
 
     local pct = mfloor(st.currentIdx / st.total * 100)
-    DBG("批次: %d-%d/%d 完成 (%d%%)  单:%d 多:%d 共识:%d 冲突:%d 零标签:%d",
+    DBG("批次: %d-%d/%d (%d%%)  单:%d 多:%d 共识:%d 冲突:%d 零标签:%d",
         batchStart, batchEnd, st.total, pct,
         st.stats.singleBreed, st.stats.multiBreed,
         st.stats.withCommunity, st.stats.communityConflict, st.stats.zeroTags)
@@ -115,16 +116,15 @@ local function ProcessBatch()
     FireOnProgress()
 
     if st.currentIdx >= st.total then
-        DBG("所有物种处理完毕，准备写入数据...")
+        DBG("处理完毕，写入数据...")
         FinishReport()
     else
-        -- 安排下一批
         ScheduleNext()
     end
 end
 
 -- 使用 CreateFrame OnUpdate 驱动分批
-local function ScheduleNext()
+local ScheduleNext = function()
     if not runningFrame then
         runningFrame = CreateFrame("Frame")
     end
@@ -140,7 +140,7 @@ local function ScheduleNext()
     end)
 end
 
-local function StartReport(onProgress, onComplete)
+local function _StartReport(onProgress, onComplete)
     if not Rematch or not Rematch.roster or not Rematch.petInfo then
         local msg = "Rematch 未加载"
         DBG("启动失败: %s", msg)
@@ -197,7 +197,7 @@ local function StartReport(onProgress, onComplete)
     ScheduleNext()
 end
 
-local function ProcessOneSpecies(speciesID, st)
+ProcessOneSpecies = function(speciesID, st)
     local vals = { C_PetJournal.GetPetInfoBySpeciesID(speciesID) }
     local speciesName = type(vals[1]) == "string" and vals[1] or "?"
     local petType = type(vals[3]) == "number" and vals[3] and vals[3] >= 1 and vals[3] <= 10 and vals[3]
@@ -335,7 +335,7 @@ local function ProcessOneSpecies(speciesID, st)
     st.results[#st.results + 1] = rec
 end
 
-local function FinishReport()
+FinishReport = function()
     if not reportState then
         DBG("FinishReport: reportState 为 nil，跳过")
         return
@@ -407,4 +407,4 @@ end
 -- 公开 API
 -- ============================================================================
 
-addonTable.GenerateReport = StartReport
+addonTable.GenerateReport = _StartReport
