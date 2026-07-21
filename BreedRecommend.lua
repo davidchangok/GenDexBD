@@ -238,6 +238,7 @@ local COMMUNITY_BREED_BONUS = {
     [1565] = "S",    -- 机械蝎子/MechanicalScorpid: S/S,[PvP] Xu-Fu(2/1/2),机械速攻
     [254] = "S",     -- 蓝发条火箭机器人: S/S,[PvP] Xu-Fu(2/2/1),机械速攻
     -- === 其他 ===
+    [2864] = "H/B",  -- [PvP] 虚痕蝗虫/Void-ScarredLocust: H/B,Xu-Fu(2/2/2),小动物生存+虫群+传染
     [1344] = "H/P",  -- 暴怒小箭猪: H/P,灵魂尖刺+侧击+复仇,SCALES_HEALTH+NEEDS_SPEED+SCALES_POWER
     [1185] = "H/S",  -- 幽灵小箭猪: H/S,幽灵打击+灵魂尖刺/幻象屏障+幽魂脊刺,魔法家族
     [485] = "H/P",   -- 石犰狳: H/P,抓挠/痛击+甲壳护盾/咆哮+染疫之爪,SCALES_POWER×2均衡
