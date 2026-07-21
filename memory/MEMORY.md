@@ -5,6 +5,7 @@
 - [每次修改后自动提交推送](always-commit-after-changes.md) — 代码修改完成后自动 git add + commit + push 备份
 - [关键词存入Locales.lua](keywords-in-locales.md) — 自动分类关键词中英文分离，放入Locales.lua统一维护
 - [禁止Python脚本修改文件](no-python-scripts-for-file-editing.md) — 禁止用脚本改lua文件，编码错误导致大量返工
+- [禁止脚本管道处理中文](no-scripts-for-encoding.md) — 管道编码链路不可靠，含中文数据必须用Grep/Read/Edit专用工具
 - [社区品种共识记录](community-breed-consensus.md) — 已查询过的宠物最佳品种共识，避免重复搜索
 - [评估流程：记忆→社区→不准敷衍](always-check-community-first.md) — 先查记忆再查社区，不准跳过直接点评分
 - [搜索技巧经验库](community-search-techniques.md) — 中英对照/家族指南/宠物名混淆/多数据源策略
