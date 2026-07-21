@@ -1,0 +1,14 @@
+- [全部使用中文输出](always-use-chinese-output.md) — 用户偏好：思考、交流、注释等所有输出均使用中文
+- [GenDexBD以Rematch为基础](use-rematch-data.md) — 所有数据优先从Rematch获取，不要重复发明轮子
+- [禁止使用sed命令](no-sed-command.md) — 禁止使用sed删除或修改文件，会破坏文件结构
+- [优先使用Skills](always-use-skills.md) — 无论哪种操作能用skills就用skills，不要手工替代
+- [每次修改后自动提交推送](always-commit-after-changes.md) — 代码修改完成后自动 git add + commit + push 备份
+- [关键词存入Locales.lua](keywords-in-locales.md) — 自动分类关键词中英文分离，放入Locales.lua统一维护
+- [禁止Python脚本修改文件](no-python-scripts-for-file-editing.md) — 禁止用脚本改lua文件，编码错误导致大量返工
+- [社区品种共识记录](community-breed-consensus.md) — 已查询过的宠物最佳品种共识，避免重复搜索
+- [评估流程：记忆→社区→不准敷衍](always-check-community-first.md) — 先查记忆再查社区，不准跳过直接点评分
+- [搜索技巧经验库](community-search-techniques.md) — 中英对照/家族指南/宠物名混淆/多数据源策略
+- [项目工作进度](project-state.md) — 当前算法参数、已完成模块、待办事项
+- [诚实规则](always-be-honest.md) — 任何情况下不准编造、偷懒、跳过验证步骤
+- [详细变更日志](detailed-change-log.md) — 每次GitHub推送后必须在本地记录做了什么，记忆随代码上传
+- [变更日志 2026-07](change-log-2026-07.md) — 2026年7月变更记录
