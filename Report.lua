@@ -359,9 +359,8 @@ FinishReport = function()
         forceList = st.forceList,
     }
 
-    DBG("写入 SavedVariables...")
-    if not GeneDexDB then GeneDexDB = {} end
-    GeneDexDB.SpeciesReport = { r = st.results, sm = summary, v = 1 }
+    DBG("写入 SavedVariables (GenDexBDInfo)...")
+    GenDexBDInfo = { r = st.results, sm = summary, v = 1 }
     DBG("写入完成: %d 条记录", #st.results)
 
     -- 打印聊天框摘要
@@ -386,8 +385,8 @@ FinishReport = function()
         end
     end
 
-    print("|cff00ff00  数据已保存至 GeneDexDB.SpeciesReport|r")
-    print("|cff888888  退出游戏 → WTF/.../GenDexBD.lua → 复制 SpeciesReport|r")
+    print("|cff00ff00  数据已保存至 GenDexBDInfo.lua|r")
+    print("|cff888888  退出游戏 → WTF/.../GenDexBDInfo.lua → 复制文件内容发给我|r")
 
     -- 回调（UI 弹窗）
     if st.onComplete then
