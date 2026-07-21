@@ -187,28 +187,41 @@ def main():
                         break
             bd_text = rec_text[bd_start:bd_end]
 
-            # 从 bd_text 中分割每个品种条目
+            # 逐字符提取每个品种条目
             breeds = []
-            breed_entries = re.findall(
-                r'\{(?:[^{}]*|\{[^{}]*\})*\}', bd_text, re.DOTALL
-            )
-            for bentry in breed_entries:
-                bc = simple_match(r'\["bc"\]\s*=\s*"([^"]*)"', bentry) or ""
-                bid = int(simple_match(r'\["bid"\]\s*=\s*(\d+)', bentry) or 0)
-                sc = int(simple_match(r'\["sc"\]\s*=\s*(\d+)', bentry) or 0)
-                tg = simple_match(r'\["tg"\]\s*=\s*"([^"]*)"', bentry) or ""
-                h = simple_match(r'\["h"\]\s*=\s*([\d.]+)', bentry)
-                p = simple_match(r'\["p"\]\s*=\s*([\d.]+)', bentry)
-                s = simple_match(r'\["s"\]\s*=\s*([\d.]+)', bentry)
-                if h and p and s:
-                    # 单品种: 用系数生成标签
-                    tg = f"h={h} p={p} s={s}"
-                breeds.append({
-                    "code": bc,
-                    "bid": bid,
-                    "score": sc if sc else 0,
-                    "tags": tg,
-                })
+            # bd_text 格式: { {...}, {...}, ... }
+            # 跳过一个外层 {
+            bd_depth = 0
+            entry_start = None
+            for i in range(1, len(bd_text)):
+                c = bd_text[i]
+                if c == "{":
+                    if bd_depth == 0:
+                        entry_start = i
+                    bd_depth += 1
+                elif c == "}":
+                    bd_depth -= 1
+                    if bd_depth == 0 and entry_start is not None:
+                        entry_text = bd_text[entry_start : i + 1]
+                        bc = simple_match(r'\["bc"\]\s*=\s*"([^"]*)"', entry_text) or ""
+                        bid = int(simple_match(r'\["bid"\]\s*=\s*(\d+)', entry_text) or 0)
+                        sc = int(simple_match(r'\["sc"\]\s*=\s*(\d+)', entry_text) or 0)
+                        tg = simple_match(r'\["tg"\]\s*=\s*"([^"]*)"', entry_text) or ""
+                        h = simple_match(r'\["h"\]\s*=\s*([\d.]+)', entry_text)
+                        p = simple_match(r'\["p"\]\s*=\s*([\d.]+)', entry_text)
+                        s = simple_match(r'\["s"\]\s*=\s*([\d.]+)', entry_text)
+                        if h and p and s:
+                            tg = f"h={h} p={p} s={s}"
+                        breeds.append({
+                            "code": bc,
+                            "bid": bid,
+                            "score": sc if sc else 0,
+                            "tags": tg,
+                            "h": float(h) if h else 0,
+                            "p": float(p) if p else 0,
+                            "s": float(s) if s else 0,
+                        })
+                        entry_start = None
             r["breeds"] = breeds
         else:
             r["breeds"] = []
