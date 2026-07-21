@@ -253,6 +253,7 @@ local COMMUNITY_BREED_BONUS = {
     -- 臭鼬家族: WarcraftPets社区共识H/P(heal吃Power+debuff需血量担伤),S/S=289速不够快
     [633] = "H/P",  -- 山地臭鼬: H/P(有此品种),COMMUNITY覆盖FORCE_SS有效
     [2660] = "H/P", -- 泥蛞蝓/MuckSlug: H/P,Xu-Fu推荐(*/1/2),小动物坦克ShellShield+Absorb
+    [2133] = "S",   -- 侏儒玛苏尔/PygmyMarsuul: S/S,Xu-Fu推荐(2/2/1),小动物速攻
     -- [397] [823] 无H/P品种, COMMUNITY无法生效, 依赖FORCE_SS自然决策
     -- === 蟑螂 ===
     -- 蟑螂家族共识S/S, FORCE_SS(乱舞)通常会强推, COMMUNITY加固
