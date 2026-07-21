@@ -40,35 +40,6 @@ local COMMUNITY_BREED_BONUS = {
 }
 
 -- ============================================================================
--- 简易帧定时器（避免 C_Timer 斜杠命令安全限制）
--- ============================================================================
-
-local timerFrame = CreateFrame("Frame")
-timerFrame:Hide()
-timerFrame._elapsed = 0
-timerFrame._delay = 0
-timerFrame._callback = nil
-timerFrame:SetScript("OnUpdate", function(self, elapsed)
-    self._elapsed = self._elapsed + elapsed
-    if self._elapsed >= self._delay then
-        self._elapsed = 0
-        self:Hide()
-        if self._callback then
-            local cb = self._callback
-            self._callback = nil
-            cb()
-        end
-    end
-end)
-
-local function DelayCall(callback, delay)
-    timerFrame._callback = callback
-    timerFrame._delay = delay or 0.05
-    timerFrame._elapsed = 0
-    timerFrame:Show()
-end
-
--- ============================================================================
 -- 内部函数
 -- ============================================================================
 
@@ -86,66 +57,105 @@ local function TagsToString(tc)
     return table.concat(parts, ", ")
 end
 
-local function DummyLocale(key)
-    return addonTable.GetLocaleString and addonTable.GetLocaleString(key) or key
+-- ============================================================================
+-- 诊断日志（聊天框输出，不受弹窗可见性影响）
+-- ============================================================================
+
+local function DBG(fmt, ...)
+    print(sformat("|cff888888[GenDexDBG-R]|r " .. fmt, ...))
 end
 
 -- ============================================================================
 -- 主报告生成函数
 -- ============================================================================
 
-local reportState = nil  -- 报告状态机
+local reportState = nil
 local BATCH_SIZE = 50
+local runningFrame = nil  -- OnUpdate 驱动帧
+
+local function FireOnProgress()
+    if not reportState then return end
+    local st = reportState
+    if not st.onProgress then return end
+    local ok, err = pcall(st.onProgress, st.currentIdx, st.total, st._lastName, st.stats)
+    if not ok then
+        DBG("onProgress 回调异常: %s", tostring(err))
+    end
+end
 
 local function ProcessBatch()
-    if not reportState then return end
+    if not reportState then
+        DBG("ProcessBatch: reportState 为 nil，中止")
+        return
+    end
 
     local st = reportState
-    local batchEnd = st.currentIdx + BATCH_SIZE
+    local batchStart = st.currentIdx + 1
+    local batchEnd = batchStart + BATCH_SIZE - 1
     if batchEnd > st.total then batchEnd = st.total end
 
     local lastName = nil
-    for i = st.currentIdx + 1, batchEnd do
+    for i = batchStart, batchEnd do
         local sid = st.speciesIDs[i]
-        local ok = pcall(ProcessOneSpecies, sid, st)
+        local ok, err = pcall(ProcessOneSpecies, sid, st)
         if not ok then
             st.stats.errors = st.stats.errors + 1
+            DBG("物种 %d 处理异常: %s", sid or 0, tostring(err))
         end
-        lastName = st._lastName  -- ProcessOneSpecies 写入
+        lastName = st._lastName
         st.currentIdx = i
     end
 
-    -- 进度回调（UI 优先，聊天框降级）
-    if st.onProgress then
-        st.onProgress(st.currentIdx, st.total, lastName, st.stats)
-    else
-        local pct = mfloor(st.currentIdx / st.total * 100)
-        print(sformat("|cff888888[GenDexBD]|r %s",
-            sformat(DummyLocale("REPORT_PROGRESS") or "Progress: %d/%d (%d%%)",
-                st.currentIdx, st.total, pct)))
-    end
+    local pct = mfloor(st.currentIdx / st.total * 100)
+    DBG("批次: %d-%d/%d 完成 (%d%%)  单:%d 多:%d 共识:%d 冲突:%d 零标签:%d",
+        batchStart, batchEnd, st.total, pct,
+        st.stats.singleBreed, st.stats.multiBreed,
+        st.stats.withCommunity, st.stats.communityConflict, st.stats.zeroTags)
+
+    FireOnProgress()
 
     if st.currentIdx >= st.total then
-        DelayCall(FinishReport, 0.1)
+        DBG("所有物种处理完毕，准备写入数据...")
+        FinishReport()
     else
-        DelayCall(ProcessBatch, 0.01)
+        -- 安排下一批
+        ScheduleNext()
     end
+end
+
+-- 使用 CreateFrame OnUpdate 驱动分批
+local function ScheduleNext()
+    if not runningFrame then
+        runningFrame = CreateFrame("Frame")
+    end
+    -- 如果帧未显示则显示
+    runningFrame:Show()
+    runningFrame._fired = false
+    runningFrame:SetScript("OnUpdate", function(self, elapsed)
+        if not self._fired then
+            self._fired = true
+            self:Hide()
+            ProcessBatch()
+        end
+    end)
 end
 
 local function StartReport(onProgress, onComplete)
     if not Rematch or not Rematch.roster or not Rematch.petInfo then
-        local msg = DummyLocale("REPORT_NO_REMATCH") or "Rematch not available"
-        if onComplete then onComplete(nil, msg) else print("|cffff0000[GenDexBD]|r " .. msg) end
+        local msg = "Rematch 未加载"
+        DBG("启动失败: %s", msg)
+        if onComplete then onComplete(nil, msg) end
         return
     end
 
     if reportState then
-        local msg = DummyLocale("REPORT_ALREADY_RUNNING") or "Report already running..."
-        if onComplete then onComplete(nil, msg) else print("|cffffd700[GenDexBD]|r " .. msg) end
+        local msg = "报告已在运行中"
+        DBG("启动失败: %s", msg)
+        if onComplete then onComplete(nil, msg) end
         return
     end
 
-    -- 收集所有物种ID
+    DBG("=== 开始收集物种列表 ===")
     local allSpeciesIDs = {}
     for speciesID in Rematch.roster:AllSpecies() do
         allSpeciesIDs[#allSpeciesIDs + 1] = speciesID
@@ -153,9 +163,12 @@ local function StartReport(onProgress, onComplete)
     tsort(allSpeciesIDs)
 
     local total = #allSpeciesIDs
+    DBG("物种列表收集完成: %d 个物种 (ID范围: %d ~ %d)", total, allSpeciesIDs[1] or 0, allSpeciesIDs[total] or 0)
+
     if total == 0 then
-        local msg = DummyLocale("REPORT_NO_SPECIES") or "No species found"
-        if onComplete then onComplete(nil, msg) else print("|cffff0000[GenDexBD]|r " .. msg) end
+        local msg = "未找到任何物种"
+        DBG("启动失败: %s", msg)
+        if onComplete then onComplete(nil, msg) end
         return
     end
 
@@ -171,30 +184,20 @@ local function StartReport(onProgress, onComplete)
         noTagsList = {},
         forceList = {},
         stats = {
-            singleBreed = 0,
-            multiBreed = 0,
-            skipped = 0,
-            errors = 0,
-            withCommunity = 0,
-            communityMatch = 0,
-            communityConflict = 0,
-            zeroTags = 0,
-            forceTags = 0,
+            singleBreed = 0, multiBreed = 0, skipped = 0, errors = 0,
+            withCommunity = 0, communityMatch = 0, communityConflict = 0,
+            zeroTags = 0, forceTags = 0,
         },
     }
 
-    if not onProgress then
-        print(sformat("|cff00ff00[GenDexBD]|r %s", sformat(
-            DummyLocale("REPORT_START") or "Report generation started: %d species", total)))
-        print(sformat("|cff888888[GenDexBD]|r %s",
-            sformat(DummyLocale("REPORT_PROGRESS") or "Progress: %d/%d (%d%%)", 0, total, 0)))
-    end
+    DBG("状态机就绪: %d 物种, 预计 %d 批次, 开始处理...",
+        total, math.ceil(total / BATCH_SIZE))
 
-    DelayCall(ProcessBatch, 0.1)
+    -- 通过 OnUpdate 帧驱动启动（C_Timer 在斜杠命令中不可用）
+    ScheduleNext()
 end
 
 local function ProcessOneSpecies(speciesID, st)
-    -- 检查是否可对战
     local vals = { C_PetJournal.GetPetInfoBySpeciesID(speciesID) }
     local speciesName = type(vals[1]) == "string" and vals[1] or "?"
     local petType = type(vals[3]) == "number" and vals[3] and vals[3] >= 1 and vals[3] <= 10 and vals[3]
@@ -202,17 +205,19 @@ local function ProcessOneSpecies(speciesID, st)
 
     if canBattle == false then
         st.stats.skipped = st.stats.skipped + 1
+        st._lastName = speciesName
         return
     end
     if not petType then
         st.stats.skipped = st.stats.skipped + 1
+        st._lastName = speciesName
         return
     end
 
-    -- 获取品种信息
     local ok, info = pcall(Rematch.petInfo.Fetch, Rematch.petInfo, speciesID)
     if not ok or not info then
         st.stats.errors = st.stats.errors + 1
+        st._lastName = speciesName
         return
     end
 
@@ -301,6 +306,10 @@ local function ProcessOneSpecies(speciesID, st)
                             algo2 = breeds[2] and breeds[2].bc or "?",
                             sc2 = breeds[2] and breeds[2].sc or 0,
                         }
+                        DBG("冲突! %s(%d): 社区=%s 算法=%s(%d) 亚军=%s(%d)",
+                            speciesName, speciesID, commStat, topCode,
+                            breeds[1].sc, breeds[2] and breeds[2].bc or "?",
+                            breeds[2] and breeds[2].sc or 0)
                     end
                 end
 
@@ -327,71 +336,71 @@ local function ProcessOneSpecies(speciesID, st)
 end
 
 local function FinishReport()
-    if not reportState then return end
+    if not reportState then
+        DBG("FinishReport: reportState 为 nil，跳过")
+        return
+    end
 
     local st = reportState
+    local s = st.stats
 
     local summary = {
         total = st.total,
-        singleBreed = st.stats.singleBreed,
-        multiBreed = st.stats.multiBreed,
-        skipped = st.stats.skipped,
-        errors = st.stats.errors,
-        withCommunity = st.stats.withCommunity,
-        communityMatch = st.stats.communityMatch,
-        communityConflict = st.stats.communityConflict,
-        zeroTags = st.stats.zeroTags,
-        forceTags = st.stats.forceTags,
+        singleBreed = s.singleBreed,
+        multiBreed = s.multiBreed,
+        skipped = s.skipped,
+        errors = s.errors,
+        withCommunity = s.withCommunity,
+        communityMatch = s.communityMatch,
+        communityConflict = s.communityConflict,
+        zeroTags = s.zeroTags,
+        forceTags = s.forceTags,
         conflicts = st.conflicts,
         noTagsList = st.noTagsList,
         forceList = st.forceList,
     }
 
+    DBG("写入 SavedVariables...")
     if not GeneDexDB then GeneDexDB = {} end
     GeneDexDB.SpeciesReport = { r = st.results, sm = summary, v = 1 }
+    DBG("写入完成: %d 条记录", #st.results)
 
-    if st.onComplete then
-        st.onComplete(summary)
-        reportState = nil
-        return
-    end
-
-    local s = st.stats
-    print("|cff00ff00=== [GenDexBD] " .. (DummyLocale("REPORT_DONE") or "Report Complete") .. " ===|r")
-    print(sformat("|cff00ffff  %s:|r %d",
-        DummyLocale("REPORT_TOTAL_SPECIES") or "Total species", st.total))
-    print(sformat("  %s: %d  |  %s: %d  |  %s: %d",
-        DummyLocale("REPORT_SINGLE_BREED") or "Single", s.singleBreed,
-        DummyLocale("REPORT_MULTI_BREED") or "Multi", s.multiBreed,
-        DummyLocale("REPORT_SKIPPED") or "Skipped", s.skipped))
-    print(sformat("  %s: %d  |  %s: %d  |  %s: %d",
-        DummyLocale("REPORT_WITH_COMMUNITY") or "HasCommunity", s.withCommunity,
-        DummyLocale("REPORT_COMMUNITY_MATCH") or "Match", s.communityMatch,
-        DummyLocale("REPORT_COMMUNITY_CONFLICT") or "Conflict", s.communityConflict))
-    print(sformat("  %s: %d  |  %s: %d  |  %s: %d",
-        DummyLocale("REPORT_ZERO_TAGS") or "ZeroTags", s.zeroTags,
-        DummyLocale("REPORT_FORCE_TAGS") or "FORCE", s.forceTags,
-        DummyLocale("REPORT_ERRORS") or "Errors", s.errors))
+    -- 打印聊天框摘要
+    print(sformat("|cff00ff00=== [GenDexBD] 报告完成 ===|r"))
+    print(sformat("|cff00ffff  总物种:|r %d  |  单品种: %d  |  多品种: %d  |  跳过: %d",
+        st.total, s.singleBreed, s.multiBreed, s.skipped))
+    print(sformat("  共识: %d  |  匹配: %d  |  冲突: %d  |  零标签: %d  |  异常: %d",
+        s.withCommunity, s.communityMatch, s.communityConflict, s.zeroTags, s.errors))
 
     if s.communityConflict > 0 then
-        print("|cffffd700  --- " .. (DummyLocale("REPORT_CONFLICTS_HEADER") or "CONFLICTS") .. " ---|r")
+        print("|cffffd700  --- 冲突 (algo != community) ---|r")
         for _, c in ipairs(st.conflicts) do
-            print(sformat("  |cffff0000%s(%d)|r: community=%s  algo=%s(%d)  #2=%s(%d)",
+            print(sformat("  |cffff0000%s(%d)|r: 社区=%s  算法=%s(%d)  #2=%s(%d)",
                 c.n, c.id, c.cb, c.algo, c.sc, c.algo2, c.sc2))
         end
     end
 
     if s.zeroTags > 0 and s.zeroTags <= 30 then
-        print("|cffffd700  --- " .. (DummyLocale("REPORT_ZERO_TAGS_HEADER") or "ZERO-TAG") .. " ---|r")
+        print("|cffffd700  --- 零标签多品种 ---|r")
         for _, z in ipairs(st.noTagsList) do
-            print(sformat("  %s(%d)  top=%s/%d  breeds=%d", z.n, z.id, z.top, z.sc, z.nb))
+            print(sformat("  %s(%d)  top=%s/%d", z.n, z.id, z.top, z.sc))
         end
     end
 
-    print("|cff00ff00  " .. (DummyLocale("REPORT_SAVED") or "Saved to GeneDexDB.SpeciesReport") .. "|r")
-    print("|cff888888  " .. (DummyLocale("REPORT_INSTRUCTIONS") or "Exit→WTF/.../GenDexBD.lua→SpeciesReport") .. "|r")
+    print("|cff00ff00  数据已保存至 GeneDexDB.SpeciesReport|r")
+    print("|cff888888  退出游戏 → WTF/.../GenDexBD.lua → 复制 SpeciesReport|r")
+
+    -- 回调（UI 弹窗）
+    if st.onComplete then
+        DBG("触发 onComplete 回调")
+        local ok, err = pcall(st.onComplete, summary)
+        if not ok then
+            DBG("onComplete 回调异常: %s", tostring(err))
+        end
+    end
 
     reportState = nil
+    DBG("=== 报告结束 ===")
 end
 
 -- ============================================================================
