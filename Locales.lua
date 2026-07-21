@@ -123,6 +123,28 @@ local strings = {
 
     -- 下拉菜单默认项
     DROPDOWN_SELECT       = { zhCN = "请选择场景", enUS = "Select Category" },
+
+    -- 全物种报告
+    REPORT_NO_REMATCH     = { zhCN = "Rematch 未加载，无法生成报告", enUS = "Rematch not loaded, cannot generate report" },
+    REPORT_ALREADY_RUNNING = { zhCN = "报告生成中，请等待完成...", enUS = "Report already running, please wait..." },
+    REPORT_NO_SPECIES     = { zhCN = "未找到任何宠物物种", enUS = "No species found" },
+    REPORT_START          = { zhCN = "报告生成开始：%d 个物种", enUS = "Report generation started: %d species" },
+    REPORT_PROGRESS       = { zhCN = "进度：%d/%d (%d%%)", enUS = "Progress: %d/%d (%d%%)" },
+    REPORT_DONE           = { zhCN = "报告生成完成", enUS = "Report Complete" },
+    REPORT_TOTAL_SPECIES  = { zhCN = "总物种数", enUS = "Total species" },
+    REPORT_SINGLE_BREED   = { zhCN = "单品种", enUS = "Single-breed" },
+    REPORT_MULTI_BREED    = { zhCN = "多品种", enUS = "Multi-breed" },
+    REPORT_SKIPPED        = { zhCN = "已跳过（不可对战/异常）", enUS = "Skipped (non-battle/error)" },
+    REPORT_WITH_COMMUNITY = { zhCN = "有社区共识", enUS = "Has community" },
+    REPORT_COMMUNITY_MATCH = { zhCN = "共识匹配", enUS = "Match" },
+    REPORT_COMMUNITY_CONFLICT = { zhCN = "共识冲突", enUS = "Conflict" },
+    REPORT_ZERO_TAGS      = { zhCN = "零标签", enUS = "Zero tags" },
+    REPORT_FORCE_TAGS     = { zhCN = "FORCE标签", enUS = "FORCE tags" },
+    REPORT_ERRORS         = { zhCN = "异常错误", enUS = "Errors" },
+    REPORT_CONFLICTS_HEADER = { zhCN = "冲突（算法 ≠ 社区共识）", enUS = "CONFLICTS (algo != community)" },
+    REPORT_ZERO_TAGS_HEADER = { zhCN = "零标签（多品种）", enUS = "ZERO-TAG (multi-breed)" },
+    REPORT_SAVED          = { zhCN = "报告已保存至 GeneDexDB.SpeciesReport", enUS = "Report saved to GeneDexDB.SpeciesReport" },
+    REPORT_INSTRUCTIONS   = { zhCN = "退出游戏 → WTF/.../GenDexBD.lua → 复制 SpeciesReport 部分发给我", enUS = "Exit game → WTF/.../GenDexBD.lua → copy \"SpeciesReport\" section" },
 }
 
 -- ============================================================================

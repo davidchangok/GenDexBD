@@ -19,4 +19,5 @@ BreedRecommend.lua
 Core.lua
 Tooltip.lua
 JournalUI.lua
+Report.lua
 ConfigPanel.lua
