@@ -185,6 +185,7 @@ local COMMUNITY_BREED_BONUS = {
     -- [3049] 脉动蛆虫: H/H=745vsH/B=740仅差5分,移除COMMUNITY让算法自然决策
     -- [3038] 不朽死亡蟑螂: FORCE_SS(乱舞)已强推S/S,移除COMMUNITY避免与FORCE冲突
     [1073] = "H/B",  -- 塔吉: H/B,酸蚀之触+痛殴+奔踏,人型均衡
+    [1181] = "H",    -- 老年巨蟒: H/H社区共识,Beast被动+Poison Fang+Huge Fang生存越长越好
     -- 臭鼬家族: WarcraftPets社区共识H/P(heal吃Power+debuff需血量担伤),S/S=289速不够快
     [633] = "H/P",  -- 山地臭鼬: H/P(有此品种),COMMUNITY覆盖FORCE_SS有效
     -- [397] [823] 无H/P品种, COMMUNITY无法生效, 依赖FORCE_SS自然决策
