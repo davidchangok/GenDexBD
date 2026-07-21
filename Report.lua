@@ -123,7 +123,7 @@ ProcessBatch = function()
 end
 
 -- 使用 CreateFrame OnUpdate 驱动分批
-local ScheduleNext = function()
+ScheduleNext = function()
     if not runningFrame then
         runningFrame = CreateFrame("Frame")
     end
