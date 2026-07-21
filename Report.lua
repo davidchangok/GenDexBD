@@ -281,7 +281,7 @@ ProcessOneSpecies = function(speciesID, st)
         end
 
         if addonTable.CalculateBreedScores then
-            local okScore, scores = pcall(addonTable.CalculateBreedScores, speciesID, petType, nil, 99)
+            local okScore, scores = pcall(addonTable.CalculateBreedScores, speciesID, petType, possibleBreedIDs, 99)
             if okScore and scores and #scores > 0 then
                 local breeds = {}
                 for _, sr in ipairs(scores) do
