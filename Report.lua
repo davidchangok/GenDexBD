@@ -359,8 +359,11 @@ FinishReport = function()
         forceList = st.forceList,
     }
 
-    DBG("写入 SavedVariables (GenDexBDInfo)...")
-    GenDexBDInfo = { r = st.results, sm = summary, v = 1 }
+    -- 原地修改 GenDexBDInfo，不重新赋值（保持 WoW 追踪的引用）
+    for k in pairs(GenDexBDInfo) do GenDexBDInfo[k] = nil end
+    GenDexBDInfo.r = st.results
+    GenDexBDInfo.sm = summary
+    GenDexBDInfo.v = 1
     DBG("写入完成: %d 条记录", #st.results)
 
     -- 打印聊天框摘要
