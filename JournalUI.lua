@@ -124,6 +124,18 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 isDisabled = true,
             }
         else
+            -- 社区共识标注（如有）
+            local commBreed = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID)
+            if commBreed then
+                local commDisplay = (#commBreed == 1)
+                    and (commBreed == "H" and "H/H" or commBreed == "P" and "P/P" or commBreed == "S" and "S/S" or commBreed == "B" and "B/B" or commBreed)
+                    or commBreed
+                items[#items + 1] = {
+                    text = GOLD .. string.format(GetLocaleString("COMMUNITY_CONSENSUS"), commDisplay) .. "|r",
+                    isDisabled = true,
+                }
+            end
+
             items[#items + 1] = {
                 text = GOLD .. GetLocaleString("RECOMMEND_TITLE") .. "|r",
                 isDisabled = true,

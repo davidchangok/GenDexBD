@@ -616,3 +616,4 @@ end
 -- 暴露技能标签收集供 JournalUI label 摘要
 addonTable.CollectSkillTags = CollectTags
 addonTable.GetSkillTags = function() return SkillTags end
+addonTable.GetCommunityBreed = function(speciesID) return COMMUNITY_BREED_BONUS[speciesID] end
