@@ -99,7 +99,7 @@ local strings = {
     -- 智能推荐
     SMART_RECOMMEND        = { zhCN = "🤖 智能推荐",           enUS = "🤖 Smart Recommendation" },
     RECOMMEND_TITLE        = { zhCN = "品种推荐 (评分)",        enUS = "Breed Recommendations (Score)" },
-    COMMUNITY_CONSENSUS    = { zhCN = "社区共识: %s  👥",      enUS = "Community: %s  👥" },
+    COMMUNITY_CONSENSUS    = { zhCN = "社区共识: %s  *",       enUS = "Community: %s  *" },
     RECOMMEND_NO_DATA      = { zhCN = "技能标签数据不足",        enUS = "Insufficient ability tag data" },
     RECOMMEND_NO_BREEDS    = { zhCN = "无法获取可选品种",        enUS = "Cannot determine possible breeds" },
     RECOMMEND_SCORE_FMT    = { zhCN = "%s  — 评分: %d",      enUS = "%s  — Score: %d" },
