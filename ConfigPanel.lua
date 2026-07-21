@@ -85,14 +85,22 @@ local function ShowReportDialog()
     procText:SetPoint("TOPLEFT", 16, -38)
     procText:SetText("")
 
-    -- 进度条
-    local bar = CreateFrame("StatusBar", nil, dlg, "TextStatusBarTemplate")
+    -- 进度条（手动创建，避免 TextStatusBarTemplate 依赖）
+    local bar = CreateFrame("StatusBar", nil, dlg)
     bar:SetPoint("TOPLEFT", procText, "BOTTOMLEFT", -2, -6)
     bar:SetPoint("RIGHT", -16, 0)
     bar:SetHeight(20)
     bar:SetMinMaxValues(0, 100)
     bar:SetValue(0)
-    bar:GetStatusBarTexture():SetGradient("VERTICAL", 0, 0.6, 0, 0.2, 0.85, 0)
+    local barTex = bar:CreateTexture(nil, "ARTWORK")
+    bar:SetStatusBarTexture(barTex)
+    barTex:SetTexture("Interface\\Buttons\\WHITE8X8")
+    bar:SetStatusBarColor(0.1, 0.65, 0.1)
+    -- 边框背景
+    local barBg = bar:CreateTexture(nil, "BACKGROUND")
+    barBg:SetAllPoints(bar)
+    barBg:SetColorTexture(0.12, 0.12, 0.12)
+    barBg:SetDrawLayer("BACKGROUND", -1)
 
     local barText = bar:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     barText:SetPoint("CENTER")
