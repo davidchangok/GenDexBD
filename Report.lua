@@ -8,6 +8,7 @@ local addonName, addonTable = ...
 local ipairs, pairs, type = ipairs, pairs, type
 local mfloor, tsort = math.floor, table.sort
 local sformat = string.format
+local C_Timer_After = C_Timer_After
 
 -- ============================================================================
 -- 品种代码缓存（BreedData 已加载，直接引用）
@@ -118,7 +119,7 @@ local function StartReport()
         sformat(DummyLocale("REPORT_PROGRESS") or "Progress: %d/%d (%d%%)", 0, total, 0)))
 
     -- 启动第一批处理
-    C_Timer.After(0.1, function() ProcessBatch() end)
+    C_Timer_After(0.1, function() ProcessBatch() end)
 end
 
 -- 每批处理 50 个物种
@@ -147,10 +148,10 @@ local function ProcessBatch()
 
     if st.currentIdx >= st.total then
         -- 完成：写入数据库 + 输出摘要
-        C_Timer.After(0.1, function() FinishReport() end)
+        C_Timer_After(0.1, function() FinishReport() end)
     else
         -- 下一批
-        C_Timer.After(0.05, function() ProcessBatch() end)
+        C_Timer_After(0.05, function() ProcessBatch() end)
     end
 end
 
