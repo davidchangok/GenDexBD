@@ -59,6 +59,9 @@ local function InitDatabase()
     if GeneDexDB == nil then GeneDexDB = {} end
     if type(GeneDexDB.BestBreeds) ~= "table" then GeneDexDB.BestBreeds = {} end
     if type(GeneDexDB.EncounterStats) ~= "table" then GeneDexDB.EncounterStats = {} end
+    if GeneDexDB.SpeciesReport ~= nil then
+        GeneDexDB.SpeciesReport = nil  -- 已迁移至 GenDexBDInfo.lua
+    end
     DeepMergeDefaults(GeneDexDB, DB_DEFAULTS)
     GeneDexDB.DBVersion = CURRENT_DB_VERSION
 end
