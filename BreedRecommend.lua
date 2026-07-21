@@ -465,6 +465,9 @@ local function CollectTags(speciesID)
     local slots = GroupAbilitiesBySlot(at)
     local builds = EnumerateBuilds(slots)
 
+    -- 空配招（未捕获宠物技能数据不完整）：快速返回
+    if #builds == 0 then return {} end
+
     -- 单配招宠物（1 build）：快速路径
     if #builds == 1 then
         local tc = ComputeBuildTags(builds[1])
