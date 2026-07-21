@@ -185,6 +185,10 @@ local COMMUNITY_BREED_BONUS = {
     -- [3049] 脉动蛆虫: H/H=745vsH/B=740仅差5分,移除COMMUNITY让算法自然决策
     -- [3038] 不朽死亡蟑螂: FORCE_SS(乱舞)已强推S/S,移除COMMUNITY避免与FORCE冲突
     [1073] = "H/B",  -- 塔吉: H/B,酸蚀之触+痛殴+奔踏,人型均衡
+    -- 臭鼬家族: WarcraftPets社区共识H/P(heal吃Power+debuff需血量担伤),S/S=289速不够快
+    [397] = "H/P",  -- 臭鼬: H/P,COMMUNITY覆盖FORCE_SS
+    [633] = "H/P",  -- 山地臭鼬: H/P
+    [823] = "H/P",  -- 高地臭鼬: H/P
     -- === 待搜索验证 (已在记忆文件中标记，暂不加COMMUNITY_BONUS) ===
     -- [343] 暗月豹幼崽: P/S — 需搜社区确认
     -- [330] 暗月小猴: ? — 香蕉弹幕+掷桶+咆哮
@@ -375,13 +379,7 @@ local function GetPetType(speciesID)
     return nil
 end
 
-local function Score(h, p, s, tc, pt)
-    -- 家族被动修正基础权重(不是只修正NEEDS_SPEED)
-    --   飞行: >50%HP时速度+50% → ws偏高
-    --   亡灵: 死亡复活一回合 → wp偏高
-    --   魔法: 单次伤害≤35%HP → wh偏高, ws偏低
-    --   野兽: <50%HP时增伤 → wh偏高(存活力)
-    --   机械: 死亡复活一次 → wp偏高
+local function Score(h, p, s, tc, pt, speciesID)
     local fm = FAMILY_MOD[pt] or {h=1.0, p=1.0, s=1.0}
 
     local wh = (W_BASE + W_HEALTH * (tc["SCALES_HEALTH"] or 0)
@@ -391,9 +389,13 @@ local function Score(h, p, s, tc, pt)
     local ws_base  = W_BASE * fm.s
     local ws_needs = W_SPEED * (tc["NEEDS_SPEED"] or 0) * fm.s
 
-    if (tc["FORCE_PP"] or 0) > 0 then wp = wp + W_FORCE * p end
-    if (tc["FORCE_SS"] or 0) > 0 then ws_needs = ws_needs + W_FORCE * s end
-    if (tc["FORCE_HH"] or 0) > 0 then wh = wh + W_FORCE * h end
+    -- 社区共识优先：如COMMUNITY_BREED_BONUS存在,FORCE标签自动让路
+    local hasComm = speciesID and COMMUNITY_BREED_BONUS[speciesID]
+    if not hasComm then
+        if (tc["FORCE_PP"] or 0) > 0 then wp = wp + W_FORCE * p end
+        if (tc["FORCE_SS"] or 0) > 0 then ws_needs = ws_needs + W_FORCE * s end
+        if (tc["FORCE_HH"] or 0) > 0 then wh = wh + W_FORCE * h end
+    end
 
     local sb = 1.0
     if (tc["NEEDS_SPEED"] or 0) > 0 then sb = SpeedBonus(s) end
@@ -431,7 +433,7 @@ local function CollectTags(speciesID)
     local neutH, neutP, neutS = 1.0, 1.0, 1.0  -- B/B 品种系数
     for idx, build in ipairs(builds) do
         local tc = ComputeBuildTags(build)
-        local score = Score(neutH, neutP, neutS, tc, nil)  -- nil=无家族修正(用默认1.0)
+        local score = Score(neutH, neutP, neutS, tc, nil, speciesID)
         if score > bestScore then bestBuildIdx, bestScore = idx, score end
     end
     local bestTc = ComputeBuildTags(builds[bestBuildIdx])
@@ -553,14 +555,14 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             local bestScore, bestDetail, bestBIdx = -9999, nil, bestBuildIdx
             for idx, build in ipairs(builds) do
                 local btc = ComputeBuildTags(build)
-                local bscore, bdetail = Score(h, p, s, btc, petType)
+                local bscore, bdetail = Score(h, p, s, btc, petType, speciesID)
                 if bscore > bestScore then
                     bestScore, bestDetail, bestBIdx = bscore, bdetail, idx
                 end
             end
             -- 无配招时用空标签降级（不应发生，但健壮处理）
             if not bestDetail then
-                bestScore, bestDetail = Score(h, p, s, bestTc, petType)
+                bestScore, bestDetail = Score(h, p, s, bestTc, petType, speciesID)
             end
 
             local score = bestScore
