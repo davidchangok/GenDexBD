@@ -250,6 +250,7 @@ local COMMUNITY_BREED_BONUS = {
     [406] = "H",     -- 甲虫: H/H天启战术首选,需活到陨星落下(1806血)
     [724] = "S",     -- 高山幼狐/AlpineFoxling: S/S,[PvP] Xu-Fu(2/1/2),野兽速攻嚎叫+缭乱之舞
     [1749] = "S",    -- Death Adder: S/S,341速致盲剧毒+Puncture Wound双倍
+    [1330] = "S",    -- [PvP] 致死小蝰蛇/DeathAdderHatchling: S/S,Xu-Fu,同1749蛇族BlindingPoison+PunctureWound先手combo
     -- [3049] 脉动蛆虫: H/H=745vsH/B=740仅差5分,移除COMMUNITY让算法自然决策
     -- [3038] 不朽死亡蟑螂: FORCE_SS(乱舞)已强推S/S,移除COMMUNITY避免与FORCE冲突
     [1073] = "H/B",  -- 塔吉: H/B,酸蚀之触+痛殴+奔踏,人型均衡
