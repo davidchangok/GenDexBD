@@ -318,8 +318,11 @@ local function ProcessAllPets()
                 if IsPetCapturable(2, j) then
                     local msid = C_PetBattles.GetPetSpeciesID(2, j)
                     if msid == sid then
-                        local bid = next(encounterCache[sid])
-                        if bid then ShowAlert(sid, bid, j) end
+                        local cache = encounterCache[sid]
+                        if cache then
+                            local bid = next(cache)
+                            if bid then ShowAlert(sid, bid, j) end
+                        end
                         break
                     end
                 end
