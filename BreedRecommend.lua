@@ -36,6 +36,7 @@ local W_POWER_AMP = 1.5  -- POWER_AMP 加成（伤害放大器:+125%/+100%,Power
 local W_FORCE = 3.0
 local W_COMMUNITY = 3.0  -- 社区例外加权（与 FORCE=3.0 等权）
                           -- 3.0 × 100 = +300分加成
+local W_SLOW = 1.5  -- SCALES_SLOW 加成（逆速度：生命交换/痛殴等，越慢越好）
 local SCALE = 100
 local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
                        -- 来源：NGA 5.0实测数据 "能量0.1:速度0.1≈生命0.15"
@@ -279,6 +280,7 @@ local AUTO_TAGS = (function()
         NEEDS_SPEED   = kw.NEEDS_SPEED[key],
         SCALES_POWER  = kw.SCALES_POWER[key],
         SCALES_HEALTH = kw.SCALES_HEALTH[key],
+        SCALES_SLOW   = kw.SCALES_SLOW[key],
     }
 end)()
 
@@ -475,10 +477,13 @@ local function Score(h, p, s, tc, pt, speciesID)
     local ws = ws_base
     if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.85 end  -- 弱化惩罚:坦克无需速度
 
+    -- 逆速度加成：越慢越好（生命交换/痛殴等，s系数越小得分越高）
+    local slow_bonus = W_SLOW * (tc["SCALES_SLOW"] or 0) * (2.0 - s)
+
     -- 生命等价比修正：1生命 ≈ 0.67攻击/速度（NGA 5.0实测 "0.1攻:0.1速≈0.15命"）
     -- 品种生命系数(0.2-1.8)需要打折后再参与评分
-    local raw = wp * p + ws * s + ws_needs * sb + wh * h * HP_VALUE
-    return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs}
+    local raw = wp * p + ws * s + ws_needs * sb + wh * h * HP_VALUE + slow_bonus
+    return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs,slow_bonus=slow_bonus}
 end
 
 local function CollectTags(speciesID)

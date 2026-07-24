@@ -353,12 +353,21 @@ addonTable.AUTO_TAG_KEYWORDS = {
             "of.*max.*health",
             "consume","devour","feast","feed",
             "sacrifice","self.destruct","explode","martyr","detonate","implode",
-            "split.*health","swap.*life","life.*exchange",
             "shield.*absorb","barrier.*damage","ward","aegis","bulwark","absorb.*damage",
             "reduce.*damage","damage.*reduce","damage.*cap","cannot.*exceed","prevent.*damage",
             "fortitude","endure.*damage","withstand","resilien",
             "block.*attack","negate.*attack","survive","never.*fall.*below",
             "guardian","protector","sanctuary","blessing","purify",
+        },
+    },
+    SCALES_SLOW = {
+        zhCN = {
+            "平分.*生命","交换.*生命","生命.*平分","生命.*交换",
+            "均分.*生命","平分.*血量",
+        },
+        enUS = {
+            "split.*health","swap.*life","life.*exchange","exchange.*life",
+            "share.*health","equalize.*health","even.*health",
         },
     },
 }
