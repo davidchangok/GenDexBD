@@ -262,6 +262,14 @@ local COMMUNITY_BREED_BONUS = {
     -- 蟑螂家族共识S/S, FORCE_SS(乱舞)通常会强推, COMMUNITY加固
     [541] = "S",     -- 防火蟑螂: S/S,蟑螂家族S/S共识,乱舞+生存本能需先手
     -- [2663] 锈废蟑螂: nb=5仅H/H/H/S/H/P/H/B/S/B, 无S/S品种, 移除
+    -- === [PvP] Xu-Fu 第二批 (Best of each Family, 2026-07-24) ===
+    [513] = "S",     -- [PvP] 其拉守护者/QirajiGuardling: S/S,Xu-Fu(1/2/2),人型速控沙尘暴+旋风
+    [515] = "S",     -- [PvP] 孢子芽/SporelingSprout: S/S,Xu-Fu(1/2/2),人型速攻孢子射击+缠绕之藤+致残毒液
+    [1470] = "P",    -- [PvP] 斧喙雏鸟/AxebeakHatchling: P/P,Xu-Fu(2/1/2),飞行爆发切削之风+鲁莽之击+旋风
+    [538] = "H",     -- [PvP] 天灾雏龙/ScourgedWhelpling: H/H,Xu-Fu(2/1/*),亡灵坦克死亡凋零+疫病之血+暗影烈焰
+    [456] = "P/S",   -- [PvP] 疫喉雏鸟/Blighthawk: P/S,Xu-Fu(1/*/2),亡灵均衡疫病爪+暗黑+夜袭
+    [494] = "H/P",   -- [PvP] 其拉甲虫幼体/SilithidHatchling: H/P,Xu-Fu(1/1/2),野兽坦克撕咬+吞噬+蜂拥
+    [1166] = "P/S",  -- [PvP] 昆莱小雪人/Kun-LaiRunt: P/S,Xu-Fu(*/2/2),人型均衡拳击+冷冻+遁地
     -- === 待搜索验证 (已在记忆文件中标记，暂不加COMMUNITY_BONUS) ===
     -- [343] 暗月豹幼崽: P/S — 已写入COMMUNITY ✓
     -- [330] 暗月小猴: ? — 香蕉弹幕+掷桶+咆哮
