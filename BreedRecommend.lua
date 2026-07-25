@@ -472,7 +472,7 @@ local function GetPetType(speciesID)
     return nil
 end
 
-local function Score(h, p, s, tc, pt, speciesID)
+local function Score(h, p, s, tc, pt, speciesID, breedHas)
     local fm = FAMILY_MOD[pt] or {h=1.0, p=1.0, s=1.0}
 
     local wh = (W_BASE + W_HEALTH * (tc["SCALES_HEALTH"] or 0)
@@ -485,9 +485,10 @@ local function Score(h, p, s, tc, pt, speciesID)
     -- 社区共识优先：如COMMUNITY_BREED_BONUS存在,FORCE标签自动让路
     local hasComm = speciesID and COMMUNITY_BREED_BONUS[speciesID]
     if not hasComm then
-        if (tc["FORCE_PP"] or 0) > 0 then wp = wp + W_FORCE * p end
-        if (tc["FORCE_SS"] or 0) > 0 then ws_needs = ws_needs + W_FORCE * s end
-        if (tc["FORCE_HH"] or 0) > 0 then wh = wh + W_FORCE * h end
+        -- FORCE_XX 只在目标纯品种实际存在时生效 (breedHas=nil 则向后兼容,全放行)
+        if (tc["FORCE_PP"] or 0) > 0 and (not breedHas or breedHas[4]) then wp = wp + W_FORCE * p end
+        if (tc["FORCE_SS"] or 0) > 0 and (not breedHas or breedHas[5]) then ws_needs = ws_needs + W_FORCE * s end
+        if (tc["FORCE_HH"] or 0) > 0 and (not breedHas or breedHas[6]) then wh = wh + W_FORCE * h end
     end
 
     local sb = 1.0
@@ -643,6 +644,11 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
     end
     if #breeds==0 then for bid=3,14 do if BREEDS[bid]then breeds[#breeds+1]=bid end end end
 
+    -- 构建 FORCE 品种存在性查找表 (breedID→true)
+    -- 用于 Score 中避免 FORCE_XX 推不存在的品种 (如无 S/S 品种时 FORCE_SS 应静默)
+    local breedHas = {}
+    for _, bid in ipairs(breeds) do breedHas[bid] = true end
+
     local rs = {}
     for _,bid in ipairs(breeds)do
         local br = BREEDS[bid]
@@ -654,14 +660,14 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             local bestScore, bestDetail, bestBIdx = -9999, nil, bestBuildIdx
             for idx, build in ipairs(builds) do
                 local btc = ComputeBuildTags(build)
-                local bscore, bdetail = Score(h, p, s, btc, petType, speciesID)
+                local bscore, bdetail = Score(h, p, s, btc, petType, speciesID, breedHas)
                 if bscore > bestScore then
                     bestScore, bestDetail, bestBIdx = bscore, bdetail, idx
                 end
             end
             -- 无配招时用空标签降级（不应发生，但健壮处理）
             if not bestDetail then
-                bestScore, bestDetail = Score(h, p, s, bestTc, petType, speciesID)
+                bestScore, bestDetail = Score(h, p, s, bestTc, petType, speciesID, breedHas)
             end
 
             local score = bestScore
