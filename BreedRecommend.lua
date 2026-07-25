@@ -272,6 +272,7 @@ local COMMUNITY_BREED_BONUS = {
     -- [442] 辐射蟑螂: 品种{6,7,9,12}=无S/S, 无法写入COMMUNITY
     -- [497] 腐化蟑螂: 品种{6,7,9,12}=无S/S, 算法H/H正确
     -- [2663] 锈废蟑螂: 品种{6,7,9,11,12}=无S/S, 算法H/S正确
+    [2383] = "P/S",  -- 巨型蛀虫/GiantWoodworm: P/S,PvE攻速均衡,算法S/B=573>P/S=559仅靠速度,S-Bns1.4虚高(无S/S品种)
     -- === [PvP] Xu-Fu 第二批 (Best of each Family, 2026-07-24) ===
     [513] = "S",     -- [PvP] 其拉守护者/QirajiGuardling: S/S,Xu-Fu(1/2/2),人型速控沙尘暴+旋风
     [515] = "S",     -- [PvP] 孢子芽/SporelingSprout: S/S,Xu-Fu(1/2/2),人型速攻孢子射击+缠绕之藤+致残毒液
