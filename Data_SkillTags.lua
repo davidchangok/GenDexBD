@@ -47,6 +47,7 @@ local RAW_TAGS = {
         581, -- 群殴：3轮多段攻击+增伤debuff(同奔踏)
         -- 补充自内建知识库（多段攻击/高额爆发）
         367, -- 噬咬：高额爆发
+        1380, -- 硬壳护甲: AttackBonus()缩放减伤,非HP依赖→应标SCALES_POWER非SCALES_HEALTH
     },
     SCALES_HEALTH = {
         282, 136, 821, 160,
