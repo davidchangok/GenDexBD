@@ -289,6 +289,14 @@ local COMMUNITY_BREED_BONUS = {
 }
 
 -- ============================================================================
+-- 社区共识品种注释（右键菜单/PvP-PvE场景标注）
+-- 与 COMMUNITY_BREED_BONUS 配对使用，key=speciesID, value=场景说明
+-- ============================================================================
+local COMMUNITY_BREED_NOTE = {
+    [513] = "PvP:S/S速控沙尘暴+幻灭踢 | PvE:P/P爆发流粉碎+鹰眼+鲁莽之击,自残技高攻止损",
+}
+
+-- ============================================================================
 -- Layer 2: 自动分类关键词（精炼版）
 -- ============================================================================
 -- 关键词从 Locales.lua 的 addonTable.AUTO_TAG_KEYWORDS 读取
@@ -725,3 +733,4 @@ end
 addonTable.CollectSkillTags = CollectTags
 addonTable.GetSkillTags = function() return SkillTags end
 addonTable.GetCommunityBreed = function(speciesID) return COMMUNITY_BREED_BONUS[speciesID] end
+addonTable.GetCommunityBreedNote = function(speciesID) return COMMUNITY_BREED_NOTE[speciesID] end

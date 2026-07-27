@@ -75,6 +75,7 @@ local MAX_MENU_RETRY = 5
 
 local GOLD = "|cffffd600"
 local GRAY = "|cff888888"
+local TEAL = "|cff00cccc"
 
 -- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
 -- 同时暴露为 addonTable.BuildSetBestSubMenu 供战斗界面右击菜单调用
@@ -134,6 +135,14 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                     text = GOLD .. string.format(GetLocaleString("COMMUNITY_CONSENSUS"), commDisplay) .. "|r",
                     isDisabled = true,
                 }
+                -- PvP/PvE 场景注释（如有）
+                local commNote = addonTable.GetCommunityBreedNote and addonTable.GetCommunityBreedNote(speciesID)
+                if commNote then
+                    items[#items + 1] = {
+                        text = TEAL .. "  " .. commNote .. "|r",
+                        isDisabled = true,
+                    }
+                end
             end
 
             items[#items + 1] = {
