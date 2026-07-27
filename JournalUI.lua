@@ -192,20 +192,25 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 local isCurrent = (m.bid == currentBreedID)
                 local isPvEBest = (pveTop and m.code == pveTop)
                 local isPvPBest = (pvpTop and m.code == pvpTop)
-                local starColor
-                if isCurrent and isPvEBest and isPvPBest then starColor = GOLD_RED
-                elseif isCurrent and isPvEBest then starColor = GOLD
-                elseif isCurrent and isPvPBest then starColor = RED
-                elseif isCurrent then starColor = nil
-                elseif isPvEBest and isPvPBest then starColor = GOLD_RED
-                elseif isPvEBest then starColor = GOLD
-                elseif isPvPBest then starColor = RED
-                else starColor = nil
+                -- 文字颜色：当前=绿色，最佳=场景色，两者同时=场景色+★
+                local textColor
+                if isCurrent then textColor = GREEN
+                elseif isPvEBest and isPvPBest then textColor = GOLD_RED
+                elseif isPvEBest then textColor = GOLD
+                elseif isPvPBest then textColor = RED
+                else textColor = nil
+                end
+                -- ★颜色：最佳品种加星标
+                local starSuffix = ""
+                if isPvEBest and isPvPBest then starSuffix = " " .. GOLD_RED .. "★|r"
+                elseif isPvEBest then starSuffix = " " .. GOLD .. "★|r"
+                elseif isPvPBest then starSuffix = " " .. RED .. "★|r"
                 end
                 local line = string.format(GetLocaleString("DUAL_SCORE_FMT"), m.code, m.pve, m.pvp)
-                if starColor then
-                    line = starColor .. line .. " ★|r"
+                if textColor then
+                    line = textColor .. line .. "|r"
                 end
+                line = line .. starSuffix
                 local sid = speciesID; local bid = m.bid
                 items[#items + 1] = {
                     text = line,
