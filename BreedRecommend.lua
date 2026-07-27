@@ -48,272 +48,233 @@ local SCALE = 100
 
 -- 家族被动修正 — PvE
 local FAMILY_MOD_PVE = {
-    -- 1型: 人型 — 攻击回血4% → 偏攻击
     [1]  = { h=1.0, p=1.15, s=1.0 },
-    -- 2型: 龙类 — 敌方<50%伤害+50% → 偏攻击(斩杀)
     [2]  = { h=1.0, p=1.15, s=1.0 },
-    -- 3型: 飞行 — >50%HP速度+50%(种族被动已给速度,不需额外加权)
     [3]  = { h=1.0, p=1.1, s=1.0 },
-    -- 4型: 亡灵 — 死亡复活一回合 → 偏攻击
     [4]  = { h=1.0, p=1.3, s=1.0 },
-    -- 5型: 小动物 — CC减免 → 均衡偏坦
     [5]  = { h=1.1, p=1.0, s=1.0 },
-    -- 6型: 魔法 — 单次伤害≤35%HP → 慢速高血
     [6]  = { h=1.3, p=1.0, s=0.8 },
-    -- 7型: 元素 — 无视天气负面 → 均衡(策略型)
     [7]  = { h=1.0, p=1.0, s=1.0 },
-    -- 8型: 野兽 — <50%HP伤害+25% → 战术操作,非品种引导
     [8]  = { h=1.0, p=1.0, s=1.0 },
-    -- 9型: 水栖 — DoT减免 → 均衡偏攻(治疗波/净化雨攻击缩放)
     [9]  = { h=1.0, p=1.1, s=1.0 },
-    -- 10型:机械 — 复活20%HP一次 → 偏攻击
     [10] = { h=1.0, p=1.2, s=1.0 },
 }
 
--- 家族被动修正 — PvP（速度权重上调、血量权重下调）
+-- 家族被动修正 — PvP
 local FAMILY_MOD_PVP = {
-    [1]  = { h=1.0, p=1.1,  s=1.05 },  -- 人型
-    [2]  = { h=1.0, p=1.1,  s=1.05 },  -- 龙类
-    [3]  = { h=1.0, p=1.0,  s=1.15 },  -- 飞行(+50%速在PvP更突出)
-    [4]  = { h=1.0, p=1.25, s=1.05 },  -- 亡灵
-    [5]  = { h=1.05,p=1.0,  s=1.05 },  -- 小动物
-    [6]  = { h=1.2, p=1.0,  s=0.9  },  -- 魔法(PvP速度惩罚更轻)
-    [7]  = { h=1.0, p=1.0,  s=1.0  },  -- 元素
-    [8]  = { h=1.0, p=1.0,  s=1.0  },  -- 野兽
-    [9]  = { h=1.0, p=1.05, s=1.05 },  -- 水栖
-    [10] = { h=1.0, p=1.15, s=1.05 },  -- 机械
+    [1]  = { h=1.0, p=1.1,  s=1.05 },
+    [2]  = { h=1.0, p=1.1,  s=1.05 },
+    [3]  = { h=1.0, p=1.0,  s=1.15 },
+    [4]  = { h=1.0, p=1.25, s=1.05 },
+    [5]  = { h=1.05,p=1.0,  s=1.05 },
+    [6]  = { h=1.2, p=1.0,  s=0.9  },
+    [7]  = { h=1.0, p=1.0,  s=1.0  },
+    [8]  = { h=1.0, p=1.0,  s=1.0  },
+    [9]  = { h=1.0, p=1.05, s=1.05 },
+    [10] = { h=1.0, p=1.15, s=1.05 },
 }
 
 -- ============================================================================
--- 社区例外加权表
--- 格式: [speciesID] = 品种字符串 (与旧格式兼容)
---   "H"/"P"/"S"/"B" = 纯品种 H/H, P/P, S/S, B/B
---   "H/P", "P/S" 等 = 混合品种直接匹配
--- 未来可扩展为场景感知格式: { pve="X", pvp="Y" }
+-- 社区共识加权表（双场景感知格式）
+-- 格式: [speciesID] = {pve="X"|nil, pvp="X"|nil, note="来源说明"}
+--   nil = 此场景无社区共识，算法独立决策
+--   旧格式 string 仍兼容（视为通用共识）
 -- ============================================================================
 local COMMUNITY_BREED_BONUS = {
-    -- === 蜘蛛家族 ===
-    [412] = "S",     -- 蜘蛛: S/S社区首选,网→毒→幼蛛组合需先手设网
-    [470] = "P",     -- 暮光蜘蛛: P/P仅3品种,无S/S可选
-    [484] = "P/S",   -- 沙漠蜘蛛: P/S社区确认
-    [407] = "P/S",   -- 林地小蜘蛛: P/S确认有品种
-    [1726] = "S",    -- 潜地小蜘蛛: S/S,3NEED标签自然偏速
-    [3007] = "P/B",  -- 粉腿小蜘蛛: P/B,生命虹吸+传染打击
-    -- [396] Dusk Spiderling暮色小蜘蛛: 仅P/S和S/B品种,无P/P,社区无品种讨论,移除COMMUNITY
-    [428] = "S",     -- 熔火幼蛛: S/S社区主导,先手尖网控场+341速反制MPD
-    [3202] = "S",    -- 元蛛追猎者: S/S,蜘蛛控场型,乱舞+致盲剧毒+尖网先手
-    -- [480] 黄宝石钻孔幼蛛: nb=3仅H/H/H/S/B/B, 无S/S品种, 移除
-    -- [554] 赤红幼岩蛛: nb=3仅H/S/H/P/B/B, 无S/S品种, 移除
-    [637] = "S",     -- 敏捷的洞穴蛛: S/S,蜘蛛控场型全S/S
-    -- [699] 跳蛛: nb=4仅B/B/H/B/H/S/S/B, 无S/S品种, 移除
-    -- === 老鼠家族 ===
-    [398] = "S",     -- 黑老鼠: S/S,乱舞+奔踏先手额外攻击次数
-    [454] = "S",     -- 幽暗城老鼠: S/S,同黑老鼠家族
-    [410] = "S",     -- 码头老鼠: S/S,同老鼠家族
-    [1427] = "P",    -- 霜鬃鼠: P/P社区确认,SneakAttack+CallDarkness爆发流
-    [4277] = "S",    -- 树液啮咬者: S/S,啮齿类Flurry系共用S/S共识
-    [392] = "S",     -- 赤脊山老鼠: S/S,老鼠Flurry系全S/S,乱舞+奔踏先手额外攻击次数
-    [553] = "S",     -- 偷渡老鼠: S/S,同老鼠家族Flurry系
-    [709] = "S",     -- 南洋箭鼠幼崽: S/S,同啮齿类Flurry系S/S共识
-    -- === 兔子/松鼠家族 ===
-    [391] = "S",     -- 高山短尾兔: S/S,乱舞+钻地+躲闪+激素刺激
-    [448] = "S",     -- 野兔: S/S,同391+奔踏
-    [443] = "S",     -- 草地短尾兔: S/S,同391/448家族
-    [441] = "S",     -- 高山野兔: S/S社区明确,357速S-Tier兔子,Dodge+Burrow依赖先手
-    [641] = "S",     -- 极地野兔: S/S社区确认,同兔子家族357速Dodge+Flurry+Burrow
-    [379] = "S",     -- 松鼠: S/S,坚果弹幕+奔踏+蜷伏,FORCE_SS已设双保险
-    [452] = "S",     -- 红尾花栗鼠: S/S,FORCE_SS(167)生效同379
-    [647] = "S",     -- 灰色松鼠: S/S,松鼠家族全S/S
-    [3278] = "S",    -- 开心果: S/S,FORCE_SS坚果弹幕+狂野爪击风暴
-    [137] = "S",     -- 棕兔: S/S,兔子家族全S/S,乱舞+钻地+躲闪
-    [378] = "S",     -- 兔子: S/S,兔子家族S/S共识,同上技能池
-    -- [479] 小野兔: nb=2仅S/B和B/B, 无S/S品种, 移除
-    [487] = "S",     -- 高山花栗鼠: S/S,花栗鼠全S/S,坚果弹幕+奔踏+蜷伏
-    -- [725] 高山狐狸崽: nb=2仅B/B和S/B, 无S/S品种, 移除
-    [730] = "S",     -- 多莱兔仔: S/S,兔子家族S/S,同137/378
-    [1729] = "S",    -- 绿尾野兔: S/S,野兔全S/S,速度碾压同族
-    -- [1743] 黑脚狐幼崽: nb=2仅B/B和S/B, 无S/S品种, 移除
-    [1778] = "S",    -- 烟灰野兔: S/S,野兔全S/S,Dodge+Flurry+Burrow
-    [3191] = "S",    -- 胆小的元兔: S/S,兔子家族Dodge+Burrow先手体系
-    -- === 土拨鼠 ===
-    [386] = "S",     -- 草原土拨鼠: S/S,无P/B品种可选,仅3品种S/S最优
-    [549] = "P/B",   -- 黄腹土拨鼠: P/B,自加速技移除NEEDS_SPEED后P/B反超S/S
-    -- [449] 棕色土拨鼠: 未搜索社区共识, 暂不写入
-    -- === 甲虫家族 ===
-    [415] = "H/P",   -- 火甲虫: H/P社区推荐,无P/P可选
-    [429] = "P",     -- 熔火甲虫: P/P社区"especially P/P",不同于415有P/P选P/P
-    [2843] = "B",    -- 虚痕甲虫: B/B,NEEDS_SPEED×1+SCALES×2均衡
-    [430] = "S",     -- 金甲虫: S/S唯一品种
-    -- === 蛇/蝎家族 ===
-    [425] = "P/S",   -- 燃灰蝰蛇: P/S,无S/S可选,蛇类指南推荐S/S→P/S最接近
-    [432] = "P/S",   -- 纹尾蝎: P/S社区Vek确认,P/S(481)>B/B(414)
-    -- [418] 水蛇: 仅B/B品种, 单品种无需COMMUNITY_BONUS
-    -- === 蟹 ===
-    [388] = "H",     -- 海滨蟹: H/H,双治疗坦克翻身,NEEDS_SPEED不碾压H/H
-    -- [423] 熔岩蟹: 社区无品种讨论,Shell Shield攻缩放工具宠,移除COMMUNITY
-    [746] = "P",     -- 君王蟹: P/P,同海滨蟹族PvP速攻
-    [401] = "H",     -- 海湾蟹: H/H,双治疗坦克型,甲壳护盾+治疗波续航
-    [564] = "H",     -- 翡翠乌龟: H/H,龟类坦克型,甲壳护盾+治疗波
-    [572] = "P",     -- 塔边小蟹: P/P,蟹类PvP速攻型,蟹钳+激流
-    [1583] = "P",    -- 海藻凿孔蟹: P/P,螃蟹PvP型,同572
-    [2372] = {pve=nil, pvp="S"},    -- [PvP] 影背爬蟹: S/S,Xu-Fu(*/1/1)速攻
-    [2646] = {pve=nil, pvp="P/B"},  -- [PvP] 沙爪阳壳蟹: P/B,Xu-Fu(2/1/2),水栖爆发
-    [463] = "H",     -- 灵魂蟹: H/H,螃蟹/龟坦克型,甲壳护盾+治疗波续航
-    -- [713] 软壳幼龟: nb=2仅H/S和B/B, 无H/H品种, 移除
-    [723] = "H",     -- 棘刺水龟: H/H,同龟类坦克H/H共识
-    -- === 青蛙/蟾蜍 ===
-    [419] = "S/B",   -- 小青蛙: S/B,治疗波+净化雨吃攻击缩放,水栖治疗体系
-    [420] = "H/P",   -- 蟾蜍: H/P唯一青蛙/蟾蜍有H/P品种,治疗波攻缩放
-    [648] = "H/P",   -- 大蟾蜍: H/P,蟾蜍家族同420
-    -- === 蜗牛 ===
-    [493] = "H/P",   -- 闪光湖蜗牛: H/P,305攻=最高攻蜗牛,吸收吃Power+甲壳护盾吃HP
-    [3482] = "H/P",  -- 圆石之壳: H/P,蜗牛家族H/P共识,吸收+甲壳护盾体系
-    [743] = "H/B",   -- 拉帕纳海螺: H/B社区共识(无H/H或H/P品种),S/S的260速无意义,"260速不配牺牲血量攻击力"
-    -- === 蛾/蝴蝶 ===
-    [478] = "H/S",   -- 森林蛾: H/S,Cocoon Strike>速度技,需血量维持飞行被动
-    [2384] = "S",    -- 海滨蝴蝶: S/S,飞行蝴蝶通用S/S
-    [2866] = {pve=nil, pvp="S"},    -- [PvP] 虚空荧光: S/S,Xu-Fu(2/1/2),飞行速攻
-    [1325] = "P/S",  -- 焰光蛾: P/S,蛾类P/P或P/S共识,飞行被动给速度
-    [140] = {pve=nil, pvp="P"},     -- [PvP] 黄蛾: P/P,Xu-Fu(2/1/2),唯一P/P蛾
-    [1587] = "P/S",  -- 皇家飞蛾: P/S,同蛾类家族共识
-    -- === 猫头鹰/鸟 ===
-    -- [507] 羽冠猫头鹰: 无可靠社区共识, 飞行均衡P/P亦合理, 移除
-    -- [423] 熔岩蟹: 无社区讨论, 移除
-    -- [418] 水蛇: 仅B/B, 单品种无需
-    -- [3384] 雷触蓝羽鸭: 仅S/B单品种, Rematch误报4品种
-    -- [3038] 不朽死亡蟑螂: FORCE_SS强制S/S, COMMUNITY B/B不能覆盖, 需搜社区确认
-    [548] = "P",     -- 蛮锤狮鹫: P/P社区"no-brainer",仅3种鸟有P/P,切削之风+群殴多段爆发
-    [646] = "S",     -- 鸡: S/S(P/P也可),飞行×1.3速+325速,蛋幕+切削之风
-    [1068] = "S",    -- 乌鸦: S/S,空袭+暗黑+夜袭,"very rare but best"
-    [2902] = {pve=nil, pvp="S"},    -- [PvP] 暗色惊惧之翼: S/S,Xu-Fu(2/1/1),飞行毒雾先手
-    [2380] = {pve=nil, pvp="P"},    -- [PvP] 寄生野猪蝇: P/P,Xu-Fu(2/1/1),飞行爆发
-    [1572] = "S",    -- 夺目的红羽雀: S/S,飞行速度系S/S,啄击+飞羽+升空
-    -- === 蝙蝠 ===
-    [626] = "P",     -- 蝙蝠: P/P,鲁莽之击spam+鹰眼,无防御=最大化输出
-    [1762] = "P",    -- 猪鼻蝙蝠: P/P,蝙蝠家族P/P共识,鲁莽之击+夜袭
-    -- === 鹿/羊 ===
-    [447] = "H/S",   -- 小鹿: H/S,B/B有75%惩罚,治疗吃Power需HS均衡
-    [374] = "H/P",   -- 黑羔羊: H/P,高血高攻+Chew+Comeback+Stampede
-    [1913] = "H/S",  -- 闪蹄小鹿: H/S,治疗辅助宠,宁静+引吭+自然守护
-    -- === 亡灵 ===
-    [627] = "H/P",   -- 被感染的松鼠: H/P,邪爆HP%+吞噬,亡灵偏攻
-    [1965] = {pve=nil, pvp="H/P"},  -- [PvP] 疫息: H/P,Xu-Fu(1/2/1),亡灵DOT坦克
-    [1600] = {pve=nil, pvp="S"},    -- [PvP] 骨蛇: S/S,Xu-Fu(1/2/2),亡灵速攻
-    [1968] = {pve=nil, pvp="S"},    -- [PvP] 邪恶灵魂: S/S,Xu-Fu(*/2/*),亡灵速控
-    [1740] = "P/S",  -- 幽灵蛆虫: P/S,吸血+疫病+幽魂之咬
-    [455] = "P/S",   -- 生病的松鼠: P/S,刨花+激素刺激+奔踏/狂乱之击,亡灵松鼠
-    [1238] = "B",    -- 幼年瓦格里: B/B(PvP鬼影先手),社区B/B+H/H都可,标记B/B为共识首选
-    -- === 元素 ===
-    [509] = "H/S",   -- 袖珍沼泽兽: H/S,痛殴先手晕+鞭笞额外攻击,元素均衡
-    [1328] = "H/S",  -- 红宝石小水滴: H/S,社区确认,元素治疗
-    [445] = "H/S",   -- 小旋风: H/S社区Vek确认,289速Bash先手+Wild Winds反制水栖
-    [1432] = {pve=nil, pvp="S"},    -- [PvP] 夜影幼苗: S/S,Xu-Fu(1/2/1),元素速攻
-    [1429] = {pve=nil, pvp="P"},    -- [PvP] 暮秋幼苗: P/P,Xu-Fu(2/1/2),元素爆发
-    [2808] = {pve=nil, pvp="H/P"},  -- [PvP] 小弗兹: H/P,Xu-Fu(1/2/2),元素坦克
-    [519] = "H",     -- 邪焰: H/H,灼燃大地+献祭+焚烧DOT叠加需血量,无P/P可选
-    -- === 龙类 ===
-    [557] = "P",     -- 虚空精灵龙: P/P,wp=2.30×1.8碾压ws_needs,P/P>591>S/S=565
-    [1563] = {pve=nil, pvp="S"},    -- [PvP] 青铜幼龙: S/S,Xu-Fu唯一S/S龙类幼崽
-    [1385] = {pve=nil, pvp="S"},    -- [PvP] 白化奇美拉幼崽: S/S,Xu-Fu(1/2/1),龙类速攻
-    [142] = {pve=nil, pvp="S"},     -- [PvP] 金色龙鹰宝宝: S/S,Xu-Fu(*/2/2),龙类速攻
-    [1167] = "P",    -- 翡翠始祖龙宝宝: P/P,翡翠存在+翡翠梦境=Power缩放治疗,P/P最大治疗量
-    [1976] = "P",    -- 利爪雏龙: P/P,SCALES_POWER×3飞行,隼龙围攻+狂风+掠食之击
-    [1974] = "S",    -- 雪羽雏龙: S/S,隼龙围攻+尖鸣+掠食之击,飞行速攻
-    [1975] = "H/P",  -- 恐嘴雏龙: H/P,隼龙围攻+鲁莽之击+掠食之击,SCALES_POWER×2+HEALTH×1
-    [3100] = "P",    -- 越时机械幼龙: P/P,火焰吐息+剃刀利爪+末日决战
-    [4261] = "B",    -- 黑曜战争雏龙: B/B,烈焰吐息+剃刀利爪+末日决战SUICIDE_HP,龙类均衡
-    -- === 人型/野兽 PvP ===
-    [514] = "S",     -- 剥石者幼崽: S/S,"head and shoulders better",专注+脚踢+偏斜=先手控
-    [1229] = {pve=nil, pvp="S"},    -- [PvP] 恶魔小鬼: S/S,Xu-Fu(1/1/2),人型速攻
-    [1953] = {pve=nil, pvp="S"},    -- [PvP] 雪怪矮人: S/S,Xu-Fu(1/2/1),人型速控
-    [1495] = {pve=nil, pvp="S"},    -- [PvP] 石食者: S/S,Xu-Fu(1/1/1),人型速控
-    [1180] = "P",    -- 赞达拉袭胫者: P/P,黑爪+狩猎小队=纯爆发
-    [1211] = "P",    -- 赞达拉撕踝者: P/P,Black Claw体系
-    [1212] = "P",    -- 赞达拉裂足者: P/P,同上
-    [1213] = "P",    -- 赞达拉啮趾者: P/P,社区:P/P>P/S>S/S
-    [2537] = "P",    -- 赞达拉迅猛龙宝宝: P/P,同上
-    [1387] = "P",    -- 钢铁星弹: P/P,旋紧发条+增压+自爆=最强爆发
-    -- === 魔宠 ===
-    [343] = "P/S",   -- 暗月豹幼崽: P/S社区确认,P/S>B/B,Devour需Power+Speed先手
-    [552] = "H/P",   -- 暮光小恶魔: H/P,1960血魔法被动线686+生命虹吸续航
-    [3390] = "P/S",  -- 睿智融合体: P/S,一闪+吸取能量+照亮,NEEDS_SPEED×2元素
-    [3034] = "P/S",  -- 托加斯特潜伏者: P/S,鬼影缠身+幽魂之咬+幻象屏障,亡灵均衡
-    [1201] = "P/B",  -- 格纳瑟斯的子嗣: P/B,囫囵吞食+潜水+麻痹震击,水栖均衡
-    [1720] = "P/S",  -- 艾米苟萨: P/S,爪击+奥术风暴+能量涌动,龙类速攻
-    [2469] = "H/S",  -- 荆丛幼芽: H/S,毒枝+日光术+纠缠根须/太阳光,人型治疗
-    [267] = "B",     -- 魔化灯笼: B/B,照亮+闪光+灵魂结界,魔法控制
-    [1964] = {pve=nil, pvp="S"},    -- [PvP] 血沸: S/S,Xu-Fu(*/1/1),魔法速攻
-    [1716] = "P",    -- 守望者猫头鹰雏鸟: P/P,飞羽+召唤黑暗+夜袭,飞行爆发
-    [2959] = "B",    -- 小灵通: B/B,亡者战队+复活盟友+幽冥之声,亡灵召唤
-    [2919] = "P/S",  -- 戈姆刺根者: P/S,切削之风+穿刺+麻痹毒液,SCALES_POWER×3飞行
-    [3110] = "P/S",  -- 吉兹莫: P/S,狂抓+潜行+魔力冲撞/虚无之界,野兽速攻
-    -- === 机械 ===
-    [85] = "H/S",    -- 步行炸弹: H/S,震击+猛击+自爆,NEEDS_SPEED×2+SCALES_POWER×2
-    -- [471] 机械小鸡: nb=6仅P/S/P/B/B/B/S/S/H/H, 无P/P品种, 移除
-    [2717] = "H/P",  -- 微型机器人XD: H/P,警报+震荡干涉+增压/离子炮,NEEDS_SPEED×2机械
-    [2718] = "H",    -- 微型机器人8D: H/H,同2717但HH品种
-    [2674] = "B",    -- H4ND-EE: B/B,重拳/砍劈+抓握/重建+万能打击/修复,均衡机械
-    [2753] = "H",    -- 喷洒机器人0D型: H/H,水流喷射+毒雾喷洒/强化护甲
-    [1567] = "P/S",  -- 哨兵之友: P/S,夜袭+月火术+虚无之界,NEEDS_SPEED×2飞行
-    [389] = {pve=nil, pvp="S"},     -- [PvP] 小小收割者: S/S,Xu-Fu,机械速攻
-    [2001] = {pve=nil, pvp="H/P"},  -- [PvP] 呆博勒: H/P,Xu-Fu(*/1/2),机械坦克
-    [1565] = {pve=nil, pvp="S"},    -- [PvP] 机械蝎子: S/S,Xu-Fu(2/1/2),机械速攻
-    [254] = {pve=nil, pvp="S"},     -- [PvP] 蓝发条火箭机器人: S/S,Xu-Fu(2/2/1),机械速攻
-    -- === 其他 ===
-    [2864] = {pve=nil, pvp="H/B"},  -- [PvP] 虚痕蝗虫: H/B,Xu-Fu(2/2/2),小动物生存+虫群+传染
-    [733] = "S",     -- 草地欢跳者: S/S,PetBreedSurvey54%S/S>25%B/B,NEEDS_SPEED飞掠
-    [1344] = "H/P",  -- 暴怒小箭猪: H/P,灵魂尖刺+侧击+复仇,SCALES_HEALTH+NEEDS_SPEED+SCALES_POWER
-    [1185] = "H/S",  -- 幽灵小箭猪: H/S,幽灵打击+灵魂尖刺/幻象屏障+幽魂脊刺,魔法家族
-    [485] = "H/P",   -- 石犰狳: H/P,抓挠/痛击+甲壳护盾/咆哮+染疫之爪,SCALES_POWER×2均衡
-    [3357] = "H/S",  -- 碧蓝晶刺猪: H/S,尖刺体肤+水晶牢笼+剧毒长牙,魔法坦克
-    [2839] = "P/S",  -- 虚痕野兔: P/S,可爱至极/先发优势+虚空震颤,NEEDS_SPEED×2
-    [438] = "H",     -- 王蛇: H/H唯一此技能池H/H蛇,高血量+野兽被动+毒牙递增
-    [406] = "H",     -- 甲虫: H/H天启战术首选,需活到陨星落下(1806血)
-    [724] = {pve=nil, pvp="S"},     -- [PvP] 高山幼狐: S/S,Xu-Fu(2/1/2),野兽速攻
-    [1749] = "S",    -- Death Adder: S/S,341速致盲剧毒+PunctureWound双倍
-    [1330] = {pve=nil, pvp="S"},    -- [PvP] 致死小蝰蛇: S/S,Xu-Fu,蛇族BlindingPoison先手combo
-    -- [3049] 脉动蛆虫: H/H=745vsH/B=740仅差5分,移除COMMUNITY让算法自然决策
-    -- [3038] 不朽死亡蟑螂: FORCE_SS(乱舞)已强推S/S,移除COMMUNITY避免与FORCE冲突
-    [1073] = "H/B",  -- 塔吉: H/B,酸蚀之触+痛殴+奔踏,人型均衡
-    [1181] = "H",    -- 老年巨蟒: H/H社区共识,Beast被动+Poison Fang+Huge Fang生存越长越好
-    -- 臭鼬家族: WarcraftPets社区共识H/P(heal吃Power+debuff需血量担伤),S/S=289速不够快
-    [633] = "H/P",  -- 山地臭鼬: H/P(有此品种),COMMUNITY覆盖FORCE_SS有效
-    [2660] = {pve=nil, pvp="H/P"},  -- [PvP] 泥蛞蝓: H/P,Xu-Fu(*/1/2),小动物坦克
-    [2133] = {pve=nil, pvp="S"},    -- [PvP] 侏儒玛苏尔: S/S,Xu-Fu(2/2/1),小动物速攻
-    -- [397] [823] 无H/P品种, COMMUNITY无法生效, 依赖FORCE_SS自然决策
-    -- === 蟑螂 ===
-    -- 蟑螂家族共识S/S, 9种标准蟑螂中6种有S/S品种, COMMUNITY加固
-    -- 算法H/H=581(SCALES_HEALTH×2天启+生存) > S/S=494, 差87分需覆盖
-    [55] = "S",      -- 幽暗城蟑螂: S/S,蟑螂家族共识,同541技能池{3,5,6,9}
-    [424] = "S",     -- 蟑螂: S/S,蟑螂家族共识,6品种含S/S
-    [541] = "S",     -- 防火蟑螂: S/S,蟑螂家族共识,乱舞+生存本能需先手
-    [555] = "S",     -- 深岩蟑螂: S/S,蟑螂家族共识,同541技能池{5,6,7,9}
-    [638] = "S",     -- 虚空蟑螂: S/S,蟑螂家族共识,同541技能池{5,6,7,9}
-    [744] = "S",     -- 坚忍蟑螂: S/S,蟑螂家族共识,6品种含S/S{5,6,7,9,11,12}
-    -- [442] 辐射蟑螂: 品种{6,7,9,12}=无S/S, 无法写入COMMUNITY
-    -- [497] 腐化蟑螂: 品种{6,7,9,12}=无S/S, 算法H/H正确
-    -- [2663] 锈废蟑螂: 品种{6,7,9,11,12}=无S/S, 算法H/S正确
-    [2383] = "P/S",  -- 巨型蛀虫: P/S,PvE攻速均衡,无S/S品种(算法S/B虚高仅靠速度)
-    [4659] = "P",    -- 卡亚蟹: P/P,PvE爆发流,汹涌优先技+嚣狂自残需高攻速杀
-    -- === [PvP] Xu-Fu 第二批 (Best of each Family, 2026-07-24) ===
-    [513] = {pve=nil, pvp="S"},     -- [PvP] 其拉守护者: S/S,Xu-Fu(1/2/2),人型速控,PvE算法推P/P(鲁莽之击自残高攻止损)
-    [515] = {pve=nil, pvp="S"},     -- [PvP] 孢子芽: S/S,Xu-Fu(1/2/2),人型速攻
-    [1470] = {pve=nil, pvp="P"},    -- [PvP] 斧喙雏鸟: P/P,Xu-Fu(2/1/2),飞行爆发
-    [538] = {pve=nil, pvp="H"},     -- [PvP] 天灾雏龙: H/H,Xu-Fu(2/1/*),亡灵坦克
-    [456] = {pve=nil, pvp="P/S"},   -- [PvP] 疫喉雏鸟: P/S,Xu-Fu(1/*/2),亡灵均衡
-    [494] = {pve=nil, pvp="H/P"},   -- [PvP] 其拉甲虫幼体: H/P,Xu-Fu(1/1/2),野兽坦克
-    [1166] = {pve=nil, pvp="P/S"},  -- [PvP] 昆莱小雪人: P/S,Xu-Fu(*/2/2),人型均衡
-    -- === 待搜索验证 (已在记忆文件中标记，暂不加COMMUNITY_BONUS) ===
-    -- [343] 暗月豹幼崽: P/S — 已写入COMMUNITY ✓
-    -- [330] 暗月小猴: ? — 香蕉弹幕+掷桶+咆哮
-    -- [383] 锦绣阔步者: ? — 需搜社区确认
+    -- ====== 两场景通用共识（家族/社区/技能分析） ======
+    -- 蜘蛛家族
+    [412] = {pve="S", pvp="S", note="蜘蛛家族共识,网→毒→幼蛛先手"},
+    [470] = {pve="P", pvp="P", note="暮光蜘蛛:仅3品种无S/S可选"},
+    [484] = {pve="P/S", pvp="P/S", note="沙漠蜘蛛社区确认"},
+    [407] = {pve="P/S", pvp="P/S", note="林地小蜘蛛社区确认"},
+    [1726] = {pve="S", pvp="S", note="潜地小蜘蛛,3NEED标签自然偏速"},
+    [3007] = {pve="P/B", pvp="P/B", note="粉腿小蜘蛛,生命虹吸+传染打击"},
+    [428] = {pve="S", pvp="S", note="熔火幼蛛社区主导,先手尖网控场"},
+    [3202] = {pve="S", pvp="S", note="元蛛追猎者,蜘蛛控场型"},
+    [637] = {pve="S", pvp="S", note="敏捷洞穴蛛,蜘蛛控场全S/S"},
+    -- 老鼠家族
+    [398] = {pve="S", pvp="S", note="老鼠家族共识,乱舞+奔踏先手"},
+    [454] = {pve="S", pvp="S", note="幽暗城老鼠,同老鼠家族"},
+    [410] = {pve="S", pvp="S", note="码头老鼠,同老鼠家族"},
+    [1427] = {pve="P", pvp="P", note="霜鬃鼠社区确认,爆发流"},
+    [4277] = {pve="S", pvp="S", note="树液啮咬者,啮齿类Flurry系S/S"},
+    [392] = {pve="S", pvp="S", note="赤脊山老鼠,Flurry系全S/S"},
+    [553] = {pve="S", pvp="S", note="偷渡老鼠,同Flurry系"},
+    [709] = {pve="S", pvp="S", note="南洋箭鼠,同啮齿Flurry系"},
+    -- 兔子/松鼠家族
+    [391] = {pve="S", pvp="S", note="兔子家族共识,乱舞+钻地+躲闪"},
+    [448] = {pve="S", pvp="S", note="野兔,同兔子家族+奔踏"},
+    [443] = {pve="S", pvp="S", note="草地短尾兔,同兔子家族"},
+    [441] = {pve="S", pvp="S", note="高山野兔社区明确,357速Dodge+Burrow"},
+    [641] = {pve="S", pvp="S", note="极地野兔社区确认,兔子家族"},
+    [379] = {pve="S", pvp="S", note="松鼠家族共识,坚果弹幕+奔踏+蜷伏"},
+    [452] = {pve="S", pvp="S", note="红尾花栗鼠,松鼠家族S/S"},
+    [647] = {pve="S", pvp="S", note="灰色松鼠,松鼠家族全S/S"},
+    [3278] = {pve="S", pvp="S", note="开心果,FORCE_SS坚果弹幕"},
+    [137] = {pve="S", pvp="S", note="棕兔,兔子家族全S/S"},
+    [378] = {pve="S", pvp="S", note="兔子,家族S/S共识"},
+    [487] = {pve="S", pvp="S", note="高山花栗鼠,松鼠家族全S/S"},
+    [730] = {pve="S", pvp="S", note="多莱兔仔,兔子家族S/S"},
+    [1729] = {pve="S", pvp="S", note="绿尾野兔,野兔全S/S"},
+    [1778] = {pve="S", pvp="S", note="烟灰野兔,野兔全S/S"},
+    [3191] = {pve="S", pvp="S", note="胆小的元兔,兔子家族Dodge+Burrow"},
+    -- 土拨鼠
+    [386] = {pve="S", pvp="S", note="草原土拨鼠,仅3品种S/S最优"},
+    [549] = {pve="P/B", pvp="P/B", note="黄腹土拨鼠,自加速技P/B反超"},
+    -- 甲虫家族
+    [415] = {pve="H/P", pvp="H/P", note="火甲虫社区推荐,无P/P可选"},
+    [429] = {pve="P", pvp="P", note="熔火甲虫社区especially P/P"},
+    [2843] = {pve="B", pvp="B", note="虚痕甲虫均衡B/B"},
+    [430] = {pve="S", pvp="S", note="金甲虫唯一S/S品种"},
+    -- 蛇/蝎家族
+    [425] = {pve="P/S", pvp="P/S", note="燃灰蝰蛇,无S/S选P/S"},
+    [432] = {pve="P/S", pvp="P/S", note="纹尾蝎社区Vek确认"},
+    -- 蟹
+    [388] = {pve="H", pvp="H", note="海滨蟹,双治疗坦克"},
+    [746] = {pve="P", pvp="P", note="君王蟹,蟹类PvP速攻"},
+    [401] = {pve="H", pvp="H", note="海湾蟹,双治疗坦克"},
+    [564] = {pve="H", pvp="H", note="翡翠乌龟,龟类坦克"},
+    [572] = {pve="P", pvp="P", note="塔边小蟹,蟹类速攻"},
+    [1583] = {pve="P", pvp="P", note="海藻凿孔蟹,螃蟹速攻"},
+    [463] = {pve="H", pvp="H", note="灵魂蟹,坦克型"},
+    [723] = {pve="H", pvp="H", note="棘刺水龟,龟类坦克H/H"},
+    -- 青蛙/蟾蜍
+    [419] = {pve="S/B", pvp="S/B", note="小青蛙,治疗波+净化雨"},
+    [420] = {pve="H/P", pvp="H/P", note="蟾蜍,唯一H/P品种"},
+    [648] = {pve="H/P", pvp="H/P", note="大蟾蜍,同420"},
+    -- 蜗牛
+    [493] = {pve="H/P", pvp="H/P", note="闪光湖蜗牛,最高攻蜗牛"},
+    [3482] = {pve="H/P", pvp="H/P", note="圆石之壳,蜗牛H/P共识"},
+    [743] = {pve="H/B", pvp="H/B", note="拉帕纳海螺社区共识,无H/H品种"},
+    -- 蛾/蝴蝶
+    [478] = {pve="H/S", pvp="H/S", note="森林蛾,CocoonStrike+飞行被动"},
+    [2384] = {pve="S", pvp="S", note="海滨蝴蝶,飞行蝴蝶通用S/S"},
+    [1325] = {pve="P/S", pvp="P/S", note="焰光蛾,蛾类P/P或P/S共识"},
+    [1587] = {pve="P/S", pvp="P/S", note="皇家飞蛾,同蛾类家族"},
+    -- 鸟/猫头鹰
+    [548] = {pve="P", pvp="P", note="蛮锤狮鹫社区no-brainer P/P"},
+    [646] = {pve="S", pvp="S", note="鸡,S/S(P/P也可)"},
+    [1068] = {pve="S", pvp="S", note="乌鸦,空袭+暗黑+夜袭very rare best"},
+    [1572] = {pve="S", pvp="S", note="夺目红羽雀,飞行速度S/S"},
+    -- 蝙蝠
+    [626] = {pve="P", pvp="P", note="蝙蝠家族P/P共识,鲁莽之击spam"},
+    [1762] = {pve="P", pvp="P", note="猪鼻蝙蝠,蝙蝠家族P/P"},
+    -- 鹿/羊
+    [447] = {pve="H/S", pvp="H/S", note="小鹿,治疗吃Power需HS均衡"},
+    [374] = {pve="H/P", pvp="H/P", note="黑羔羊,高血高攻"},
+    [1913] = {pve="H/S", pvp="H/S", note="闪蹄小鹿,治疗辅助宠"},
+    -- 亡灵
+    [627] = {pve="H/P", pvp="H/P", note="被感染松鼠,邪爆HP%+吞噬"},
+    [1740] = {pve="P/S", pvp="P/S", note="幽灵蛆虫,吸血+疫病+幽魂"},
+    [455] = {pve="P/S", pvp="P/S", note="生病松鼠,亡灵松鼠速攻"},
+    [1238] = {pve="B", pvp="B", note="幼年瓦格里,社区B/B+H/H都可"},
+    -- 元素
+    [509] = {pve="H/S", pvp="H/S", note="袖珍沼泽兽,痛殴先手+鞭笞"},
+    [1328] = {pve="H/S", pvp="H/S", note="红宝石小水滴社区确认"},
+    [445] = {pve="H/S", pvp="H/S", note="小旋风社区Vek确认289速Bash"},
+    [519] = {pve="H", pvp="H", note="邪焰H/H DOT叠加需血量"},
+    -- 龙类
+    [557] = {pve="P", pvp="P", note="虚空精灵龙,P/P碾压ws_needs"},
+    [1167] = {pve="P", pvp="P", note="翡翠始祖龙宝宝,Power缩放治疗"},
+    [1976] = {pve="P", pvp="P", note="利爪雏龙,SCALES_POWERx3"},
+    [1974] = {pve="S", pvp="S", note="雪羽雏龙,隼龙围攻+飞羽"},
+    [1975] = {pve="H/P", pvp="H/P", note="恐嘴雏龙,SCALES_POWERx2+HEALTH"},
+    [3100] = {pve="P", pvp="P", note="越时机械幼龙,末日决战SUICIDE"},
+    [4261] = {pve="B", pvp="B", note="黑曜战争雏龙,龙类均衡SUICIDE"},
+    -- 人型/野兽 PvP通用
+    [514] = {pve="S", pvp="S", note="剥石者幼崽head and shoulders better"},
+    [1180] = {pve="P", pvp="P", note="赞达拉袭胫者,黑爪+狩猎小队"},
+    [1211] = {pve="P", pvp="P", note="赞达拉撕踝者,Black Claw体系"},
+    [1212] = {pve="P", pvp="P", note="赞达拉裂足者,同上"},
+    [1213] = {pve="P", pvp="P", note="赞达拉啮趾者,社区P/P>P/S>S/S"},
+    [2537] = {pve="P", pvp="P", note="赞达拉迅猛龙宝宝,同上"},
+    [1387] = {pve="P", pvp="P", note="钢铁星弹,最强爆发combo"},
+    -- 魔宠
+    [343] = {pve="P/S", pvp="P/S", note="暗月豹幼崽社区确认P/S>B/B"},
+    [552] = {pve="H/P", pvp="H/P", note="暮光小恶魔,高血魔被动"},
+    [3390] = {pve="P/S", pvp="P/S", note="睿智融合体,NEEDS_SPEEDx2"},
+    [3034] = {pve="P/S", pvp="P/S", note="托加斯特潜伏者,亡灵均衡"},
+    [1201] = {pve="P/B", pvp="P/B", note="格纳瑟斯子嗣,水栖均衡"},
+    [1720] = {pve="P/S", pvp="P/S", note="艾米苟萨,龙类速攻"},
+    [2469] = {pve="H/S", pvp="H/S", note="荆丛幼芽,人型治疗"},
+    [267] = {pve="B", pvp="B", note="魔化灯笼,魔法控制B/B"},
+    [1716] = {pve="P", pvp="P", note="守望者猫头鹰雏鸟,飞行爆发"},
+    [2959] = {pve="B", pvp="B", note="小灵通,亡灵召唤B/B"},
+    [2919] = {pve="P/S", pvp="P/S", note="戈姆刺根者,SCALES_POWERx3"},
+    [3110] = {pve="P/S", pvp="P/S", note="吉兹莫,野兽速攻"},
+    -- 机械
+    [85] = {pve="H/S", pvp="H/S", note="步行炸弹,NEEDS_SPEEDx2+SCALES_POWERx2"},
+    [2717] = {pve="H/P", pvp="H/P", note="微型机器人XD,NEEDS_SPEEDx2"},
+    [2718] = {pve="H", pvp="H", note="微型机器人8D,同XD但HH"},
+    [2674] = {pve="B", pvp="B", note="H4ND-EE,均衡机械B/B"},
+    [2753] = {pve="H", pvp="H", note="喷洒机器人0D,水流+毒雾"},
+    [1567] = {pve="P/S", pvp="P/S", note="哨兵之友,NEEDS_SPEEDx2飞行"},
+    -- 其他通用
+    [733] = {pve="S", pvp="S", note="草地欢跳者,PetBreedSurvey54%S/S"},
+    [1344] = {pve="H/P", pvp="H/P", note="暴怒小箭猪,SCALESx3均衡"},
+    [1185] = {pve="H/S", pvp="H/S", note="幽灵小箭猪,魔法家族"},
+    [485] = {pve="H/P", pvp="H/P", note="石犰狳,SCALES_POWERx2均衡"},
+    [3357] = {pve="H/S", pvp="H/S", note="碧蓝晶刺猪,魔法坦克"},
+    [2839] = {pve="P/S", pvp="P/S", note="虚痕野兔,NEEDS_SPEEDx2"},
+    [438] = {pve="H", pvp="H", note="王蛇,高血量+野兽被动+毒牙递增"},
+    [406] = {pve="H", pvp="H", note="甲虫,天启战术需活到陨星"},
+    [1749] = {pve="S", pvp="S", note="DeathAdder,341速致盲毒+PunctureWound"},
+    [1073] = {pve="H/B", pvp="H/B", note="塔吉,酸蚀+痛殴+奔踏"},
+    [1181] = {pve="H", pvp="H", note="老年巨蟒社区共识H/H"},
+    [633] = {pve="H/P", pvp="H/P", note="山地臭鼬,社区共识H/P"},
+    -- 蟑螂家族
+    [55] = {pve="S", pvp="S", note="蟑螂家族共识S/S"},
+    [424] = {pve="S", pvp="S", note="蟑螂家族共识S/S"},
+    [541] = {pve="S", pvp="S", note="蟑螂家族共识,乱舞+生存本能先手"},
+    [555] = {pve="S", pvp="S", note="蟑螂家族共识S/S"},
+    [638] = {pve="S", pvp="S", note="蟑螂家族共识S/S"},
+    [744] = {pve="S", pvp="S", note="蟑螂家族共识S/S"},
+    -- PvE 侧重
+    [2383] = {pve="P/S", pvp=nil, note="巨型蛀虫PvE攻速均衡,无S/S品种"},
+    [4659] = {pve="P", pvp="P", note="卡亚蟹PvE爆发,汹涌优先+嚣狂自残高攻速杀"},
+    -- ====== PvP 专属共识（Xu-Fu Best of each Family） ======
+    [513] = {pve=nil, pvp="S", note="[Xu-Fu PvP]幼年其拉守护者速控, PvE算法推P/P"},
+    [515] = {pve=nil, pvp="S", note="[Xu-Fu PvP]孢子芽速攻"},
+    [1470] = {pve=nil, pvp="P", note="[Xu-Fu PvP]斧喙雏鸟飞行爆发"},
+    [538] = {pve=nil, pvp="H", note="[Xu-Fu PvP]天灾雏龙亡灵坦克"},
+    [456] = {pve=nil, pvp="P/S", note="[Xu-Fu PvP]疫喉雏鸟亡灵均衡"},
+    [494] = {pve=nil, pvp="H/P", note="[Xu-Fu PvP]其拉甲虫野兽坦克"},
+    [1166] = {pve=nil, pvp="P/S", note="[Xu-Fu PvP]昆莱小雪人人型均衡"},
+    [2372] = {pve=nil, pvp="S", note="[Xu-Fu PvP]影背爬蟹速攻"},
+    [2646] = {pve=nil, pvp="P/B", note="[Xu-Fu PvP]沙爪阳壳蟹水栖爆发"},
+    [2866] = {pve=nil, pvp="S", note="[Xu-Fu PvP]虚空荧光飞行速攻"},
+    [140] = {pve=nil, pvp="P", note="[Xu-Fu PvP]黄蛾唯一P/P蛾"},
+    [2902] = {pve=nil, pvp="S", note="[Xu-Fu PvP]暗色惊惧之翼飞行毒雾"},
+    [2380] = {pve=nil, pvp="P", note="[Xu-Fu PvP]寄生野猪蝇飞行爆发"},
+    [1965] = {pve=nil, pvp="H/P", note="[Xu-Fu PvP]疫息亡灵DOT坦克"},
+    [1600] = {pve=nil, pvp="S", note="[Xu-Fu PvP]骨蛇亡灵速攻"},
+    [1968] = {pve=nil, pvp="S", note="[Xu-Fu PvP]邪恶灵魂亡灵速控"},
+    [1432] = {pve=nil, pvp="S", note="[Xu-Fu PvP]夜影幼苗元素速攻"},
+    [1429] = {pve=nil, pvp="P", note="[Xu-Fu PvP]暮秋幼苗元素爆发"},
+    [2808] = {pve=nil, pvp="H/P", note="[Xu-Fu PvP]小弗兹元素坦克"},
+    [1563] = {pve=nil, pvp="S", note="[Xu-Fu PvP]青铜幼龙唯一S/S龙类幼崽"},
+    [1385] = {pve=nil, pvp="S", note="[Xu-Fu PvP]白化奇美拉幼崽龙类速攻"},
+    [142] = {pve=nil, pvp="S", note="[Xu-Fu PvP]金色龙鹰宝宝龙类速攻"},
+    [1229] = {pve=nil, pvp="S", note="[Xu-Fu PvP]恶魔小鬼人型速攻"},
+    [1953] = {pve=nil, pvp="S", note="[Xu-Fu PvP]雪怪矮人人型速控"},
+    [1495] = {pve=nil, pvp="S", note="[Xu-Fu PvP]石食者人型速控"},
+    [1964] = {pve=nil, pvp="S", note="[Xu-Fu PvP]血沸魔法速攻"},
+    [389] = {pve=nil, pvp="S", note="[Xu-Fu PvP]小小收割者机械速攻"},
+    [2001] = {pve=nil, pvp="H/P", note="[Xu-Fu PvP]呆博勒机械坦克"},
+    [1565] = {pve=nil, pvp="S", note="[Xu-Fu PvP]机械蝎子机械速攻"},
+    [254] = {pve=nil, pvp="S", note="[Xu-Fu PvP]蓝发条火箭机器人机械速攻"},
+    [2864] = {pve=nil, pvp="H/B", note="[Xu-Fu PvP]虚痕蝗虫小动物生存"},
+    [724] = {pve=nil, pvp="S", note="[Xu-Fu PvP]高山幼狐野兽速攻"},
+    [1330] = {pve=nil, pvp="S", note="[Xu-Fu PvP]致死小蝰蛇蛇族先手combo"},
+    [2660] = {pve=nil, pvp="H/P", note="[Xu-Fu PvP]泥蛞蝓小动物坦克"},
+    [2133] = {pve=nil, pvp="S", note="[Xu-Fu PvP]侏儒玛苏尔小动物速攻"},
+    -- === 待搜索验证 ===
+    -- [330] 暗月小猴 / [383] 锦绣阔步者
 }
 
 -- ============================================================================
 -- Layer 2: 自动分类关键词（精炼版）
 -- ============================================================================
--- 关键词从 Locales.lua 的 addonTable.AUTO_TAG_KEYWORDS 读取
--- 按客户端语种自动选择 zhCN 或 enUS
 local AUTO_TAGS = (function()
     local kw = addonTable.AUTO_TAG_KEYWORDS
     local key = (GetLocale() == "zhCN" or GetLocale() == "zhTW") and "zhCN" or "enUS"
@@ -329,32 +290,23 @@ local autoTagCache = {}
 local speciesBuildCache = {}
 
 -- ============================================================================
--- 否定词过滤：防止过匹配（如"阻止回复生命"误匹配SCALES_HEALTH）
+-- 否定词过滤
 -- ============================================================================
--- 每个标签可定义否定模式列表，句子匹配否定模式时跳过该标签的正向匹配
 local NEGATE_PATTERNS = {
     SCALES_HEALTH = {
-        -- 中文：否定回复/治疗 → 这是debuff不是治疗技能
         "阻止.*回复", "无法.*回复", "不能.*回复", "禁止.*回复",
         "不会.*回复", "不再.*回复", "防止.*回复",
         "阻止.*治疗", "无法.*治疗", "不能.*治疗", "禁止.*治疗",
         "阻止.*治愈", "无法.*治愈",
-        -- 中文：伤害降低→对方debuff非自身防御
         "使.*目标.*伤.*降低", "降低.*目标.*伤",
-        -- 英文：否定heal/restore → debuff, not a healing ability
         "prevent.*heal", "prevent.*restore", "prevent.*recover",
         "cannot.*heal", "unable.*heal", "stop.*heal",
         "block.*heal", "block.*restore",
-        -- 英文：enemy debuff → not self-defense
         "enemy.*deal.*less", "reduce.*enemy.*damage", "target.*deal.*less",
     },
     SCALES_POWER = {
-        -- 中文："受到攻击时.*提升速度" → 被攻击触发，非自身增幅
-        "受到.*攻击.*速度",
-        "受到.*攻击.*闪避",
-        -- 英文："when attacked.*speed" → reactive, not self-amplify
-        "when.*attacked.*speed",
-        "when.*struck.*speed",
+        "受到.*攻击.*速度", "受到.*攻击.*闪避",
+        "when.*attacked.*speed", "when.*struck.*speed",
     },
 }
 
@@ -370,10 +322,8 @@ local function AutoClassify(abilityID)
     local ok, _, name, _, _, desc = pcall(C_PetBattles.GetAbilityInfoByID, abilityID)
     if not ok or not desc then autoTagCache[abilityID] = false; return nil end
 
-    -- 技能名 + 描述合并匹配（名中的关键词也参与：钻地/猛击等）
     local text = slower(name .. " " .. desc)
 
-    -- 过滤 [...] 公式标记（替换为空格，保留上下文连续性）
     local cleaned, depth = "", 0
     for i = 1, #text do
         local c = text:sub(i, i)
@@ -383,22 +333,16 @@ local function AutoClassify(abilityID)
         end
     end
     cleaned = cleaned:gsub("%s+", " ")
-
-    -- 按中文句号。换行分割（UTF-8 safe：gsub 按字节序列匹配，而不是 [^。] 数组）
-    -- Lua 5.1 的 [^。] 对多字节字符无效，因为它是逐字节匹配的
     cleaned = cleaned:gsub("。", "\n")
     local tags = {}
     for tag, patterns in pairs(AUTO_TAGS) do
         for _, pat in ipairs(patterns) do
             for sentence in cleaned:gmatch("[^\n]+") do
-                -- 先检查否定模式：句子含否定词则跳过此句的该标签匹配
                 local negated = false
                 local negList = NEGATE_PATTERNS[tag]
                 if negList then
                     for _, negPat in ipairs(negList) do
-                        if sfind(sentence, negPat) then
-                            negated = true; break
-                        end
+                        if sfind(sentence, negPat) then negated = true; break end
                     end
                 end
                 if not negated and sfind(sentence, pat) then
@@ -414,12 +358,9 @@ local function AutoClassify(abilityID)
 end
 
 -- ============================================================================
--- 配招枚举：按槽位分组 + 枚举合法配招（解决幽灵配招问题）
+-- 配招枚举
 -- ============================================================================
--- API返回顺序: at[1]=slot1主, at[2]=slot2主, at[3]=slot3主
---               at[4]=slot1副, at[5]=slot2副, at[6]=slot3副
 
--- 槽位分组
 local function GroupAbilitiesBySlot(flatList)
     local slots = {}
     local count = #flatList
@@ -435,7 +376,6 @@ local function GroupAbilitiesBySlot(flatList)
     return slots
 end
 
--- 枚举所有合法配招（递归回溯，最多 2³=8 种）
 local function EnumerateBuilds(slots)
     local builds = {}
     local function backtrack(slotIdx, chosen)
@@ -452,7 +392,6 @@ local function EnumerateBuilds(slots)
     return builds
 end
 
--- 计算单个配招的标签（复用 SkillTags + AutoClassify）
 local function ComputeBuildTags(build)
     local tc = {}
     for _, aid in ipairs(build.abilities) do
@@ -466,14 +405,13 @@ local function ComputeBuildTags(build)
     return tc
 end
 
--- 获取技能名（调试用）
 local function GetAbilityName(aid)
     local _, _, aname = pcall(C_PetBattles.GetAbilityInfoByID, aid)
     return aname or "?"
 end
 
 -- ============================================================================
--- 评分函数（前置: CollectTags 引用 Score 选最佳配招）
+-- 评分函数
 -- ============================================================================
 
 local function SpeedBonus(s_coef)
@@ -494,7 +432,6 @@ local function GetPetType(speciesID)
     return nil
 end
 
--- scenario: "PVE" (default) or "PVP" — selects weight table and family mod
 local function Score(h, p, s, tc, pt, speciesID, breedHas, scenario)
     scenario = scenario or "PVE"
     local w = SCENARIO_WEIGHTS[scenario]
@@ -508,14 +445,13 @@ local function Score(h, p, s, tc, pt, speciesID, breedHas, scenario)
     local ws_base  = w.W_BASE * fm.s
     local ws_needs = w.W_SPEED * (tc["NEEDS_SPEED"] or 0) * fm.s
 
-    -- 社区共识优先：如本场景COMMUNITY存在,FORCE标签自动让路
     local commData = speciesID and COMMUNITY_BREED_BONUS[speciesID]
     local hasComm = false
     if commData then
         if type(commData) == "table" then
             hasComm = (scenario == "PVP" and commData.pvp) or (scenario == "PVE" and commData.pve)
         else
-            hasComm = true  -- 旧格式字符串：无场景区分，默认通用
+            hasComm = true
         end
     end
     if not hasComm then
@@ -530,17 +466,13 @@ local function Score(h, p, s, tc, pt, speciesID, breedHas, scenario)
     local ws = ws_base
     if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * w.NON_NEEDS_SPEED_PENALTY end
 
-    -- 逆速度加成：越慢越好（生命交换/痛殴等，s系数越小得分越高）
     local slow_bonus = w.W_SLOW * (tc["SCALES_SLOW"] or 0) * (2.0 - s)
 
-    -- 生命等价比修正：1生命 ≈ 0.67攻击/速度（NGA 5.0实测 "0.1攻:0.1速≈0.15命"）
-    -- 品种生命系数(0.2-1.8)需要打折后再参与评分
     local raw = wp * p + ws * s + ws_needs * sb + wh * h * w.HP_VALUE + slow_bonus
     return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs,slow_bonus=slow_bonus}
 end
 
 local function CollectTags(speciesID)
-    -- 缓存命中：直接返回最佳配招标签
     local cached = speciesBuildCache[speciesID]
     if cached then return cached.bestTagCounts end
 
@@ -550,20 +482,16 @@ local function CollectTags(speciesID)
 
     local slots = GroupAbilitiesBySlot(at)
     local builds = EnumerateBuilds(slots)
-
-    -- 空配招（未捕获宠物技能数据不完整）：快速返回
     if #builds == 0 then return {} end
 
-    -- 单配招宠物（1 build）：快速路径
     if #builds == 1 then
         local tc = ComputeBuildTags(builds[1])
         speciesBuildCache[speciesID] = {bestBuild=1, bestTagCounts=tc, allBuilds=builds, slots=slots}
         return tc
     end
 
-    -- 多配招宠物（2-8 builds）：用B/B(3)中性分评估每个配招，选最优
     local bestBuildIdx, bestScore = 1, -1
-    local neutH, neutP, neutS = 1.0, 1.0, 1.0  -- B/B 品种系数
+    local neutH, neutP, neutS = 1.0, 1.0, 1.0
     for idx, build in ipairs(builds) do
         local tc = ComputeBuildTags(build)
         local score = Score(neutH, neutP, neutS, tc, nil, speciesID, nil, "PVE")
@@ -579,22 +507,17 @@ end
 -- 公开 API + 诊断
 -- ============================================================================
 
---- 诊断：打印物种所有技能详情（无条件输出，独立于评分流程）
---- @param speciesID number
---- @param petType number|nil 已知类型可传入，nil则自动查
 function addonTable.DumpSpeciesAbilities(speciesID, petType)
     if not speciesID then return end
     if not petType then petType = GetPetType(speciesID) end
     local vals = {C_PetJournal.GetPetInfoBySpeciesID(speciesID)}
     local name = type(vals[1])=="string" and vals[1] or "?"
 
-    -- 触发 CollectTags 以填充 speciesBuildCache
     local bestTc = CollectTags(speciesID)
     local cached = speciesBuildCache[speciesID]
     local slots = cached and cached.slots or {}
     local builds = cached and cached.allBuilds or {}
 
-    -- 最佳配招标签摘要
     local parts = {}
     if bestTc and next(bestTc) then
         for tag, count in pairs(bestTc) do parts[#parts+1] = tag .. "\195\151" .. count end
@@ -605,7 +528,6 @@ function addonTable.DumpSpeciesAbilities(speciesID, petType)
         name, speciesID, #parts>0 and table.concat(parts, ", ") or "", suffix))
     print("|cffffd700=== [GenDexDBG] speciesID=" .. tostring(speciesID) .. " (" .. name .. ") petType=" .. tostring(petType) .. " ===|r")
 
-    -- 槽位分组输出（多配招宠物标槽位号）
     if #slots > 0 then
         for i = 1, 3 do
             if slots[i] and #slots[i] > 0 then
@@ -618,7 +540,6 @@ function addonTable.DumpSpeciesAbilities(speciesID, petType)
         end
     end
 
-    -- 再输出所有技能详情（按原格式，flat list）
     local at = ({ C_PetJournal.GetPetAbilityList(speciesID) })[1]
     if at and type(at) == "table" then
         for _, aid in pairs(at) do
@@ -639,7 +560,6 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
     scenario = scenario or "PVE"
     if not speciesID then return {} end; if not petType then petType = GetPetType(speciesID) end
 
-    -- 触发 CollectTags 以填充 speciesBuildCache（内部 GroupAbilitiesBySlot + EnumerateBuilds）
     local bestTc = CollectTags(speciesID)
     local cached = speciesBuildCache[speciesID]
     local builds = cached and cached.allBuilds or {}
@@ -648,14 +568,11 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
     local doDebug = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
     if doDebug then
         addonTable.DumpSpeciesAbilities(speciesID, petType)
-        -- 多配招时输出槽位 + 配招枚举 + 标签摘要
         if #builds > 1 then
             print("  Builds (" .. #builds .. " total):")
             for idx, build in ipairs(builds) do
                 local names = {}
-                for _, aid in ipairs(build.abilities) do
-                    names[#names+1] = GetAbilityName(aid)
-                end
+                for _, aid in ipairs(build.abilities) do names[#names+1] = GetAbilityName(aid) end
                 local btc = ComputeBuildTags(build)
                 local btparts = {}
                 if btc and next(btc) then
@@ -678,8 +595,6 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
     end
     if #breeds==0 then for bid=3,14 do if BREEDS[bid]then breeds[#breeds+1]=bid end end end
 
-    -- 构建 FORCE 品种存在性查找表 (breedID→true)
-    -- 用于 Score 中避免 FORCE_XX 推不存在的品种 (如无 S/S 品种时 FORCE_SS 应静默)
     local breedHas = {}
     for _, bid in ipairs(breeds) do breedHas[bid] = true end
 
@@ -690,7 +605,6 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             local h,p,s = br[1],br[2],br[3]
             local code = addonTable.GetBreedCode and addonTable.GetBreedCode(bid) or "?"
 
-            -- 多配招枚举：每个品种取所有配招的最高分（对该品种最有利的配招）
             local bestScore, bestDetail, bestBIdx = -9999, nil, bestBuildIdx
             for idx, build in ipairs(builds) do
                 local btc = ComputeBuildTags(build)
@@ -699,7 +613,6 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                     bestScore, bestDetail, bestBIdx = bscore, bdetail, idx
                 end
             end
-            -- 无配招时用空标签降级（不应发生，但健壮处理）
             if not bestDetail then
                 bestScore, bestDetail = Score(h, p, s, bestTc, petType, speciesID, breedHas, scenario)
             end
@@ -707,18 +620,15 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             local score = bestScore
             local detail = bestDetail
 
-            -- 歧义品种扣1分: Breed 10(P/B)与8(P/S)系数完全相同,BreedData声明8优先
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
-            -- 社区例外加权：直接加分到社区共识偏好的品种
-            -- commStat: 单字母"H"/"P"/"S"→纯品种H/H/P/P/S/S; 完整码"H/P"→直接匹配
-            -- 兼容旧格式(string)和新格式({pve="X", pvp="Y"})
+
             local commRaw = COMMUNITY_BREED_BONUS[speciesID]
             local commStat = nil
             if commRaw then
                 if type(commRaw) == "table" then
                     commStat = (scenario == "PVP") and commRaw.pvp or commRaw.pve
                 else
-                    commStat = commRaw  -- 旧格式字符串：通用
+                    commStat = commRaw
                 end
             end
             local commBonus = 0
@@ -727,7 +637,7 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                 if #commStat == 1 then
                     targetCode = commStat == "H" and "H/H" or commStat == "P" and "P/P" or commStat == "S" and "S/S" or commStat == "B" and "B/B" or nil
                 else
-                    targetCode = commStat  -- 完整品种码如 "H/P"
+                    targetCode = commStat
                 end
                 if targetCode and code == targetCode then
                     local wComm = SCENARIO_WEIGHTS[scenario].W_COMMUNITY
@@ -742,10 +652,9 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                     detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
                     detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h*w.HP_VALUE))
                 if commBonus > 0 then
-                    print(string.format("    \226\134\145 +%d Community bonus (scenario=%s, commStat=%s)", commBonus, scenario, commStat))
+                    print(string.format("    \226\134\145 +%d Community (scenario=%s)", commBonus, scenario))
                 end
             end
-            -- tagCounts 反映该品种最优配招的实际标签
             local breedBtc = (bestBIdx > 0 and builds[bestBIdx]) and ComputeBuildTags(builds[bestBIdx]) or bestTc
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
                        stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=breedBtc,
@@ -765,7 +674,6 @@ function addonTable.RecommendBestBreed(speciesID,petType,possibleBreedIDs)
     return nil,nil,nil
 end
 
--- 双场景评分：一次调用返回 PvE + PvP 两组结果
 function addonTable.CalculateDualScores(speciesID, petType, possibleBreedIDs, topN)
     return {
         pve = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, topN, "PVE"),
@@ -773,31 +681,26 @@ function addonTable.CalculateDualScores(speciesID, petType, possibleBreedIDs, to
     }
 end
 
--- 暴露技能标签收集供 JournalUI label 摘要
 addonTable.CollectSkillTags = CollectTags
 addonTable.GetSkillTags = function() return SkillTags end
 
--- 社区共识访问（兼容旧调用/新调用）
--- GetCommunityBreed(speciesID, scenario) — scenario="PVE"/"PVP"/nil(=任意)
 addonTable.GetCommunityBreed = function(speciesID, scenario)
     local raw = COMMUNITY_BREED_BONUS[speciesID]
     if not raw then return nil end
     if type(raw) == "table" then
         if scenario == "PVP" then return raw.pvp end
         if scenario == "PVE" then return raw.pve end
-        return raw.pve or raw.pvp  -- nil scenario: return whichever exists
+        return raw.pve or raw.pvp
     end
-    return raw  -- old format string
+    return raw
 end
 
--- 社区共识注释（用于 UI 菜单 PvE/PvP 标注）
 addonTable.GetCommunityBreedNote = function(speciesID)
     local raw = COMMUNITY_BREED_BONUS[speciesID]
     if type(raw) == "table" then return raw.note end
     return nil
 end
 
--- 社区共识是否来自社区确认（用于 UI 三角标记）
 addonTable.IsCommunityConsensus = function(speciesID, scenario)
     return addonTable.GetCommunityBreed(speciesID, scenario) ~= nil
 end

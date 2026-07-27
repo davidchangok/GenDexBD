@@ -77,6 +77,7 @@ local GOLD = "|cffffd600"
 local GRAY = "|cff888888"
 local TEAL = "|cff00cccc"
 local RED  = "|cffff0000"
+local GOLD_RED = "|cffff8000"
 
 -- 动态构建子菜单（每次悬停时 Rematch 调用 subMenuFunc(self, subject)）
 -- 同时暴露为 addonTable.BuildSetBestSubMenu 供战斗界面右击菜单调用
@@ -134,109 +135,78 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 isDisabled = true,
             }
         else
-            -- PvE 推荐区
-            local pveComm = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID, "PVE")
-            items[#items + 1] = {
-                text = GOLD .. GetLocaleString("SCENARIO_PVE_HEADER") .. "|r",
-                isDisabled = true,
-            }
-            if pveComm then
-                local cd = (#pveComm == 1)
-                    and (pveComm == "H" and "H/H" or pveComm == "P" and "P/P" or pveComm == "S" and "S/S" or pveComm == "B" and "B/B" or pveComm)
-                    or pveComm
+            local pveTop = #pveRecs > 0 and pveRecs[1].breedCode or nil
+            local pvpTop = #pvpRecs > 0 and pvpRecs[1].breedCode or nil
+            local sameTop = pveTop and pvpTop and pveTop == pvpTop
+            local pveColor = sameTop and GOLD_RED or GOLD
+            local pvpColor = sameTop and GOLD_RED or RED
+
+            local function addScenario(scResults, scColor, scenario)
+                if not scResults or #scResults == 0 then return end
+                local headerKey = (scenario == "PVP") and "SCENARIO_PVP_HEADER" or "SCENARIO_PVE_HEADER"
+                local commBreed = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID, scenario)
                 items[#items + 1] = {
-                    text = GOLD .. string.format(GetLocaleString("COMMUNITY_CONSENSUS"), cd) .. " ▲|r",
+                    text = scColor .. GetLocaleString(headerKey) .. "|r",
                     isDisabled = true,
                 }
-            end
-            for _, rec in ipairs(pveRecs) do
-                local line1 = string.format(GetLocaleString("RECOMMEND_SCORE_FMT"), rec.breedCode, rec.score)
-                local isCurrent = (rec.breedID == currentBreedID)
-                local isBest = addonTable.IsBestBreed(speciesID, rec.breedID)
-                if isCurrent and isBest then
-                    line1 = "|cffffd700" .. line1 .. " ★|r"
-                elseif isCurrent then
-                    line1 = "|cff00ff00" .. line1 .. "|r"
-                elseif isBest then
-                    line1 = GOLD .. line1 .. "|r"
+                if commBreed then
+                    local cd = (#commBreed == 1)
+                        and (commBreed == "H" and "H/H" or commBreed == "P" and "P/P" or commBreed == "S" and "S/S" or commBreed == "B" and "B/B" or commBreed)
+                        or commBreed
+                    items[#items + 1] = {
+                        text = scColor .. string.format(GetLocaleString("COMMUNITY_CONSENSUS"), cd) .. " ▲|r",
+                        isDisabled = true,
+                    }
                 end
-                local sid = speciesID; local bid = rec.breedID
-                items[#items + 1] = {
-                    text = line1,
-                    func = function()
-                        addonTable.SetBestBreed(sid, bid, "auto", "")
-                        C_Timer.After(0.1, function()
-                            if not Rematch or not Rematch.petsPanel then return end
-                            Rematch.petsPanel:Update()
-                            local function fl(f)
-                                if not f then return end
-                                if f.Breed and f.petID then pcall(label, f) end
-                                for _, c in ipairs({f:GetChildren()}) do fl(c) end
-                            end
-                            if Rematch.petsPanel.List then fl(Rematch.petsPanel.List) end
-                        end)
-                    end,
-                }
+                for _, rec in ipairs(scResults) do
+                    local line1 = string.format(GetLocaleString("RECOMMEND_SCORE_FMT"), rec.breedCode, rec.score)
+                    local isCurrent = (rec.breedID == currentBreedID)
+                    local isBest = addonTable.IsBestBreed(speciesID, rec.breedID)
+                    if isCurrent and isBest then
+                        line1 = "|cffffd700" .. line1 .. " ★|r"
+                    elseif isCurrent then
+                        line1 = "|cff00ff00" .. line1 .. "|r"
+                    elseif isBest then
+                        line1 = scColor .. line1 .. "|r"
+                    end
+                    local sid = speciesID; local bid = rec.breedID
+                    items[#items + 1] = {
+                        text = line1,
+                        func = function()
+                            addonTable.SetBestBreed(sid, bid, "auto", "")
+                            C_Timer.After(0.1, function()
+                                if not Rematch or not Rematch.petsPanel then return end
+                                Rematch.petsPanel:Update()
+                                local function fl(f)
+                                    if not f then return end
+                                    if f.Breed and f.petID then pcall(label, f) end
+                                    for _, c in ipairs({f:GetChildren()}) do fl(c) end
+                                end
+                                if Rematch.petsPanel.List then fl(Rematch.petsPanel.List) end
+                            end)
+                        end,
+                    }
+                end
             end
 
-            -- PvP 推荐区
-            local pvpComm = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID, "PVP")
-            items[#items + 1] = {
-                text = RED .. GetLocaleString("SCENARIO_PVP_HEADER") .. "|r",
-                isDisabled = true,
-            }
-            if pvpComm then
-                local cd = (#pvpComm == 1)
-                    and (pvpComm == "H" and "H/H" or pvpComm == "P" and "P/P" or pvpComm == "S" and "S/S" or pvpComm == "B" and "B/B" or pvpComm)
-                    or pvpComm
-                items[#items + 1] = {
-                    text = RED .. string.format(GetLocaleString("COMMUNITY_CONSENSUS"), cd) .. " ▲|r",
-                    isDisabled = true,
-                }
-            end
-            for _, rec in ipairs(pvpRecs) do
-                local line1 = string.format(GetLocaleString("RECOMMEND_SCORE_FMT"), rec.breedCode, rec.score)
-                local isCurrent = (rec.breedID == currentBreedID)
-                local isBest = addonTable.IsBestBreed(speciesID, rec.breedID)
-                if isCurrent and isBest then
-                    line1 = "|cffffd700" .. line1 .. " ★|r"
-                elseif isCurrent then
-                    line1 = "|cff00ff00" .. line1 .. "|r"
-                elseif isBest then
-                    line1 = RED .. line1 .. "|r"
-                end
-                local sid = speciesID; local bid = rec.breedID
-                items[#items + 1] = {
-                    text = line1,
-                    func = function()
-                        addonTable.SetBestBreed(sid, bid, "auto", "")
-                        C_Timer.After(0.1, function()
-                            if not Rematch or not Rematch.petsPanel then return end
-                            Rematch.petsPanel:Update()
-                            local function fl(f)
-                                if not f then return end
-                                if f.Breed and f.petID then pcall(label, f) end
-                                for _, c in ipairs({f:GetChildren()}) do fl(c) end
-                            end
-                            if Rematch.petsPanel.List then fl(Rematch.petsPanel.List) end
-                        end)
-                    end,
-                }
-            end
+            addScenario(pveRecs, pveColor, "PVE")
+            addScenario(pvpRecs, pvpColor, "PVP")
 
             -- 底部摘要
-            local pveTop = #pveRecs > 0 and pveRecs[1].breedCode or "?"
-            local pvpTop = #pvpRecs > 0 and pvpRecs[1].breedCode or "?"
+            local pveComm = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID, "PVE")
+            local pvpComm = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID, "PVP")
+            local pveFinalTop = pveTop or "?"
+            local pvpFinalTop = pvpTop or "?"
             items[#items + 1] = {
-                text = GRAY .. "-----------------------------|r",
+                text = GRAY .. GetLocaleString("DUAL_SCENE_LINE") .. "|r",
                 isDisabled = true,
             }
             items[#items + 1] = {
-                text = GOLD .. "PvE: " .. pveTop .. (pveComm and " ▲" or "") .. "|r",
+                text = pveColor .. string.format(GetLocaleString("DUAL_SCENE_PVE_FMT"), pveFinalTop) .. (pveComm and " ▲" or "") .. "|r",
                 isDisabled = true,
             }
             items[#items + 1] = {
-                text = RED .. "PvP: " .. pvpTop .. (pvpComm and " ▲" or "") .. "|r",
+                text = pvpColor .. string.format(GetLocaleString("DUAL_SCENE_PVP_FMT"), pvpFinalTop) .. (pvpComm and " ▲" or "") .. "|r",
                 isDisabled = true,
             }
         end
@@ -250,7 +220,7 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
             local code = GetBreedCode(bID) or "?"
             local displayName = addonTable.GetBreedDisplayName and addonTable.GetBreedDisplayName(bID, code) or code
             items[#items + 1] = {
-                text = GOLD .. "已设最佳: " .. displayName .. " ★|r",
+                text = GOLD .. string.format(GetLocaleString("SAVED_BEST_BREED_FMT"), displayName) .. "|r",
                 isDisabled = true,
             }
         end

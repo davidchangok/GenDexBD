@@ -108,6 +108,10 @@ local strings = {
     RECOMMEND_STATS_FMT    = { zhCN = "  H×%.1f  P×%.1f  S×%.1f", enUS = "  H×%.1f  P×%.1f  S×%.1f" },
     RECOMMEND_NO_TAGS      = { zhCN = "(无匹配标签，显示基础属性评分)", enUS = "(No matching tags; raw stat score)" },
     RECOMMEND_SET_BREED    = { zhCN = "设为此品种",             enUS = "Set as Best Breed" },
+    DUAL_SCENE_LINE       = { zhCN = "-----------------------------", enUS = "-----------------------------" },
+    DUAL_SCENE_PVE_FMT    = { zhCN = "PvE: %s",                     enUS = "PvE: %s" },
+    DUAL_SCENE_PVP_FMT    = { zhCN = "PvP: %s",                     enUS = "PvP: %s" },
+    SAVED_BEST_BREED_FMT  = { zhCN = "已设最佳: %s ★",              enUS = "Best: %s ★" },
 
     -- 战斗提示
     ALERT_TARGET          = { zhCN = "最优属性目标",        enUS = "Best Breed Target" },
