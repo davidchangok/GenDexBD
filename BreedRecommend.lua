@@ -146,9 +146,9 @@ local COMMUNITY_BREED_BONUS = {
     [493] = {pve="H/P", pvp="H/P", note="闪光湖蜗牛,最高攻蜗牛"},
     [3482] = {pve="H/P", pvp="H/P", note="圆石之壳,蜗牛H/P共识"},
     [743] = {pve="H/B", pvp="H/B", note="拉帕纳海螺社区共识,无H/H品种"},
-    -- 蛾/蝴蝶
-    [478] = {pve="H/S", pvp="H/S", note="森林蛾,CocoonStrike+飞行被动"},
-    [2384] = {pve="S", pvp="S", note="海滨蝴蝶,飞行蝴蝶通用S/S"},
+    -- 蛾/蝴蝶（家族共识: P/P或P/S, 飞行被动给速度→功率优先）
+    [478] = {pve="P/S", pvp="P/S", note="森林蛾,蛾家族共识P/P或P/S(飞行被动给速)"},
+    [2384] = {pve="P", pvp="P",   note="海滨蝴蝶,Xu-Fu推荐P/P(基础速度太低S/S浪费)"},
     [1325] = {pve="P/S", pvp="P/S", note="焰光蛾,蛾类P/P或P/S共识"},
     [1587] = {pve="P/S", pvp="P/S", note="皇家飞蛾,同蛾类家族"},
     -- 鸟/猫头鹰

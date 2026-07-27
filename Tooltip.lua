@@ -199,6 +199,16 @@ local function OnBattlePetTooltip(tooltip, data)
     -- 检查是否是最优品种
     local bestInfo = GetBestBreedInfo(speciesID, breedID)
     local isTarget = bestInfo ~= nil
+    -- 判断 PvE/PvP 最优归属（轻量：仅检查算法首推，不调用完整双场景评分）
+    local isPvEBest = false
+    local isPvPBest = false
+    if isTarget and addonTable.CalculateBreedScores then
+        -- 用单场景评分快速判定（比CalculateDualScores轻量）
+        local pveRs = addonTable.CalculateBreedScores(speciesID, nil, nil, 1, "PVE")
+        if #pveRs > 0 and pveRs[1].breedID == breedID then isPvEBest = true end
+        local pvpRs = addonTable.CalculateBreedScores(speciesID, nil, nil, 1, "PVP")
+        if #pvpRs > 0 and pvpRs[1].breedID == breedID then isPvPBest = true end
+    end
 
     -- 添加品种行
     local breedLine = BuildBreedLine(breedID, isTarget, bestInfo)
@@ -207,6 +217,21 @@ local function OnBattlePetTooltip(tooltip, data)
         r, g, b = 1.0, 0.84, 0.0   -- 目标品种金色
     end
     tooltip:AddLine(breedLine, r, g, b)
+
+    -- 双场景指示行（仅已设最佳品种）
+    if isTarget then
+        local pveColor = addonTable.BEST_BREED_COLOR or {1.0, 0.84, 0.0}
+        local pvpColor = addonTable.PVP_BEST_BREED_COLOR or {1.0, 0.0, 0.0}
+        if isPvEBest and isPvPBest then
+            tooltip:AddLine("PvE/PvP ★", 1.0, 0.5, 0.0)
+        elseif isPvEBest then
+            tooltip:AddLine("PvE ★", pveColor[1], pveColor[2], pveColor[3])
+        elseif isPvPBest then
+            tooltip:AddLine("PvP ★", pvpColor[1], pvpColor[2], pvpColor[3])
+        else
+            tooltip:AddLine("PvE/PvP", 1.0, 0.84, 0.0)
+        end
+    end
 
     -- 添加备注行（仅目标品种 + 有备注 + 开关启用）
     if isTarget and GeneDexDB.Options.ShowBestBreedNote then
