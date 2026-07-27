@@ -98,6 +98,8 @@ local strings = {
 
     -- 智能推荐
     SMART_RECOMMEND        = { zhCN = "🤖 智能推荐",           enUS = "🤖 Smart Recommendation" },
+    SCENARIO_PVE_HEADER    = { zhCN = "══ PvE 推荐 ══",       enUS = "══ PvE Best ══" },
+    SCENARIO_PVP_HEADER    = { zhCN = "══ PvP 推荐 ══",       enUS = "══ PvP Best ══" },
     RECOMMEND_TITLE        = { zhCN = "品种推荐 (评分)",        enUS = "Breed Recommendations (Score)" },
     COMMUNITY_CONSENSUS    = { zhCN = "社区共识: %s  *",       enUS = "Community: %s  *" },
     RECOMMEND_NO_DATA      = { zhCN = "技能标签数据不足",        enUS = "Insufficient ability tag data" },
