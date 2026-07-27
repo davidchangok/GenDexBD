@@ -11,6 +11,7 @@
 --   普通单段攻击不在此列（攻击属性自然缩放，无需品种引导）。
 --
 -- 评分：品种系数直接计算（API 不再暴露基准属性）
+-- 双场景：PvE / PvP 独立权重 + 独立社区共识
 
 local addonName, addonTable = ...
 
@@ -21,27 +22,32 @@ local tsort, mfloor = table.sort, math.floor
 local sfind, slower = string.find, string.lower
 
 -- ============================================================================
--- 常量
+-- 常量 — 场景独立权重表
+-- PvE: 速度价值低(NPC速度已知)/生存高/慢速=坦度加分
+-- PvP: 速度价值高(镜像对局)/爆发meta/慢速=先手劣势
 -- ============================================================================
 
 local SPEED_THRESHOLDS = {0.8, 1.0, 1.2, 1.4}
 local SPEED_BONUS = { [0.8]=1.0, [1.0]=1.1, [1.2]=1.25, [1.4]=1.4 }
 
-local W_BASE  = 1.0
-local W_SPEED = 0.7   -- NEEDS_SPEED 标签加成（降为0.7防碾压SCALES_HEALTH）
-local W_POWER = 0.5   -- SCALES_POWER 加成（超线性技能）
-local W_HEALTH = 0.9   -- SCALES_HEALTH 加成（PvE坦克生存技;因HP_VALUE=0.67折扣,需高于W_SPEED）
-local W_SUICIDE = 2.0  -- SUICIDE_HP 加成（HP%自爆:血量直接=攻击力,加权高于普通回血护盾）
-local W_POWER_AMP = 1.5  -- POWER_AMP 加成（伤害放大器:+125%/+100%,Power²受益）
-local W_FORCE = 3.0
-local W_COMMUNITY = 3.0  -- 社区例外加权（与 FORCE=3.0 等权）
-                          -- 3.0 × 100 = +300分加成
-local W_SLOW = 1.5  -- SCALES_SLOW 加成（逆速度：生命交换/痛殴等，越慢越好）
+local SCENARIO_WEIGHTS = {
+    PVE = {
+        W_BASE = 1.0, W_SPEED = 0.7, W_POWER = 0.5, W_HEALTH = 0.9,
+        W_SUICIDE = 2.0, W_POWER_AMP = 1.5, W_FORCE = 3.0,
+        W_COMMUNITY = 3.0, W_SLOW = 1.5, HP_VALUE = 0.67,
+        NON_NEEDS_SPEED_PENALTY = 0.85,
+    },
+    PVP = {
+        W_BASE = 1.0, W_SPEED = 1.2, W_POWER = 0.4, W_HEALTH = 0.6,
+        W_SUICIDE = 1.5, W_POWER_AMP = 1.5, W_FORCE = 3.0,
+        W_COMMUNITY = 3.0, W_SLOW = 0.3, HP_VALUE = 0.5,
+        NON_NEEDS_SPEED_PENALTY = 1.0,
+    },
+}
 local SCALE = 100
-local HP_VALUE = 0.67 -- 生命系数等价比（1生命 ≈ 0.67攻击/速度）
-                       -- 来源：NGA 5.0实测数据 "能量0.1:速度0.1≈生命0.15"
 
-local FAMILY_MOD = {
+-- 家族被动修正 — PvE
+local FAMILY_MOD_PVE = {
     -- 1型: 人型 — 攻击回血4% → 偏攻击
     [1]  = { h=1.0, p=1.15, s=1.0 },
     -- 2型: 龙类 — 敌方<50%伤害+50% → 偏攻击(斩杀)
@@ -64,11 +70,26 @@ local FAMILY_MOD = {
     [10] = { h=1.0, p=1.2, s=1.0 },
 }
 
+-- 家族被动修正 — PvP（速度权重上调、血量权重下调）
+local FAMILY_MOD_PVP = {
+    [1]  = { h=1.0, p=1.1,  s=1.05 },  -- 人型
+    [2]  = { h=1.0, p=1.1,  s=1.05 },  -- 龙类
+    [3]  = { h=1.0, p=1.0,  s=1.15 },  -- 飞行(+50%速在PvP更突出)
+    [4]  = { h=1.0, p=1.25, s=1.05 },  -- 亡灵
+    [5]  = { h=1.05,p=1.0,  s=1.05 },  -- 小动物
+    [6]  = { h=1.2, p=1.0,  s=0.9  },  -- 魔法(PvP速度惩罚更轻)
+    [7]  = { h=1.0, p=1.0,  s=1.0  },  -- 元素
+    [8]  = { h=1.0, p=1.0,  s=1.0  },  -- 野兽
+    [9]  = { h=1.0, p=1.05, s=1.05 },  -- 水栖
+    [10] = { h=1.0, p=1.15, s=1.05 },  -- 机械
+}
+
 -- ============================================================================
--- 社区例外加权表（speciesID → 社区偏好的单属性 "H"/"P"/"S"/"B" 或完整码 "H/P"等）
--- 软覆盖机制：加成 W_COMMUNITY 到偏好属性权重，乘以品种系数
--- 远小于 FORCE(3.0)，仅用于翻转差距较小的排名
--- 社区共识来源：WarcraftPets 论坛/评论区（详见 memory/community-breed-consensus.md）
+-- 社区例外加权表
+-- 格式: [speciesID] = 品种字符串 (与旧格式兼容)
+--   "H"/"P"/"S"/"B" = 纯品种 H/H, P/P, S/S, B/B
+--   "H/P", "P/S" 等 = 混合品种直接匹配
+-- 未来可扩展为场景感知格式: { pve="X", pvp="Y" }
 -- ============================================================================
 local COMMUNITY_BREED_BONUS = {
     -- === 蜘蛛家族 ===
@@ -289,14 +310,6 @@ local COMMUNITY_BREED_BONUS = {
 }
 
 -- ============================================================================
--- 社区共识品种注释（右键菜单/PvP-PvE场景标注）
--- 与 COMMUNITY_BREED_BONUS 配对使用，key=speciesID, value=场景说明
--- ============================================================================
-local COMMUNITY_BREED_NOTE = {
-    [513] = "PvP:S/S速控沙尘暴+幻灭踢 | PvE:P/P爆发流粉碎+鹰眼+鲁莽之击,自残技高攻止损",
-}
-
--- ============================================================================
 -- Layer 2: 自动分类关键词（精炼版）
 -- ============================================================================
 -- 关键词从 Locales.lua 的 addonTable.AUTO_TAG_KEYWORDS 读取
@@ -481,37 +494,48 @@ local function GetPetType(speciesID)
     return nil
 end
 
-local function Score(h, p, s, tc, pt, speciesID, breedHas)
-    local fm = FAMILY_MOD[pt] or {h=1.0, p=1.0, s=1.0}
+-- scenario: "PVE" (default) or "PVP" — selects weight table and family mod
+local function Score(h, p, s, tc, pt, speciesID, breedHas, scenario)
+    scenario = scenario or "PVE"
+    local w = SCENARIO_WEIGHTS[scenario]
+    local fmTbl = (scenario == "PVP") and FAMILY_MOD_PVP or FAMILY_MOD_PVE
+    local fm = fmTbl[pt] or {h=1.0, p=1.0, s=1.0}
 
-    local wh = (W_BASE + W_HEALTH * (tc["SCALES_HEALTH"] or 0)
-                       + W_SUICIDE * (tc["SUICIDE_HP"] or 0)) * fm.h
-    local wp = (W_BASE + W_POWER  * (tc["SCALES_POWER"]  or 0)
-                       + W_POWER_AMP * (tc["POWER_AMP"] or 0)) * fm.p
-    local ws_base  = W_BASE * fm.s
-    local ws_needs = W_SPEED * (tc["NEEDS_SPEED"] or 0) * fm.s
+    local wh = (w.W_BASE + w.W_HEALTH * (tc["SCALES_HEALTH"] or 0)
+                       + w.W_SUICIDE * (tc["SUICIDE_HP"] or 0)) * fm.h
+    local wp = (w.W_BASE + w.W_POWER  * (tc["SCALES_POWER"]  or 0)
+                       + w.W_POWER_AMP * (tc["POWER_AMP"] or 0)) * fm.p
+    local ws_base  = w.W_BASE * fm.s
+    local ws_needs = w.W_SPEED * (tc["NEEDS_SPEED"] or 0) * fm.s
 
-    -- 社区共识优先：如COMMUNITY_BREED_BONUS存在,FORCE标签自动让路
-    local hasComm = speciesID and COMMUNITY_BREED_BONUS[speciesID]
+    -- 社区共识优先：如本场景COMMUNITY存在,FORCE标签自动让路
+    local commData = speciesID and COMMUNITY_BREED_BONUS[speciesID]
+    local hasComm = false
+    if commData then
+        if type(commData) == "table" then
+            hasComm = (scenario == "PVP" and commData.pvp) or (scenario == "PVE" and commData.pve)
+        else
+            hasComm = true  -- 旧格式字符串：无场景区分，默认通用
+        end
+    end
     if not hasComm then
-        -- FORCE_XX 只在目标纯品种实际存在时生效 (breedHas=nil 则向后兼容,全放行)
-        if (tc["FORCE_PP"] or 0) > 0 and (not breedHas or breedHas[4]) then wp = wp + W_FORCE * p end
-        if (tc["FORCE_SS"] or 0) > 0 and (not breedHas or breedHas[5]) then ws_needs = ws_needs + W_FORCE * s end
-        if (tc["FORCE_HH"] or 0) > 0 and (not breedHas or breedHas[6]) then wh = wh + W_FORCE * h end
+        if (tc["FORCE_PP"] or 0) > 0 and (not breedHas or breedHas[4]) then wp = wp + w.W_FORCE * p end
+        if (tc["FORCE_SS"] or 0) > 0 and (not breedHas or breedHas[5]) then ws_needs = ws_needs + w.W_FORCE * s end
+        if (tc["FORCE_HH"] or 0) > 0 and (not breedHas or breedHas[6]) then wh = wh + w.W_FORCE * h end
     end
 
     local sb = 1.0
     if (tc["NEEDS_SPEED"] or 0) > 0 then sb = SpeedBonus(s) end
 
     local ws = ws_base
-    if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * 0.85 end  -- 弱化惩罚:坦克无需速度
+    if (tc["NEEDS_SPEED"] or 0) == 0 then ws = ws * w.NON_NEEDS_SPEED_PENALTY end
 
     -- 逆速度加成：越慢越好（生命交换/痛殴等，s系数越小得分越高）
-    local slow_bonus = W_SLOW * (tc["SCALES_SLOW"] or 0) * (2.0 - s)
+    local slow_bonus = w.W_SLOW * (tc["SCALES_SLOW"] or 0) * (2.0 - s)
 
     -- 生命等价比修正：1生命 ≈ 0.67攻击/速度（NGA 5.0实测 "0.1攻:0.1速≈0.15命"）
     -- 品种生命系数(0.2-1.8)需要打折后再参与评分
-    local raw = wp * p + ws * s + ws_needs * sb + wh * h * HP_VALUE + slow_bonus
+    local raw = wp * p + ws * s + ws_needs * sb + wh * h * w.HP_VALUE + slow_bonus
     return raw * SCALE, {wh=wh,wp=wp,ws=ws,sb=sb,ws_base=ws_base,ws_needs=ws_needs,slow_bonus=slow_bonus}
 end
 
@@ -542,7 +566,7 @@ local function CollectTags(speciesID)
     local neutH, neutP, neutS = 1.0, 1.0, 1.0  -- B/B 品种系数
     for idx, build in ipairs(builds) do
         local tc = ComputeBuildTags(build)
-        local score = Score(neutH, neutP, neutS, tc, nil, speciesID)
+        local score = Score(neutH, neutP, neutS, tc, nil, speciesID, nil, "PVE")
         if score > bestScore then bestBuildIdx, bestScore = idx, score end
     end
     local bestTc = ComputeBuildTags(builds[bestBuildIdx])
@@ -573,7 +597,7 @@ function addonTable.DumpSpeciesAbilities(speciesID, petType)
     -- 最佳配招标签摘要
     local parts = {}
     if bestTc and next(bestTc) then
-        for tag, count in pairs(bestTc) do parts[#parts+1] = tag .. "×" .. count end
+        for tag, count in pairs(bestTc) do parts[#parts+1] = tag .. "\195\151" .. count end
         table.sort(parts)
     end
     local suffix = (#builds > 1) and string.format(" (best of %d builds)", #builds) or ""
@@ -611,7 +635,8 @@ function addonTable.DumpSpeciesAbilities(speciesID, petType)
     end
 end
 
-function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, topN)
+function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, topN, scenario)
+    scenario = scenario or "PVE"
     if not speciesID then return {} end; if not petType then petType = GetPetType(speciesID) end
 
     -- 触发 CollectTags 以填充 speciesBuildCache（内部 GroupAbilitiesBySlot + EnumerateBuilds）
@@ -634,16 +659,16 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                 local btc = ComputeBuildTags(build)
                 local btparts = {}
                 if btc and next(btc) then
-                    for tag, count in pairs(btc) do btparts[#btparts+1] = tag .. "×" .. count end
+                    for tag, count in pairs(btc) do btparts[#btparts+1] = tag .. "\195\151" .. count end
                     table.sort(btparts)
                 end
-                local marker = (idx == bestBuildIdx) and " ← best" or ""
+                local marker = (idx == bestBuildIdx) and " \226\134\144 best" or ""
                 print(string.format("  B%d %s  tags={%s}%s",
                     idx, table.concat(names, "+"), table.concat(btparts, ", "), marker))
             end
             print("--- Per-breed best-build scores ---")
         end
-        print("--- Final scores ---")
+        print("--- Final scores [" .. scenario .. "] ---")
         print(string.format("  %-6s %8s %8s %8s %8s %8s %8s %8s", "Breed","Score","wH","wP","wS-Base","wS-Need","S-Bns","Raw"))
     end
 
@@ -669,14 +694,14 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             local bestScore, bestDetail, bestBIdx = -9999, nil, bestBuildIdx
             for idx, build in ipairs(builds) do
                 local btc = ComputeBuildTags(build)
-                local bscore, bdetail = Score(h, p, s, btc, petType, speciesID, breedHas)
+                local bscore, bdetail = Score(h, p, s, btc, petType, speciesID, breedHas, scenario)
                 if bscore > bestScore then
                     bestScore, bestDetail, bestBIdx = bscore, bdetail, idx
                 end
             end
             -- 无配招时用空标签降级（不应发生，但健壮处理）
             if not bestDetail then
-                bestScore, bestDetail = Score(h, p, s, bestTc, petType, speciesID, breedHas)
+                bestScore, bestDetail = Score(h, p, s, bestTc, petType, speciesID, breedHas, scenario)
             end
 
             local score = bestScore
@@ -686,8 +711,16 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
             if addonTable.BREED_AMBIGUITY and addonTable.BREED_AMBIGUITY[bid] then score = score - 1 end
             -- 社区例外加权：直接加分到社区共识偏好的品种
             -- commStat: 单字母"H"/"P"/"S"→纯品种H/H/P/P/S/S; 完整码"H/P"→直接匹配
-            -- 软覆盖: W_COMMUNITY=1.5 × 100 = 150分，翻转较大差距的排名
-            local commStat = COMMUNITY_BREED_BONUS[speciesID]
+            -- 兼容旧格式(string)和新格式({pve="X", pvp="Y"})
+            local commRaw = COMMUNITY_BREED_BONUS[speciesID]
+            local commStat = nil
+            if commRaw then
+                if type(commRaw) == "table" then
+                    commStat = (scenario == "PVP") and commRaw.pvp or commRaw.pve
+                else
+                    commStat = commRaw  -- 旧格式字符串：通用
+                end
+            end
             local commBonus = 0
             if commStat then
                 local targetCode
@@ -697,23 +730,26 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
                     targetCode = commStat  -- 完整品种码如 "H/P"
                 end
                 if targetCode and code == targetCode then
-                    commBonus = W_COMMUNITY * SCALE
+                    local wComm = SCENARIO_WEIGHTS[scenario].W_COMMUNITY
+                    commBonus = wComm * SCALE
                     score = score + commBonus
                 end
             end
             if doDebug then
+                local w = SCENARIO_WEIGHTS[scenario]
                 print(string.format("  %-6s %8d %8.2f %8.2f %8.2f %8.2f %8.2f %8.2f",
                     code,mfloor(score+0.5),detail.wh,detail.wp,
                     detail.ws_base or 0,detail.ws_needs or 0,detail.sb,
-                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h*HP_VALUE))
+                    detail.wp*p + detail.ws*s + (detail.ws_needs or 0)*detail.sb + detail.wh*h*w.HP_VALUE))
                 if commBonus > 0 then
-                    print(string.format("    ↑ +%d Community bonus (commStat=%s)", commBonus, commStat))
+                    print(string.format("    \226\134\145 +%d Community bonus (scenario=%s, commStat=%s)", commBonus, scenario, commStat))
                 end
             end
             -- tagCounts 反映该品种最优配招的实际标签
             local breedBtc = (bestBIdx > 0 and builds[bestBIdx]) and ComputeBuildTags(builds[bestBIdx]) or bestTc
             rs[#rs+1]={breedID=bid,score=mfloor(score+0.5),breedCode=code,
-                       stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=breedBtc}
+                       stats={h_coef=h,p_coef=p,s_coef=s},details=detail,tagCounts=breedBtc,
+                       hasCommunity=commStat~=nil}
         end
     end
 
@@ -724,13 +760,44 @@ function addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, t
 end
 
 function addonTable.RecommendBestBreed(speciesID,petType,possibleBreedIDs)
-    local rs = addonTable.CalculateBreedScores(speciesID,petType,possibleBreedIDs,1)
+    local rs = addonTable.CalculateBreedScores(speciesID,petType,possibleBreedIDs,1,"PVE")
     if #rs>0 then return rs[1].breedID,rs[1].breedCode,rs[1].score end
     return nil,nil,nil
+end
+
+-- 双场景评分：一次调用返回 PvE + PvP 两组结果
+function addonTable.CalculateDualScores(speciesID, petType, possibleBreedIDs, topN)
+    return {
+        pve = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, topN, "PVE"),
+        pvp = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, topN, "PVP"),
+    }
 end
 
 -- 暴露技能标签收集供 JournalUI label 摘要
 addonTable.CollectSkillTags = CollectTags
 addonTable.GetSkillTags = function() return SkillTags end
-addonTable.GetCommunityBreed = function(speciesID) return COMMUNITY_BREED_BONUS[speciesID] end
-addonTable.GetCommunityBreedNote = function(speciesID) return COMMUNITY_BREED_NOTE[speciesID] end
+
+-- 社区共识访问（兼容旧调用/新调用）
+-- GetCommunityBreed(speciesID, scenario) — scenario="PVE"/"PVP"/nil(=任意)
+addonTable.GetCommunityBreed = function(speciesID, scenario)
+    local raw = COMMUNITY_BREED_BONUS[speciesID]
+    if not raw then return nil end
+    if type(raw) == "table" then
+        if scenario == "PVP" then return raw.pvp end
+        if scenario == "PVE" then return raw.pve end
+        return raw.pve or raw.pvp  -- nil scenario: return whichever exists
+    end
+    return raw  -- old format string
+end
+
+-- 社区共识注释（用于 UI 菜单 PvE/PvP 标注）
+addonTable.GetCommunityBreedNote = function(speciesID)
+    local raw = COMMUNITY_BREED_BONUS[speciesID]
+    if type(raw) == "table" then return raw.note end
+    return nil
+end
+
+-- 社区共识是否来自社区确认（用于 UI 三角标记）
+addonTable.IsCommunityConsensus = function(speciesID, scenario)
+    return addonTable.GetCommunityBreed(speciesID, scenario) ~= nil
+end
