@@ -16,6 +16,7 @@ local CURRENT_DB_VERSION = 2
 -- 最优品种标记常量（统一引用，避免散落各文件）
 addonTable.BEST_BREED_STAR = "★"
 addonTable.BEST_BREED_COLOR = {1.0, 0.84, 0.0}
+addonTable.PVP_BEST_BREED_COLOR = {1.0, 0.0, 0.0}
 
 SlashCmdList["GENEDEXBDOPEN"] = function(msg)
     if msg == "report" then
@@ -136,50 +137,62 @@ end
 -- 步骤 c：金色 ★ 标记（PetTracker 方案：hook PetBattleUnitFrame_UpdateDisplay）
 -- ========================================================================
 
-local starColor = addonTable.BEST_BREED_COLOR
-local showStarsFor = {}
-local starIcons = {}
+local starColorPvE = addonTable.BEST_BREED_COLOR
+local starColorPvP = addonTable.PVP_BEST_BREED_COLOR
+local showStarsPvE = {}
+local showStarsPvP = {}
+local starIconsPvE = {}
+local starIconsPvP = {}
 
-local function GetOrCreateStar(frame)
-    -- 接受己方(petOwner==1)和敌方(petOwner==2)的 frame
+local function GetOrCreateStar(frame, starCache, r, g, b, anchor, x, y)
     if not frame or not frame.Icon or not frame.petOwner then return nil end
     if frame.petOwner ~= 1 and frame.petOwner ~= 2 then return nil end
-    if starIcons[frame] then return starIcons[frame] end
+    if starCache[frame] then return starCache[frame] end
     local star = frame:CreateFontString(nil, 'OVERLAY')
-    star:SetFont('Fonts\\FRIZQT__.TTF', 26, 'OUTLINE')
+    star:SetFont('Fonts\\FRIZQT__.TTF', 22, 'OUTLINE')
     star:SetText(addonTable.BEST_BREED_STAR)
-    star:SetTextColor(starColor[1], starColor[2], starColor[3])
+    star:SetTextColor(r, g, b)
     star:SetDrawLayer('OVERLAY', 7)
-    star:SetPoint('TOPLEFT', frame.Icon, 'TOPLEFT', -2, 2)
+    star:SetPoint(anchor, frame.Icon, anchor, x, y)
     star:Hide()
-    starIcons[frame] = star
+    starCache[frame] = star
     return star
+end
+
+local function GetOrCreatePvEStar(frame)
+    return GetOrCreateStar(frame, starIconsPvE,
+        starColorPvE[1], starColorPvE[2], starColorPvE[3],
+        'TOPRIGHT', 2, 3)
+end
+
+local function GetOrCreatePvPStar(frame)
+    return GetOrCreateStar(frame, starIconsPvP,
+        starColorPvP[1], starColorPvP[2], starColorPvP[3],
+        'BOTTOMRIGHT', 2, -3)
 end
 
 local function UpdateStarOnFrame(frame)
     if not frame or not frame.petOwner or not frame.petIndex then return end
     if frame.petOwner ~= 1 and frame.petOwner ~= 2 then return end
-    -- 敌方+野外战斗：不可捕捉则隐藏星标并退出
-    if frame.petOwner == 2 and not IsPetCapturable(2, frame.petIndex) then
-        local star = GetOrCreateStar(frame)
-        if star then star:Hide() end
-        return
-    end
+    local captiveCheck = (frame.petOwner == 2) and not IsPetCapturable(2, frame.petIndex)
     local speciesID = C_PetBattles.GetPetSpeciesID(frame.petOwner, frame.petIndex)
-    if not speciesID or not showStarsFor[speciesID] then
-        local star = GetOrCreateStar(frame)
-        if star then star:Hide() end
+    local breedID = speciesID and GetPetBreed(frame.petOwner, frame.petIndex)
+    local starPvE = GetOrCreatePvEStar(frame)
+    local starPvP = GetOrCreatePvPStar(frame)
+    if not speciesID or captiveCheck then
+        if starPvE then starPvE:Hide() end
+        if starPvP then starPvP:Hide() end
         return
     end
-    -- 品种级检查：同物种不同品种仅最优品种显示 ★
-    local breedID = GetPetBreed(frame.petOwner, frame.petIndex)
-    local show = breedID and showStarsFor[speciesID][breedID] or false
-    local star = GetOrCreateStar(frame)
-    if star then star:SetShown(show) end
+    local showPvE = breedID and showStarsPvE[speciesID] and showStarsPvE[speciesID][breedID] or false
+    local showPvP = breedID and showStarsPvP[speciesID] and showStarsPvP[speciesID][breedID] or false
+    if starPvE then starPvE:SetShown(showPvE) end
+    if starPvP then starPvP:SetShown(showPvP) end
 end
 
 local function HideAllStars()
-    for _, star in pairs(starIcons) do star:Hide() end
+    for _, star in pairs(starIconsPvE) do star:Hide() end
+    for _, star in pairs(starIconsPvP) do star:Hide() end
 end
 
 -- ========================================================================
@@ -267,51 +280,102 @@ local function GetOwnedCount(speciesID)
     return ownedCache[speciesID]
 end
 
+local bestBreedCache = {}  -- {[speciesID] = {pve=breedID, pvp=breedID}}
+
+local function ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, scenario)
+    if not addonTable.CalculateBreedScores then return nil end
+    local results = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, 1, scenario)
+    if results and #results > 0 then return results[1].breedID end
+    return nil
+end
+
+local function ComputeBestBreeds(speciesID, petType, possibleBreedIDs)
+    if bestBreedCache[speciesID] then return end
+    -- 先检查用户手动设置的最优品种
+    local userBreeds = addonTable.GetAllBestBreeds(speciesID)
+    local nextBreed = next(userBreeds)
+    local hasUser = (nextBreed ~= nil)
+    local userBreed = hasUser and nextBreed or nil
+    local pveBreed, pvpBreed = nil, nil
+    if hasUser then
+        pveBreed = userBreed
+        pvpBreed = userBreed
+    else
+        -- 算法推导
+        pveBreed = ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, "PVE")
+        pvpBreed = ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, "PVP")
+    end
+    bestBreedCache[speciesID] = {pve=pveBreed, pvp=pvpBreed}
+end
+
 local function ProcessAllPets()
-    showStarsFor = {}
+    showStarsPvE = {}
+    showStarsPvP = {}
+    bestBreedCache = {}
     -- 敌方（team=2）：含可捕捉检查 + 遇敌记录 + 提示
     for i = 1, 3 do
         if IsPetCapturable(2, i) then
             local hp = C_PetBattles.GetHealth(2, i)
             if hp and hp > 0 then
                 local speciesID = C_PetBattles.GetPetSpeciesID(2, i)
-                if speciesID then
-                    local breedID = GetEnemyBreed(i)
-                    if breedID and addonTable.IsBestBreed(speciesID, breedID) then
+                local breedID = GetEnemyBreed(i)
+                if speciesID and breedID then
+                    -- 遇敌记录（使用传统IsBestBreed检查）
+                    if addonTable.IsBestBreed(speciesID, breedID) then
                         if not encounterCache[speciesID] then
                             encounterCache[speciesID] = {}
                         end
                         encounterCache[speciesID][breedID] = true
+                    end
+                    -- 双场景星标判定
+                    local petType = select(3, C_PetJournal.GetPetInfoBySpeciesID(speciesID))
+                    ComputeBestBreeds(speciesID, petType, nil)
+                    local bc = bestBreedCache[speciesID]
+                    if bc then
                         local owned = GetOwnedCount(speciesID)
                         if owned < 3 then
-                            if not showStarsFor[speciesID] then
-                                showStarsFor[speciesID] = {}
+                            if bc.pve and bc.pve == breedID then
+                                if not showStarsPvE[speciesID] then showStarsPvE[speciesID] = {} end
+                                showStarsPvE[speciesID][breedID] = true
                             end
-                            showStarsFor[speciesID][breedID] = true
+                            if bc.pvp and bc.pvp == breedID then
+                                if not showStarsPvP[speciesID] then showStarsPvP[speciesID] = {} end
+                                showStarsPvP[speciesID][breedID] = true
+                            end
                         end
                     end
                 end
             end
         end
     end
-    -- 己方（team=1）：仅星标，不记录遇敌、不弹提示、不检查拥有数
+    -- 己方（team=1）：仅星标，不记录遇敌
     for i = 1, 3 do
         local hp = C_PetBattles.GetHealth(1, i)
         if hp and hp > 0 then
             local speciesID = C_PetBattles.GetPetSpeciesID(1, i)
-            if speciesID then
-                local breedID = GetAllyBreed(i)
-                if breedID and addonTable.IsBestBreed(speciesID, breedID) then
-                    if not showStarsFor[speciesID] then
-                        showStarsFor[speciesID] = {}
+            local breedID = GetAllyBreed(i)
+            if speciesID and breedID then
+                local petType = select(3, C_PetJournal.GetPetInfoBySpeciesID(speciesID))
+                ComputeBestBreeds(speciesID, petType, nil)
+                local bc = bestBreedCache[speciesID]
+                if bc then
+                    if bc.pve and bc.pve == breedID then
+                        if not showStarsPvE[speciesID] then showStarsPvE[speciesID] = {} end
+                        showStarsPvE[speciesID][breedID] = true
                     end
-                    showStarsFor[speciesID][breedID] = true
+                    if bc.pvp and bc.pvp == breedID then
+                        if not showStarsPvP[speciesID] then showStarsPvP[speciesID] = {} end
+                        showStarsPvP[speciesID][breedID] = true
+                    end
                 end
             end
         end
     end
     -- 敌方提示（仅对可捕捉的最优品种）
-    for sid in pairs(showStarsFor) do
+    local allShown = {}
+    for sid in pairs(showStarsPvE) do allShown[sid] = true end
+    for sid in pairs(showStarsPvP) do allShown[sid] = true end
+    for sid in pairs(allShown) do
         if not alertedSpecies[sid] then
             alertedSpecies[sid] = true
             for j = 1, 3 do
@@ -330,19 +394,27 @@ local function ProcessAllPets()
         end
     end
     -- 更新所有双方框体的星星
-    for frame, star in pairs(starIcons) do
-        local owner = frame.petOwner
-        if (owner == 1 or owner == 2) and frame.petIndex then
-            local sid = C_PetBattles.GetPetSpeciesID(owner, frame.petIndex)
+    for frame, star in pairs(starIconsPvE) do
+        if (frame.petOwner == 1 or frame.petOwner == 2) and frame.petIndex then
+            local sid = C_PetBattles.GetPetSpeciesID(frame.petOwner, frame.petIndex)
             local show = false
-            if sid and showStarsFor[sid] then
-                local bid = GetPetBreed(owner, frame.petIndex)
-                show = bid and showStarsFor[sid][bid] or false
+            if sid and showStarsPvE[sid] then
+                local bid = GetPetBreed(frame.petOwner, frame.petIndex)
+                show = bid and showStarsPvE[sid][bid] or false
             end
-            -- 敌方额外检查可捕捉性
-            if owner == 2 and show and not IsPetCapturable(2, frame.petIndex) then
-                show = false
+            if frame.petOwner == 2 and show and not IsPetCapturable(2, frame.petIndex) then show = false end
+            star:SetShown(show)
+        end
+    end
+    for frame, star in pairs(starIconsPvP) do
+        if (frame.petOwner == 1 or frame.petOwner == 2) and frame.petIndex then
+            local sid = C_PetBattles.GetPetSpeciesID(frame.petOwner, frame.petIndex)
+            local show = false
+            if sid and showStarsPvP[sid] then
+                local bid = GetPetBreed(frame.petOwner, frame.petIndex)
+                show = bid and showStarsPvP[sid][bid] or false
             end
+            if frame.petOwner == 2 and show and not IsPetCapturable(2, frame.petIndex) then show = false end
             star:SetShown(show)
         end
     end
@@ -369,12 +441,12 @@ local function RecordEncounters()
             end
         end
     end
-    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
+    encounterCache = {}; showStarsPvE = {}; showStarsPvP = {}; alertedSpecies = {}; ownedCache = {}
     isWildBattle = false
 end
 
 local function ResetBattleSession()
-    encounterCache = {}; showStarsFor = {}; alertedSpecies = {}; ownedCache = {}
+    encounterCache = {}; showStarsPvE = {}; showStarsPvP = {}; alertedSpecies = {}; ownedCache = {}
     if scanTimer then C_Timer_After_Cancel(scanTimer); scanTimer = nil end
 end
 
