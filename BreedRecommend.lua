@@ -162,7 +162,7 @@ local COMMUNITY_BREED_BONUS = {
     -- 鹿/羊
     [447] = {pve="H/S", pvp="H/S", note="小鹿,治疗吃Power需HS均衡"},
     [374] = {pve="H/P", pvp="H/P", note="黑羔羊,高血高攻"},
-    [1913] = {pve="H/S", pvp="H/S", note="闪蹄小鹿,治疗辅助宠"},
+    [1913] = {pve="H/S", pvp="P", note="闪蹄小鹿,PvE治疗辅助H/S,PvP Xu-Fu推荐P/P"},
     -- 亡灵
     [627] = {pve="H/P", pvp="H/P", note="被感染松鼠,邪爆HP%+吞噬"},
     [1740] = {pve="P/S", pvp="P/S", note="幽灵蛆虫,吸血+疫病+幽魂"},
