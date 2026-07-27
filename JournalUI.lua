@@ -121,6 +121,7 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
     else
         -- ===== 多品种：PvE + PvP 合并展示 =====
         local pveRecs, pvpRecs = {}, {}
+        local pveTop, pvpTop = nil, nil
         if addonTable.CalculateDualScores then
             local ok, ds = pcall(addonTable.CalculateDualScores, speciesID, petType, possibleBreedIDs, 99)
             if ok then pveRecs = ds.pve or {}; pvpRecs = ds.pvp or {} end
@@ -129,6 +130,8 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
             local fallback = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, 99)
             pveRecs = fallback; pvpRecs = fallback
         end
+        pveTop = #pveRecs > 0 and pveRecs[1].breedCode or nil
+        pvpTop = #pvpRecs > 0 and pvpRecs[1].breedCode or nil
 
         if #pveRecs == 0 and #pvpRecs == 0 then
             items[#items + 1] = {
@@ -157,8 +160,6 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
             -- 社区共识
             local pveComm = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID, "PVE")
             local pvpComm = addonTable.GetCommunityBreed and addonTable.GetCommunityBreed(speciesID, "PVP")
-            local pveTop = #pveRecs > 0 and pveRecs[1].breedCode or nil
-            local pvpTop = #pvpRecs > 0 and pvpRecs[1].breedCode or nil
             local sameTop = pveTop and pvpTop and pveTop == pvpTop
 
             -- 头部
@@ -191,28 +192,25 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 local isCurrent = (m.bid == currentBreedID)
                 local isPvEBest = (pveTop and m.code == pveTop)
                 local isPvPBest = (pvpTop and m.code == pvpTop)
-                local clr
-                if isCurrent and (isPvEBest or isPvPBest) then
-                    clr = GOLD
-                elseif isCurrent then
-                    clr = GREEN
-                elseif isPvEBest and isPvPBest then
-                    clr = GOLD_RED
-                elseif isPvEBest then
-                    clr = GOLD
-                elseif isPvPBest then
-                    clr = RED
-                else
-                    clr = nil
+                local starColor
+                if isCurrent and isPvEBest and isPvPBest then starColor = GOLD_RED
+                elseif isCurrent and isPvEBest then starColor = GOLD
+                elseif isCurrent and isPvPBest then starColor = RED
+                elseif isCurrent then starColor = nil
+                elseif isPvEBest and isPvPBest then starColor = GOLD_RED
+                elseif isPvEBest then starColor = GOLD
+                elseif isPvPBest then starColor = RED
+                else starColor = nil
                 end
                 local line = string.format(GetLocaleString("DUAL_SCORE_FMT"), m.code, m.pve, m.pvp)
-                if isCurrent and (isPvEBest or isPvPBest) then
-                    line = line .. " ★"
+                if starColor then
+                    line = starColor .. line .. " ★|r"
                 end
+                local sid = speciesID; local bid = m.bid
                 items[#items + 1] = {
-                    text = clr and (clr .. line .. "|r") or line,
+                    text = line,
                     func = function()
-                        addonTable.SetBestBreed(speciesID, m.bid, "auto", "")
+                        addonTable.SetBestBreed(sid, bid, "auto", "")
                         C_Timer.After(0.1, function()
                             if not Rematch or not Rematch.petsPanel then return end
                             Rematch.petsPanel:Update()
@@ -227,7 +225,7 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 }
             end
 
-            -- 底部摘要
+            -- 底部摘要（PvE一行/ PvP一行）
             local pveFinalTop = pveTop or "?"
             local pvpFinalTop = pvpTop or "?"
             items[#items + 1] = {
@@ -235,7 +233,11 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 isDisabled = true,
             }
             items[#items + 1] = {
-                text = GOLD .. string.format(GetLocaleString("DUAL_BEST_FMT"), pveFinalTop .. (pveComm and " ▲" or ""), pvpFinalTop .. (pvpComm and " ▲" or "")) .. "|r",
+                text = GOLD .. "PvE: " .. pveFinalTop .. (pveComm and " ▲" or "") .. "|r",
+                isDisabled = true,
+            }
+            items[#items + 1] = {
+                text = RED .. "PvP: " .. pvpFinalTop .. (pvpComm and " ▲" or "") .. "|r",
                 isDisabled = true,
             }
         end
@@ -248,8 +250,22 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
         for bID in pairs(allBest) do
             local code = GetBreedCode(bID) or "?"
             local displayName = addonTable.GetBreedDisplayName and addonTable.GetBreedDisplayName(bID, code) or code
+            -- 实际染色：PvE最佳/ PvP最佳/ 当前
+            local isPvEBest = (pveTop and code == pveTop)
+            local isPvPBest = (pvpTop and code == pvpTop)
+            local isCurrent = (bID == currentBreedID)
+            local savedClr
+            if isCurrent and isPvEBest and isPvPBest then savedClr = GOLD_RED
+            elseif isCurrent and isPvEBest then savedClr = GOLD
+            elseif isCurrent and isPvPBest then savedClr = RED
+            elseif isCurrent then savedClr = GREEN
+            elseif isPvEBest and isPvPBest then savedClr = GOLD_RED
+            elseif isPvEBest then savedClr = GOLD
+            elseif isPvPBest then savedClr = RED
+            else savedClr = GOLD
+            end
             items[#items + 1] = {
-                text = GOLD .. string.format(GetLocaleString("SAVED_BEST_BREED_FMT"), displayName) .. "|r",
+                text = savedClr .. string.format(GetLocaleString("SAVED_BEST_BREED_FMT"), displayName) .. "|r",
                 isDisabled = true,
             }
         end
