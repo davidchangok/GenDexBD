@@ -75,7 +75,6 @@ local MAX_MENU_RETRY = 5
 
 local GOLD = "|cffffd600"
 local GRAY = "|cff888888"
-local TEAL = "|cff00cccc"
 local RED  = "|cffff0000"
 local GOLD_RED = "|cffff8000"
 local GREEN = "|cff00ff00"
@@ -238,11 +237,11 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 isDisabled = true,
             }
             items[#items + 1] = {
-                text = GOLD .. "PvE: " .. pveFinalTop .. (pveComm and " ▲" or "") .. "|r",
+                text = GOLD .. string.format(GetLocaleString("DUAL_SCENE_PVE_FMT"), pveFinalTop) .. (pveComm and " ▲" or "") .. "|r",
                 isDisabled = true,
             }
             items[#items + 1] = {
-                text = RED .. "PvP: " .. pvpFinalTop .. (pvpComm and " ▲" or "") .. "|r",
+                text = RED .. string.format(GetLocaleString("DUAL_SCENE_PVP_FMT"), pvpFinalTop) .. (pvpComm and " ▲" or "") .. "|r",
                 isDisabled = true,
             }
         end
