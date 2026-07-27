@@ -54,7 +54,7 @@ local COMMUNITY_BREED_BONUS = {
     [1344]="H/P",[1185]="H/S",[485]="H/P",[3357]="H/S",[2839]="P/S",
     [438]="H",[406]="H",[1330]="S",[1749]="S",
     [55]="S",[424]="S",[541]="S",[555]="S",[638]="S",[744]="S",[1073]="H/B",[1181]="H",[633]="H/P",  --[3049]="H/B",--[3038]="B"
-    [140]="P",[142]="S",[254]="S",[389]="S",[724]="S",[1229]="S",[1385]="S",
+    [140]={pve=nil,pvp="P"},[142]="S",[254]="S",[389]="S",[724]="S",[1229]="S",[1385]="S",
     [1429]="P",[1432]="S",[1495]="S",[1563]="S",[1565]="S",[1600]="S",
     [1953]="S",[1964]="S",[1965]="H/P",[1968]="S",[2001]="H/P",[2133]="S",
     [2372]="S",[2380]="P",[2383]="P/S",[2646]="P/B",[2660]="H/P",[2808]="H/P",[2864]="H/B",[2866]="S",[2902]="S",[4659]="P",
@@ -325,7 +325,15 @@ ProcessOneSpecies = function(speciesID, st)
                 end
                 rec.bd = breeds
 
-                local commStat = COMMUNITY_BREED_BONUS[speciesID]
+                local commRaw = COMMUNITY_BREED_BONUS[speciesID]
+                local commStat = nil
+                if commRaw then
+                    if type(commRaw) == "table" then
+                        commStat = commRaw.pve  -- PvE scenario (primary)
+                    else
+                        commStat = commRaw
+                    end
+                end
                 if commStat then
                     st.stats.withCommunity = st.stats.withCommunity + 1
                     rec.hc = true
