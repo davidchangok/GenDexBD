@@ -28,11 +28,11 @@ end
 local labelDebugDone = {}
 local speciesSkillPrinted = {}
 local autoSetDone = {}
-local scenarioBestCache = {}  -- {[speciesID] = {pveCode="X", pvpCode="X"}}
 
--- 获取算法推荐的 PvE/PvP 最佳品种代码（缓存，label() 染色用）
+-- 获取算法推荐的 PvE/PvP 最佳品种代码
+-- 注意：不缓存结果。CalculateDualScores 内部已有 speciesBuildCache/autoTagCache，
+-- 重复调用的开销可忽略；但缓存空结果会导致初始化阶段 API 未就绪时永久失效。
 local function GetScenarioBestCodes(speciesID, petType, possibleBreedIDs)
-    if scenarioBestCache[speciesID] then return scenarioBestCache[speciesID] end
     local result = {pveCode=nil, pvpCode=nil}
     if addonTable.CalculateDualScores then
         local ok, ds = pcall(addonTable.CalculateDualScores, speciesID, petType, possibleBreedIDs, 1)
@@ -41,7 +41,6 @@ local function GetScenarioBestCodes(speciesID, petType, possibleBreedIDs)
             if ds.pvp and #ds.pvp > 0 then result.pvpCode = ds.pvp[1].breedCode end
         end
     end
-    scenarioBestCache[speciesID] = result
     return result
 end
 
