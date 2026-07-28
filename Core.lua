@@ -322,16 +322,31 @@ local function ProcessAllPets()
                     local bc = bestBreedCache[speciesID]
                     if bc then
                         local owned = GetOwnedCount(speciesID)
+                        local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
+                        if doDbg then
+                            print(string.format("[GenDexDBG] star: enemy pet=%s sid=%d bid=%d bcPvE=%s bcPvP=%s owned=%d capturable=%s",
+                                C_PetBattles.GetName(2,i) or "?", speciesID, breedID,
+                                bc.pve and (addonTable.GetBreedCode(bc.pve) or bc.pve) or "nil",
+                                bc.pvp and (addonTable.GetBreedCode(bc.pvp) or bc.pvp) or "nil",
+                                owned, IsPetCapturable(2,i) and "Y" or "N"))
+                        end
                         if owned < 3 then
                             if bc.pve and bc.pve == breedID then
                                 if not showStarsPvE[speciesID] then showStarsPvE[speciesID] = {} end
                                 showStarsPvE[speciesID][breedID] = true
+                                if doDbg then print("  -> PvE star ON") end
                             end
                             if bc.pvp and bc.pvp == breedID then
                                 if not showStarsPvP[speciesID] then showStarsPvP[speciesID] = {} end
                                 showStarsPvP[speciesID][breedID] = true
+                                if doDbg then print("  -> PvP star ON") end
                             end
+                        else
+                            if doDbg then print("  -> SKIP: owned >= 3") end
                         end
+                    else
+                        local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
+                        if doDbg then print("[GenDexDBG] star: bc is nil for sid=" .. speciesID) end
                     end
                 end
             end
@@ -381,6 +396,16 @@ local function ProcessAllPets()
                 end
             end
         end
+    end
+    -- DEBUG: 打印最终星标表
+    local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
+    if doDbg then
+        local pveSummary, pvpSummary = {}, {}
+        for sid, bids in pairs(showStarsPvE) do for bid in pairs(bids) do pveSummary[#pveSummary+1]=sid..":"..(addonTable.GetBreedCode(bid) or bid) end end
+        for sid, bids in pairs(showStarsPvP) do for bid in pairs(bids) do pvpSummary[#pvpSummary+1]=sid..":"..(addonTable.GetBreedCode(bid) or bid) end end
+        print(string.format("[GenDexDBG] showStars: PvE={%s} PvP={%s} frames=%d",
+            table.concat(pveSummary,","), table.concat(pvpSummary,","),
+            (function()local n=0;for _ in pairs(starIconsPvE)do n=n+1 end;return n end)()))
     end
     -- 更新所有双方框体的星星
     for frame, star in pairs(starIconsPvE) do
