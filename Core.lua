@@ -291,20 +291,9 @@ end
 
 local function ComputeBestBreeds(speciesID, petType, possibleBreedIDs)
     if bestBreedCache[speciesID] then return end
-    -- 先检查用户手动设置的最优品种
-    local userBreeds = addonTable.GetAllBestBreeds(speciesID)
-    local nextBreed = next(userBreeds)
-    local hasUser = (nextBreed ~= nil)
-    local userBreed = hasUser and nextBreed or nil
-    local pveBreed, pvpBreed = nil, nil
-    if hasUser then
-        pveBreed = userBreed
-        pvpBreed = userBreed
-    else
-        -- 算法推导
-        pveBreed = ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, "PVE")
-        pvpBreed = ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, "PVP")
-    end
+    -- always use algorithm (user settings do not affect battle stars)
+    local pveBreed = ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, "PVE")
+    local pvpBreed = ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, "PVP")
     bestBreedCache[speciesID] = {pve=pveBreed, pvp=pvpBreed}
 end
 
