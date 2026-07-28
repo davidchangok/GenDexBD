@@ -166,9 +166,12 @@ local function GetOrCreatePvEStar(frame)
 end
 
 local function GetOrCreatePvPStar(frame)
+    -- 敌方(2)左下角避免遮挡等级图标，己方(1)右下角不变
+    local anchor = (frame.petOwner == 2) and 'BOTTOMLEFT' or 'BOTTOMRIGHT'
+    local xOff = (frame.petOwner == 2) and -2 or 2
     return GetOrCreateStar(frame, starIconsPvP,
         starColorPvP[1], starColorPvP[2], starColorPvP[3],
-        'BOTTOMRIGHT', 2, -3)
+        anchor, xOff, -3)
 end
 
 local function UpdateStarOnFrame(frame)
