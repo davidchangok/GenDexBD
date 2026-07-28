@@ -261,6 +261,18 @@ local scanTimer = nil         -- 延迟扫描 timer，用于 CLOSE 时取消
 
 local bestBreedCache = {}  -- {[speciesID] = {pve=breedID, pvp=breedID}}
 
+-- 从 Rematch 获取某物种的实际可拥有品种列表
+-- nil=该物种无品种数据或 Rematch 不可用 → 回退全品种评估
+local function GetPossibleBreedIDs(speciesID)
+    if Rematch and Rematch.petInfo then
+        local ok, info = pcall(Rematch.petInfo.Fetch, Rematch.petInfo, speciesID)
+        if ok and info and info.possibleBreedIDs then
+            return info.possibleBreedIDs
+        end
+    end
+    return nil
+end
+
 local function ComputeBestBreedForScenario(speciesID, petType, possibleBreedIDs, scenario)
     if not addonTable.CalculateBreedScores then return nil end
     local results = addonTable.CalculateBreedScores(speciesID, petType, possibleBreedIDs, 1, scenario)
@@ -297,7 +309,7 @@ local function ProcessAllPets()
                     end
                     -- 双场景星标判定（敌方可捕捉即显示，不受拥有数量限制）
                     local petType = select(3, C_PetJournal.GetPetInfoBySpeciesID(speciesID))
-                    ComputeBestBreeds(speciesID, petType, nil)
+                    ComputeBestBreeds(speciesID, petType, GetPossibleBreedIDs(speciesID))
                     local bc = bestBreedCache[speciesID]
                     if bc then
                         local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
@@ -334,7 +346,7 @@ local function ProcessAllPets()
             local breedID = GetAllyBreed(i)
             if speciesID and breedID then
                 local petType = select(3, C_PetJournal.GetPetInfoBySpeciesID(speciesID))
-                ComputeBestBreeds(speciesID, petType, nil)
+                ComputeBestBreeds(speciesID, petType, GetPossibleBreedIDs(speciesID))
                 local bc = bestBreedCache[speciesID]
                 if bc then
                     if bc.pve and bc.pve == breedID then
