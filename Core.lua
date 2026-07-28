@@ -84,7 +84,7 @@ end
 local isWildBattle = false
 local encounterCache = {}
 local alertedSpecies = {}
-local ownedCache = {}
+
 
 -- ========================================================================
 -- 步骤 a：获取敌方宠物的品种（优先 Rematch 缓存，回退比例推算）
@@ -257,28 +257,7 @@ end
 -- 初始化战斗状态（变量已在文件顶部声明）
 encounterCache = {}     -- {[speciesID] = {[breedID]=true, ...}}
 alertedSpecies = {}    -- {[speciesID]=true}
-ownedCache = {}         -- {[speciesID]=count}      同场战斗缓存
 local scanTimer = nil         -- 延迟扫描 timer，用于 CLOSE 时取消
-
--- 同场战斗内只查一次 Rematch（pcall 保护）
-local function CountOwnedSpecies(speciesID)
-    if not speciesID then return 0 end
-    if Rematch and Rematch.petInfo then
-        local ok, info = pcall(Rematch.petInfo.Fetch, Rematch.petInfo, speciesID)
-        if ok and info and info.count then
-            return info.count
-        end
-    end
-    -- Rematch 不可用：返回大数（保守策略：跳过提示而非错误提示）
-    return 999
-end
-
-local function GetOwnedCount(speciesID)
-    if ownedCache[speciesID] == nil then
-        ownedCache[speciesID] = CountOwnedSpecies(speciesID)
-    end
-    return ownedCache[speciesID]
-end
 
 local bestBreedCache = {}  -- {[speciesID] = {pve=breedID, pvp=breedID}}
 
@@ -316,33 +295,28 @@ local function ProcessAllPets()
                         end
                         encounterCache[speciesID][breedID] = true
                     end
-                    -- 双场景星标判定
+                    -- 双场景星标判定（敌方可捕捉即显示，不受拥有数量限制）
                     local petType = select(3, C_PetJournal.GetPetInfoBySpeciesID(speciesID))
                     ComputeBestBreeds(speciesID, petType, nil)
                     local bc = bestBreedCache[speciesID]
                     if bc then
-                        local owned = GetOwnedCount(speciesID)
                         local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
                         if doDbg then
-                            print(string.format("[GenDexDBG] star: enemy pet=%s sid=%d bid=%d bcPvE=%s bcPvP=%s owned=%d capturable=%s",
+                            print(string.format("[GenDexDBG] star: enemy pet=%s sid=%d bid=%d bcPvE=%s bcPvP=%s capturable=%s",
                                 C_PetBattles.GetName(2,i) or "?", speciesID, breedID,
                                 bc.pve and (addonTable.GetBreedCode(bc.pve) or bc.pve) or "nil",
                                 bc.pvp and (addonTable.GetBreedCode(bc.pvp) or bc.pvp) or "nil",
-                                owned, IsPetCapturable(2,i) and "Y" or "N"))
+                                IsPetCapturable(2,i) and "Y" or "N"))
                         end
-                        if owned < 3 then
-                            if bc.pve and bc.pve == breedID then
-                                if not showStarsPvE[speciesID] then showStarsPvE[speciesID] = {} end
-                                showStarsPvE[speciesID][breedID] = true
-                                if doDbg then print("  -> PvE star ON") end
-                            end
-                            if bc.pvp and bc.pvp == breedID then
-                                if not showStarsPvP[speciesID] then showStarsPvP[speciesID] = {} end
-                                showStarsPvP[speciesID][breedID] = true
-                                if doDbg then print("  -> PvP star ON") end
-                            end
-                        else
-                            if doDbg then print("  -> SKIP: owned >= 3") end
+                        if bc.pve and bc.pve == breedID then
+                            if not showStarsPvE[speciesID] then showStarsPvE[speciesID] = {} end
+                            showStarsPvE[speciesID][breedID] = true
+                            if doDbg then print("  -> PvE star ON") end
+                        end
+                        if bc.pvp and bc.pvp == breedID then
+                            if not showStarsPvP[speciesID] then showStarsPvP[speciesID] = {} end
+                            showStarsPvP[speciesID][breedID] = true
+                            if doDbg then print("  -> PvP star ON") end
                         end
                     else
                         local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
@@ -455,12 +429,12 @@ local function RecordEncounters()
             end
         end
     end
-    encounterCache = {}; showStarsPvE = {}; showStarsPvP = {}; alertedSpecies = {}; ownedCache = {}
+    encounterCache = {}; showStarsPvE = {}; showStarsPvP = {}; alertedSpecies = {}
     isWildBattle = false
 end
 
 local function ResetBattleSession()
-    encounterCache = {}; showStarsPvE = {}; showStarsPvP = {}; alertedSpecies = {}; ownedCache = {}
+    encounterCache = {}; showStarsPvE = {}; showStarsPvP = {}; alertedSpecies = {}
     if scanTimer then C_Timer_After_Cancel(scanTimer); scanTimer = nil end
 end
 
