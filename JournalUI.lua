@@ -28,6 +28,22 @@ end
 local labelDebugDone = {}
 local speciesSkillPrinted = {}
 local autoSetDone = {}
+local scenarioBestCache = {}  -- {[speciesID] = {pveCode="X", pvpCode="X"}}
+
+-- 获取算法推荐的 PvE/PvP 最佳品种代码（缓存，label() 染色用）
+local function GetScenarioBestCodes(speciesID, petType, possibleBreedIDs)
+    if scenarioBestCache[speciesID] then return scenarioBestCache[speciesID] end
+    local result = {pveCode=nil, pvpCode=nil}
+    if addonTable.CalculateDualScores then
+        local ok, ds = pcall(addonTable.CalculateDualScores, speciesID, petType, possibleBreedIDs, 1)
+        if ok then
+            if ds.pve and #ds.pve > 0 then result.pveCode = ds.pve[1].breedCode end
+            if ds.pvp and #ds.pvp > 0 then result.pvpCode = ds.pvp[1].breedCode end
+        end
+    end
+    scenarioBestCache[speciesID] = result
+    return result
+end
 
 local function SummarizeSpeciesSkills(speciesID)
     if speciesSkillPrinted[speciesID] then return end
@@ -51,7 +67,23 @@ local function label(b)
         end
     end
     local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
-    local sc = addonTable.BEST_BREED_COLOR or {1.0, 0.84, 0.0}
+    local starText = ""
+    local starR, starG, starB = 1.0, 0.84, 0.0  -- 默认金色
+    if best then
+        -- 双场景感知：算法推荐的 PvE/PvP 最佳来决定★颜色
+        local codes = GetScenarioBestCodes(i.speciesID, i.petType, i.possibleBreedIDs)
+        local breedCode = GetBreedCode(i.breedID)
+        local isPvEBest = codes.pveCode and codes.pveCode == breedCode
+        local isPvPBest = codes.pvpCode and codes.pvpCode == breedCode
+        if isPvEBest and isPvPBest then
+            starR, starG, starB = 1.0, 0.50, 0.0  -- 金红/橙色（双最佳）
+        elseif isPvEBest then
+            starR, starG, starB = 1.0, 0.84, 0.0  -- 金黄色（仅PvE最佳）
+        elseif isPvPBest then
+            starR, starG, starB = 1.0, 0.0, 0.0   -- 红色（仅PvP最佳）
+        end
+        starText = addonTable.BEST_BREED_STAR
+    end
     local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
     if doDbg then
         local dkey = i.speciesID .. "_" .. i.breedID
@@ -64,8 +96,8 @@ local function label(b)
                 best and "YES" or "no"))
         end
     end
-    b.Breed:SetText(best and (addonTable.BEST_BREED_STAR..i.breedName) or i.breedName)
-    b.Breed:SetTextColor(best and sc[1] or 0.6, best and sc[2] or 0.6, 0.6)
+    b.Breed:SetText(starText .. i.breedName)
+    b.Breed:SetTextColor(best and starR or 0.6, best and starG or 0.6, 0.6)
 end
 
 -- ========== 菜单注入 ==========
@@ -191,12 +223,13 @@ local function BuildSetBestSubMenu(_, petID, isBattle)
                 local isCurrent = (m.bid == currentBreedID)
                 local isPvEBest = (pveTop and m.code == pveTop)
                 local isPvPBest = (pvpTop and m.code == pvpTop)
-                -- 文字颜色：当前=绿色，最佳=场景色，两者同时=场景色+★
+                -- 文字颜色：场景最佳优先于当前品种
+                -- 优先级：PvE+PvP双最佳 > PvE最佳 > PvP最佳 > 当前品种 > 普通
                 local textColor
-                if isCurrent then textColor = GREEN
-                elseif isPvEBest and isPvPBest then textColor = GOLD_RED
+                if isPvEBest and isPvPBest then textColor = GOLD_RED
                 elseif isPvEBest then textColor = GOLD
                 elseif isPvPBest then textColor = RED
+                elseif isCurrent then textColor = GREEN
                 else textColor = nil
                 end
                 -- ★颜色：最佳品种加星标
