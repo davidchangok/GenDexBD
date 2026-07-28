@@ -67,20 +67,21 @@ local function label(b)
         end
     end
     local best=addonTable.IsBestBreed(i.speciesID,i.breedID)
+    -- 算法双场景最佳判定（无论是否手动设置，算法推荐即显示★）
+    local codes = GetScenarioBestCodes(i.speciesID, i.petType, i.possibleBreedIDs)
+    local breedCode = GetBreedCode(i.breedID)
+    local isAlgoPvE = codes.pveCode and codes.pveCode == breedCode
+    local isAlgoPvP = codes.pvpCode and codes.pvpCode == breedCode
+    local isAnyBest = best or isAlgoPvE or isAlgoPvP
     local starText = ""
-    local starR, starG, starB = 1.0, 0.84, 0.0  -- 默认金色
-    if best then
-        -- 双场景感知：算法推荐的 PvE/PvP 最佳来决定★颜色
-        local codes = GetScenarioBestCodes(i.speciesID, i.petType, i.possibleBreedIDs)
-        local breedCode = GetBreedCode(i.breedID)
-        local isPvEBest = codes.pveCode and codes.pveCode == breedCode
-        local isPvPBest = codes.pvpCode and codes.pvpCode == breedCode
-        if isPvEBest and isPvPBest then
-            starR, starG, starB = 1.0, 0.50, 0.0  -- 金红/橙色（双最佳）
-        elseif isPvEBest then
-            starR, starG, starB = 1.0, 0.84, 0.0  -- 金黄色（仅PvE最佳）
-        elseif isPvPBest then
-            starR, starG, starB = 1.0, 0.0, 0.0   -- 红色（仅PvP最佳）
+    local starR, starG = 1.0, 0.84  -- 默认金色
+    if isAnyBest then
+        if isAlgoPvE and isAlgoPvP then
+            starR, starG = 1.0, 0.50  -- 橙色（PvE+PvP双最佳）
+        elseif isAlgoPvE then
+            starR, starG = 1.0, 0.84  -- 金黄色（仅PvE最佳）
+        elseif isAlgoPvP then
+            starR, starG = 1.0, 0.0   -- 红色（仅PvP最佳）
         end
         starText = addonTable.BEST_BREED_STAR
     end
@@ -91,13 +92,14 @@ local function label(b)
         if labelDebugDone[dkey] ~= dval then
             labelDebugDone[dkey] = dval
             SummarizeSpeciesSkills(i.speciesID)
-            print(string.format("[GenDexDBG] label: pet=%s sid=%d bid=%d breed=%s best=%s",
+            print(string.format("[GenDexDBG] label: pet=%s sid=%d bid=%d breed=%s star=%s(pve=%s/pvp=%s)",
                 i.speciesName or "?", i.speciesID, i.breedID, i.breedName or "?",
-                best and "YES" or "no"))
+                isAnyBest and "YES" or "no",
+                isAlgoPvE and "Y" or "n", isAlgoPvP and "Y" or "n"))
         end
     end
     b.Breed:SetText(starText .. i.breedName)
-    b.Breed:SetTextColor(best and starR or 0.6, best and starG or 0.6, 0.6)
+    b.Breed:SetTextColor(isAnyBest and starR or 0.6, isAnyBest and starG or 0.6, 0.6)
 end
 
 -- ========== 菜单注入 ==========
