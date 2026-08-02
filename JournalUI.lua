@@ -117,13 +117,13 @@ local function label(b)
         if lastBadge then
             b.genDexBreedStar:SetPoint("RIGHT", lastBadge, "LEFT", -1, 0)
         elseif isCompact then
-            -- Compact徽章起始位: badgeXoff=right=-37,有notes再-22; yoff=-7 (petListButton.lua:176,215)
+            -- Compact徽章起始位: xoff=right(-37/-59); yoff=-14对齐徽章中心(14px Texture顶部-7)
             local notesW = b.NotesButton and b.NotesButton:IsShown() and 22 or 0
-            b.genDexBreedStar:SetPoint("RIGHT", b, "TOPRIGHT", -37 - notesW, -7)
+            b.genDexBreedStar:SetPoint("RIGHT", b, "TOPRIGHT", -37 - notesW, -14)
         else
-            -- Normal徽章起始位: badgeXoff=-1-notesWidth(24或2); yoff=-8 (petListButton.lua:132-133)
+            -- Normal徽章起始位: xoff=-1-notesWidth(24或2); yoff=-15对齐徽章中心(14px Texture顶部-8)
             local notesW = b.NotesButton and b.NotesButton:IsShown() and 24 or 2
-            b.genDexBreedStar:SetPoint("RIGHT", b, "TOPRIGHT", -1-notesW, -8)
+            b.genDexBreedStar:SetPoint("RIGHT", b, "TOPRIGHT", -1-notesW, -15)
         end
     else
         b.genDexBreedStar:SetPoint("RIGHT", b.Breed, "LEFT", -2, 0)
