@@ -99,23 +99,37 @@ local function label(b)
     -- 品种文字保持 Rematch 原生 breedName，P/P 等代码完整显示
     b.Breed:SetTextColor(isAnyBest and starR or 0.6, isAnyBest and starG or 0.6, 0.6)
     local isCompact = b:GetHeight() and b:GetHeight() < 35  -- Compact行高26,Normal行高44
+    -- ★ 独立 FontString（避免★挤占品种代码空间遮挡）
+    -- 复用同一 FontString：Normal锚品种左侧;Compact锚Rematch徽章队列末尾
+    if not b.genDexBreedStar then
+        b.genDexBreedStar = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+    end
     if isCompact then
-        -- Compact 行高26px：右上徽章(leveling/team)与品种★垂直重叠(徽章y=4~18,★y=6~18)，
-        -- 行内无空间避开，★ 改用品种文字颜色标记
-        if b.genDexBreedStar then b.genDexBreedStar:Hide() end
-    else
-        if not b.genDexBreedStar then
-            b.genDexBreedStar = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-            b.genDexBreedStar:SetPoint("RIGHT", b.Breed, "LEFT", -2, 0)
+        -- Compact行高26px,品种★与右上徽章垂直重叠(y=6~18 vs y=4~18);
+        -- 把★混入Rematch徽章队列末尾(最后可见徽章左侧),动态跟随徽章数量
+        b.genDexBreedStar:ClearAllPoints()
+        local lastBadge = nil
+        if b.Badges then
+            for idx = #b.Badges, 1, -1 do
+                if b.Badges[idx] and b.Badges[idx]:IsShown() then lastBadge = b.Badges[idx] break end
+            end
         end
-        if isAnyBest then
-            b.genDexBreedStar:SetText(addonTable.BEST_BREED_STAR)
-            b.genDexBreedStar:SetTextColor(starR, starG, 0.6)
-            b.genDexBreedStar:Show()
+        if lastBadge then
+            b.genDexBreedStar:SetPoint("RIGHT", lastBadge, "LEFT", -1, 0)
         else
-            b.genDexBreedStar:SetText("")
-            b.genDexBreedStar:Hide()
+            local notesW = b.NotesButton and b.NotesButton:IsShown() and 24 or 2
+            b.genDexBreedStar:SetPoint("RIGHT", b, "TOPRIGHT", -1-notesW, -8)
         end
+    else
+        b.genDexBreedStar:SetPoint("RIGHT", b.Breed, "LEFT", -2, 0)
+    end
+    if isAnyBest then
+        b.genDexBreedStar:SetText(addonTable.BEST_BREED_STAR)
+        b.genDexBreedStar:SetTextColor(starR, starG, 0.6)
+        b.genDexBreedStar:Show()
+    else
+        b.genDexBreedStar:SetText("")
+        b.genDexBreedStar:Hide()
     end
 end
 
