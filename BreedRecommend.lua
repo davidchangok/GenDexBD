@@ -125,7 +125,8 @@ local COMMUNITY_BREED_BONUS = {
     [415] = {pve="H/P", pvp="H/P", note="火甲虫社区推荐,无P/P可选"},
     [429] = {pve="P", pvp="P", note="熔火甲虫社区especially P/P"},
     [2843] = {pve="B", pvp="B", note="虚痕甲虫均衡B/B"},
-    [430] = {pve="S", pvp="S", note="金甲虫唯一S/S品种"},
+    [430] = {pve="S", pvp="S", note="金甲虫(经典)唯一S/S品种"},
+    [2387] = {pve="P", pvp="S/B", note="金甲虫(BFA)WarcraftPets obvious P/P坦克流(Lordy S/B PvP先手)"},
     -- 蛇/蝎家族
     [425] = {pve="P/S", pvp="P/S", note="燃灰蝰蛇,无S/S选P/S"},
     [432] = {pve="P/S", pvp="P/S", note="纹尾蝎社区Vek确认"},
