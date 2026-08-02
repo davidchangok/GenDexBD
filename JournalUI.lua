@@ -72,7 +72,6 @@ local function label(b)
     local isAlgoPvE = codes.pveCode and codes.pveCode == breedCode
     local isAlgoPvP = codes.pvpCode and codes.pvpCode == breedCode
     local isAnyBest = best or isAlgoPvE or isAlgoPvP
-    local starText = ""
     local starR, starG = 1.0, 0.84  -- 默认金色
     if isAnyBest then
         if isAlgoPvE and isAlgoPvP then
@@ -82,7 +81,6 @@ local function label(b)
         elseif isAlgoPvP then
             starR, starG = 1.0, 0.0   -- 红色（仅PvP最佳）
         end
-        starText = addonTable.BEST_BREED_STAR
     end
     local doDbg = GeneDexDB and GeneDexDB.Options and GeneDexDB.Options.DebugRecommend
     if doDbg then
@@ -97,8 +95,21 @@ local function label(b)
                 isAlgoPvE and "Y" or "n", isAlgoPvP and "Y" or "n"))
         end
     end
-    b.Breed:SetText(starText .. i.breedName)
+    -- ★ 独立 FontString（避免 ★ 挤占品种代码空间导致遮挡）
+    -- 品种文字保持 Rematch 原生 breedName，P/P 等代码完整显示
     b.Breed:SetTextColor(isAnyBest and starR or 0.6, isAnyBest and starG or 0.6, 0.6)
+    if not b.genDexBreedStar then
+        b.genDexBreedStar = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+        b.genDexBreedStar:SetPoint("RIGHT", b.Breed, "LEFT", -2, 0)
+    end
+    if isAnyBest then
+        b.genDexBreedStar:SetText(addonTable.BEST_BREED_STAR)
+        b.genDexBreedStar:SetTextColor(starR, starG, 0.6)
+        b.genDexBreedStar:Show()
+    else
+        b.genDexBreedStar:SetText("")
+        b.genDexBreedStar:Hide()
+    end
 end
 
 -- ========== 菜单注入 ==========
