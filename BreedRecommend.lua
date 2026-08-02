@@ -199,6 +199,7 @@ local COMMUNITY_BREED_BONUS = {
     [1720] = {pve="P/S", pvp="P/S", note="艾米苟萨,龙类速攻"},
     [2469] = {pve="H/S", pvp="H/S", note="荆丛幼芽,人型治疗"},
     [267] = {pve="B", pvp="B", note="魔化灯笼,魔法控制B/B"},
+    [2131] = {pve="H", note="魔力吞噬者(Arcane Gorger):成就需H/H(血1766>1729门槛唯一达标),PvE覆盖为H/H扛伤坦克;通用算法/社区S/S(乱舞先手流),PvP不覆盖保持算法S/S"},
     [1716] = {pve="P", pvp="P", note="守望者猫头鹰雏鸟,飞行爆发"},
     [2959] = {pve="B", pvp="B", note="小灵通,亡灵召唤B/B"},
     [2919] = {pve="P/S", pvp="P/S", note="戈姆刺根者,SCALES_POWERx3"},
