@@ -98,17 +98,24 @@ local function label(b)
     -- ★ 独立 FontString（避免 ★ 挤占品种代码空间导致遮挡）
     -- 品种文字保持 Rematch 原生 breedName，P/P 等代码完整显示
     b.Breed:SetTextColor(isAnyBest and starR or 0.6, isAnyBest and starG or 0.6, 0.6)
-    if not b.genDexBreedStar then
-        b.genDexBreedStar = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
-        b.genDexBreedStar:SetPoint("RIGHT", b.Breed, "LEFT", -2, 0)
-    end
-    if isAnyBest then
-        b.genDexBreedStar:SetText(addonTable.BEST_BREED_STAR)
-        b.genDexBreedStar:SetTextColor(starR, starG, 0.6)
-        b.genDexBreedStar:Show()
+    local isCompact = b:GetHeight() and b:GetHeight() < 35  -- Compact行高26,Normal行高44
+    if isCompact then
+        -- Compact 行高26px：右上徽章(leveling/team)与品种★垂直重叠(徽章y=4~18,★y=6~18)，
+        -- 行内无空间避开，★ 改用品种文字颜色标记
+        if b.genDexBreedStar then b.genDexBreedStar:Hide() end
     else
-        b.genDexBreedStar:SetText("")
-        b.genDexBreedStar:Hide()
+        if not b.genDexBreedStar then
+            b.genDexBreedStar = b:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+            b.genDexBreedStar:SetPoint("RIGHT", b.Breed, "LEFT", -2, 0)
+        end
+        if isAnyBest then
+            b.genDexBreedStar:SetText(addonTable.BEST_BREED_STAR)
+            b.genDexBreedStar:SetTextColor(starR, starG, 0.6)
+            b.genDexBreedStar:Show()
+        else
+            b.genDexBreedStar:SetText("")
+            b.genDexBreedStar:Hide()
+        end
     end
 end
 
